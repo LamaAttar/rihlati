@@ -5,7 +5,7 @@ function App() {
   const [season, setSeason] = useState('');
 
   return (
-    <div>
+    <div className="App">
       <h1>رحلتي 🗺️</h1>
       <p>اكتشف أجمل مناطق الأردن</p>
 
@@ -15,9 +15,9 @@ function App() {
       {season === 'summer' && (
         <div>
           <h2>مناطق الصيف</h2>
-          <div>
+          <div className="place-card">
             <h3>عجلون</h3>
-            <img src="/ajloun.png" alt="عجلون" width="300" />
+            <img src="/ajloun.png" alt="عجلون" />
           </div>
         </div>
       )}
