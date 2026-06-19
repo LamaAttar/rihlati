@@ -3,6 +3,11 @@ import { useState } from 'react';
 
 function App() {
   const [season, setSeason] = useState('');
+  const [openPlace, setOpenPlace] = useState('');
+
+  const toggleDetails = (place) => {
+    setOpenPlace(openPlace === place ? '' : place);
+  };
 
   return (
     <div className="App">
@@ -21,6 +26,15 @@ function App() {
             <img src="/ajloun.png" alt="عجلون" />
             <p>📍 تبعد حوالي 75 كم عن عمان</p>
             <p>قلعة تاريخية وسط غابات خضراء، أجواء معتدلة بالصيف 🌲</p>
+            <button onClick={() => toggleDetails('ajloun')}>عرض الخدمات القريبة</button>
+
+            {openPlace === 'ajloun' && (
+              <div className="services">
+                <p>🍽️ مطعم القلعة - 500م</p>
+                <p>🛒 سوبر ماركت عجلون - 1كم</p>
+                <p>⛽ محطة بنزين - 2كم</p>
+              </div>
+            )}
           </div>
 
           <div className="place-card">
@@ -28,6 +42,15 @@ function App() {
             <img src="/jerash.png" alt="جرش" />
             <p>📍 تبعد حوالي 48 كم عن عمان</p>
             <p>مدينة رومانية أثرية من أهم المواقع التاريخية بالأردن 🏛️</p>
+            <button onClick={() => toggleDetails('jerash')}>عرض الخدمات القريبة</button>
+
+            {openPlace === 'jerash' && (
+              <div className="services">
+                <p>🍽️ مطعم الأوديون - 300م</p>
+                <p>🛒 ماركت جرش - 800م</p>
+                <p>⛽ محطة بنزين - 1.5كم</p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -41,6 +64,15 @@ function App() {
             <img src="/petra.png" alt="البتراء" />
             <p>📍 تبعد حوالي 235 كم عن عمان</p>
             <p>إحدى عجائب الدنيا السبع، أجواء دافئة بالشتاء ☀️</p>
+            <button onClick={() => toggleDetails('petra')}>عرض الخدمات القريبة</button>
+
+            {openPlace === 'petra' && (
+              <div className="services">
+                <p>🍽️ مطعم البترا - 200م</p>
+                <p>🛒 ماركت وادي موسى - 1كم</p>
+                <p>⛽ محطة بنزين - 2كم</p>
+              </div>
+            )}
           </div>
 
           <div className="place-card">
@@ -48,6 +80,15 @@ function App() {
             <img src="/wadirum.png" alt="وادي رم" />
             <p>📍 تبعد حوالي 300 كم عن عمان</p>
             <p>صحراء ساحرة بألوانها الذهبية، تجربة تخييم لا تُنسى 🏜️</p>
+            <button onClick={() => toggleDetails('wadirum')}>عرض الخدمات القريبة</button>
+
+            {openPlace === 'wadirum' && (
+              <div className="services">
+                <p>🍽️ مطعم البدو - 1كم</p>
+                <p>🛒 ماركت رم - 3كم</p>
+                <p>⛽ محطة بنزين - 5كم</p>
+              </div>
+            )}
           </div>
         </div>
       )}
