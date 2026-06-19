@@ -19,11 +19,15 @@ function App() {
           <div className="place-card">
             <h3>عجلون</h3>
             <img src="/ajloun.png" alt="عجلون" />
+            <p>📍 تبعد حوالي 75 كم عن عمان</p>
+            <p>قلعة تاريخية وسط غابات خضراء، أجواء معتدلة بالصيف 🌲</p>
           </div>
 
           <div className="place-card">
             <h3>جرش</h3>
             <img src="/jerash.png" alt="جرش" />
+            <p>📍 تبعد حوالي 48 كم عن عمان</p>
+            <p>مدينة رومانية أثرية من أهم المواقع التاريخية بالأردن 🏛️</p>
           </div>
         </div>
       )}
@@ -35,11 +39,15 @@ function App() {
           <div className="place-card">
             <h3>البتراء</h3>
             <img src="/petra.png" alt="البتراء" />
+            <p>📍 تبعد حوالي 235 كم عن عمان</p>
+            <p>إحدى عجائب الدنيا السبع، أجواء دافئة بالشتاء ☀️</p>
           </div>
 
           <div className="place-card">
             <h3>وادي رم</h3>
             <img src="/wadirum.png" alt="وادي رم" />
+            <p>📍 تبعد حوالي 300 كم عن عمان</p>
+            <p>صحراء ساحرة بألوانها الذهبية، تجربة تخييم لا تُنسى 🏜️</p>
           </div>
         </div>
       )}
