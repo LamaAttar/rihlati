@@ -74,3 +74,8 @@ button:hover {
 .places-grid .place-card {
   width: 320px;
 }
+.welcome-msg {
+  font-size: 1.3rem;
+  color: #2c7a4b;
+  margin: 30px 0;
+}

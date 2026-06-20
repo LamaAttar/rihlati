@@ -14,6 +14,10 @@ function App() {
       <h1>رحلتي 🗺️</h1>
       <p>اكتشف أجمل مناطق الأردن</p>
 
+      {season === '' && (
+        <p className="welcome-msg">👋 اختر الموسم المناسب لرحلتك</p>
+      )}
+
       <button onClick={() => setSeason('summer')}>☀️ صيف</button>
       <button onClick={() => setSeason('winter')}>❄️ شتاء</button>
 
