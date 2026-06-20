@@ -64,3 +64,13 @@ button:hover {
   margin-top: 10px;
   text-align: right;
 }
+.places-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+.places-grid .place-card {
+  width: 320px;
+}
