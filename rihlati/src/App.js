@@ -9,6 +9,11 @@ function App() {
     setOpenPlace(openPlace === place ? '' : place);
   };
 
+  const goHome = () => {
+    setSeason('');
+    setOpenPlace('');
+  };
+
   return (
     <div className="App">
       <h1>رحلتي 🗺️</h1>
@@ -20,6 +25,10 @@ function App() {
 
       <button onClick={() => setSeason('summer')}>☀️ صيف</button>
       <button onClick={() => setSeason('winter')}>❄️ شتاء</button>
+
+      {season !== '' && (
+        <button className="home-btn" onClick={goHome}>🏠 الرئيسية</button>
+      )}
 
       {season === 'summer' && (
         <div>
