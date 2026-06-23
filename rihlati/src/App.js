@@ -1,5 +1,6 @@
 import './App.css';
 import { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 
 const places = {
   ajloun: { name: 'عجلون', lat: 32.33, lng: 35.75, img: '/ajloun.png', desc: 'قلعة تاريخية وسط غابات خضراء، أجواء معتدلة بالصيف 🌲', season: 'summer', services: ['🍽️ مطعم القلعة - 500م', '🛒 سوبر ماركت عجلون - 1كم', '⛽ محطة بنزين - 2كم'] },
@@ -30,6 +31,7 @@ function getDistance(lat1, lon1, lat2, lon2) {
 function App() {
   const [season, setSeason] = useState('');
   const [openPlace, setOpenPlace] = useState('');
+  const [selectedPlace, setSelectedPlace] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
 
   useEffect(() => {
@@ -42,7 +44,7 @@ function App() {
   }, []);
 
   const toggleDetails = (place) => setOpenPlace(openPlace === place ? '' : place);
-  const goHome = () => { setSeason(''); setOpenPlace(''); };
+  const goHome = () => { setSeason(''); setOpenPlace(''); setSelectedPlace(null); };
 
   const renderPlace = (key) => {
     const place = places[key];
@@ -56,6 +58,7 @@ function App() {
         <img src={place.img} alt={place.name} />
         <p>{distanceText}</p>
         <p>{place.desc}</p>
+        <button onClick={() => setSelectedPlace(place)}>🗺️ عرض على الخريطة</button>
         <button onClick={() => toggleDetails(key)}>عرض الخدمات القريبة</button>
         {openPlace === key && (
           <div className="services">
@@ -78,14 +81,27 @@ function App() {
 
       {season !== '' && <button className="home-btn" onClick={goHome}>🏠 الرئيسية</button>}
 
-      {season === 'summer' && (
+      {selectedPlace && (
+        <div className="map-container">
+          <h2>📍 {selectedPlace.name}</h2>
+          <MapContainer center={[selectedPlace.lat, selectedPlace.lng]} zoom={13} style={{ height: '400px', width: '100%', borderRadius: '15px' }}>
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <Marker position={[selectedPlace.lat, selectedPlace.lng]}>
+              <Popup>{selectedPlace.name}</Popup>
+            </Marker>
+          </MapContainer>
+          <button className="home-btn" onClick={() => setSelectedPlace(null)}>✖️ إغلاق الخريطة</button>
+        </div>
+      )}
+
+      {season === 'summer' && !selectedPlace && (
         <div>
           <h2>مناطق الصيف</h2>
           <div className="places-grid">{summerKeys.map(renderPlace)}</div>
         </div>
       )}
 
-      {season === 'winter' && (
+      {season === 'winter' && !selectedPlace && (
         <div>
           <h2>مناطق الشتاء</h2>
           <div className="places-grid">{winterKeys.map(renderPlace)}</div>

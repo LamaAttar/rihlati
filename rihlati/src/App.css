@@ -85,3 +85,9 @@ button:hover {
   background-color: #6c757d;
   color: white;
 }
+@import "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+.map-container {
+  margin: 20px auto;
+  max-width: 800px;
+  padding: 15px;
+}
