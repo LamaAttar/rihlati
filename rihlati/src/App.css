@@ -91,3 +91,14 @@ button:hover {
   max-width: 800px;
   padding: 15px;
 }
+.search-input {
+  width: 60%;
+  padding: 12px 20px;
+  border-radius: 25px;
+  border: 2px solid #2c7a4b;
+  font-size: 1rem;
+  margin: 15px auto;
+  display: block;
+  text-align: right;
+  outline: none;
+}

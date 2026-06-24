@@ -61,6 +61,7 @@ function App() {
   const [userLocation, setUserLocation] = useState(null);
   const [services, setServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -85,7 +86,7 @@ function App() {
     setLoadingServices(false);
   };
 
-  const goHome = () => { setSeason(''); setOpenPlace(''); setSelectedPlace(null); setServices([]); };
+  const goHome = () => { setSeason(''); setOpenPlace(''); setSelectedPlace(null); setServices([]); setSearchQuery(''); };
 
   const renderPlace = (key) => {
     const place = places[key];
@@ -123,12 +124,32 @@ function App() {
       <h1>رحلتي 🗺️</h1>
       <p>اكتشف أجمل مناطق الأردن</p>
 
-      {season === '' && <p className="welcome-msg">👋 اختر الموسم المناسب لرحلتك</p>}
+      <input
+        className="search-input"
+        type="text"
+        placeholder="🔍 ابحث عن منطقة..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
 
-      <button onClick={() => setSeason('summer')}>☀️ صيف</button>
-      <button onClick={() => setSeason('winter')}>❄️ شتاء</button>
+      {searchQuery && (
+        <div className="places-grid">
+          {Object.keys(places)
+            .filter(key => places[key].name.includes(searchQuery))
+            .map(renderPlace)}
+        </div>
+      )}
 
-      {season !== '' && <button className="home-btn" onClick={goHome}>🏠 الرئيسية</button>}
+      {!searchQuery && season === '' && <p className="welcome-msg">👋 اختر الموسم المناسب لرحلتك</p>}
+
+      {!searchQuery && (
+        <>
+          <button onClick={() => setSeason('summer')}>☀️ صيف</button>
+          <button onClick={() => setSeason('winter')}>❄️ شتاء</button>
+        </>
+      )}
+
+      {season !== '' && !searchQuery && <button className="home-btn" onClick={goHome}>🏠 الرئيسية</button>}
 
       {selectedPlace && (
         <div className="map-container">
@@ -143,14 +164,14 @@ function App() {
         </div>
       )}
 
-      {season === 'summer' && !selectedPlace && (
+      {season === 'summer' && !selectedPlace && !searchQuery && (
         <div>
           <h2>مناطق الصيف</h2>
           <div className="places-grid">{summerKeys.map(renderPlace)}</div>
         </div>
       )}
 
-      {season === 'winter' && !selectedPlace && (
+      {season === 'winter' && !selectedPlace && !searchQuery && (
         <div>
           <h2>مناطق الشتاء</h2>
           <div className="places-grid">{winterKeys.map(renderPlace)}</div>
