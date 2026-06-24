@@ -54,6 +54,24 @@ function getServiceIcon(tags) {
   return '📍';
 }
 
+function StarRating({ placeKey, ratings, setRatings }) {
+  const rating = ratings[placeKey] || 0;
+  return (
+    <div className="star-rating">
+      {[1, 2, 3, 4, 5].map(star => (
+        <span
+          key={star}
+          onClick={() => setRatings({ ...ratings, [placeKey]: star })}
+          style={{ cursor: 'pointer', fontSize: '1.5rem', color: star <= rating ? '#ffb703' : '#ccc' }}
+        >
+          ★
+        </span>
+      ))}
+      {rating > 0 && <span style={{ fontSize: '0.9rem', color: '#555' }}> ({rating}/5)</span>}
+    </div>
+  );
+}
+
 function App() {
   const [season, setSeason] = useState('');
   const [openPlace, setOpenPlace] = useState('');
@@ -62,6 +80,7 @@ function App() {
   const [services, setServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [ratings, setRatings] = useState({});
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -100,6 +119,7 @@ function App() {
         <img src={place.img} alt={place.name} />
         <p>{distanceText}</p>
         <p>{place.desc}</p>
+        <StarRating placeKey={key} ratings={ratings} setRatings={setRatings} />
         <button onClick={() => setSelectedPlace(place)}>🗺️ عرض على الخريطة</button>
         <button onClick={() => toggleDetails(key)}>عرض الخدمات القريبة</button>
         {openPlace === key && (
