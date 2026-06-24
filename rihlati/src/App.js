@@ -1,6 +1,8 @@
 import './App.css';
 import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { db } from './firebase';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 const places = {
   ajloun: { name: 'عجلون', lat: 32.33, lng: 35.75, img: '/ajloun.png', desc: 'قلعة تاريخية وسط غابات خضراء، أجواء معتدلة بالصيف 🌲', season: 'summer' },
@@ -56,12 +58,19 @@ function getServiceIcon(tags) {
 
 function StarRating({ placeKey, ratings, setRatings }) {
   const rating = ratings[placeKey] || 0;
+
+  const handleRate = async (star) => {
+    const newRatings = { ...ratings, [placeKey]: star };
+    setRatings(newRatings);
+    await setDoc(doc(db, 'ratings', placeKey), { rating: star });
+  };
+
   return (
     <div className="star-rating">
       {[1, 2, 3, 4, 5].map(star => (
         <span
           key={star}
-          onClick={() => setRatings({ ...ratings, [placeKey]: star })}
+          onClick={() => handleRate(star)}
           style={{ cursor: 'pointer', fontSize: '1.5rem', color: star <= rating ? '#ffb703' : '#ccc' }}
         >
           ★
@@ -89,6 +98,19 @@ function App() {
         () => {}
       );
     }
+
+    // تحميل التقييمات من Firebase
+    const loadRatings = async () => {
+      const newRatings = {};
+      for (const key of Object.keys(places)) {
+        const docSnap = await getDoc(doc(db, 'ratings', key));
+        if (docSnap.exists()) {
+          newRatings[key] = docSnap.data().rating;
+        }
+      }
+      setRatings(newRatings);
+    };
+    loadRatings();
   }, []);
 
   const toggleDetails = async (key) => {
