@@ -3,18 +3,18 @@ import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 
 const places = {
-  ajloun: { name: 'عجلون', lat: 32.33, lng: 35.75, img: '/ajloun.png', desc: 'قلعة تاريخية وسط غابات خضراء، أجواء معتدلة بالصيف 🌲', season: 'summer', services: ['🍽️ مطعم القلعة - 500م', '🛒 سوبر ماركت عجلون - 1كم', '⛽ محطة بنزين - 2كم'] },
-  jerash: { name: 'جرش', lat: 32.28, lng: 35.89, img: '/jerash.png', desc: 'مدينة رومانية أثرية من أهم المواقع التاريخية بالأردن 🏛️', season: 'summer', services: ['🍽️ مطعم الأوديون - 300م', '🛒 ماركت جرش - 800م', '⛽ محطة بنزين - 1.5كم'] },
-  umqais: { name: 'أم قيس', lat: 32.66, lng: 35.68, img: '/umqais.png', desc: 'أطلال رومانية تطل على بحيرة طبريا والجولان 🏛️', season: 'summer', services: ['🍽️ مطعم أم قيس - 400م', '🛒 ماركت محلي - 1كم', '⛽ محطة بنزين - 2.5كم'] },
-  deadsea: { name: 'البحر الميت', lat: 31.55, lng: 35.47, img: '/dead-sea.png', desc: 'أخفض نقطة على سطح الأرض، مياه مالحة وطمي علاجي 🌊', season: 'summer', services: ['🍽️ مطعم البحر الميت - 1كم', '🛒 ماركت السياحة - 2كم', '⛽ محطة بنزين - 3كم'] },
-  shouna: { name: 'الشونة', lat: 32.34, lng: 35.58, img: '/shouna.png', desc: 'منطقة زراعية خضراء جميلة في الأغوار الشمالية 🌿', season: 'summer', services: ['🍽️ مطعم الأغوار - 500م', '🛒 سوق الشونة - 1كم', '⛽ محطة بنزين - 2كم'] },
-  salt: { name: 'السلط', lat: 32.03, lng: 35.72, img: '/salt.png', desc: 'مدينة تراثية عريقة مدرجة على قائمة التراث العالمي 🏘️', season: 'summer', services: ['🍽️ مطعم البلدة القديمة - 300م', '🛒 ماركت السلط - 700م', '⛽ محطة بنزين - 1كم'] },
-  petra: { name: 'البتراء', lat: 30.33, lng: 35.44, img: '/petra.png', desc: 'إحدى عجائب الدنيا السبع، أجواء دافئة بالشتاء ☀️', season: 'winter', services: ['🍽️ مطعم البترا - 200م', '🛒 ماركت وادي موسى - 1كم', '⛽ محطة بنزين - 2كم'] },
-  wadirum: { name: 'وادي رم', lat: 29.58, lng: 35.42, img: '/wadirum.png', desc: 'صحراء ساحرة بألوانها الذهبية، تجربة تخييم لا تُنسى 🏜️', season: 'winter', services: ['🍽️ مطعم البدو - 1كم', '🛒 ماركت رم - 3كم', '⛽ محطة بنزين - 5كم'] },
-  aqaba: { name: 'العقبة', lat: 29.53, lng: 35.01, img: '/aqaba.png', desc: 'مدينة ساحلية دافئة بالشتاء، بحر أحمر ومرجان رائع 🌊', season: 'winter', services: ['🍽️ مطعم العقبة - 300م', '🛒 ماركت العقبة - 700م', '⛽ محطة بنزين - 1كم'] },
-  madaba: { name: 'مادبا', lat: 31.71, lng: 35.79, img: '/madaba.png', desc: 'مدينة الفسيفساء والكنائس التاريخية الرائعة ⛪', season: 'winter', services: ['🍽️ مطعم مادبا - 400م', '🛒 ماركت البلدة - 800م', '⛽ محطة بنزين - 1.5كم'] },
-  karak: { name: 'الكرك', lat: 31.18, lng: 35.70, img: '/karak.png', desc: 'قلعة صليبية شامخة تطل على البحر الميت 🏰', season: 'winter', services: ['🍽️ مطعم القلعة - 500م', '🛒 ماركت الكرك - 1كم', '⛽ محطة بنزين - 2كم'] },
-  deisa: { name: 'الديسة', lat: 29.69, lng: 35.47, img: '/deisa.png', desc: 'وادي ساحر بين الجبال الحمراء، مشي وطبيعة خلابة 🏔️', season: 'winter', services: ['🍽️ مطعم الوادي - 2كم', '🛒 ماركت محلي - 3كم', '⛽ محطة بنزين - 4كم'] },
+  ajloun: { name: 'عجلون', lat: 32.33, lng: 35.75, img: '/ajloun.png', desc: 'قلعة تاريخية وسط غابات خضراء، أجواء معتدلة بالصيف 🌲', season: 'summer' },
+  jerash: { name: 'جرش', lat: 32.28, lng: 35.89, img: '/jerash.png', desc: 'مدينة رومانية أثرية من أهم المواقع التاريخية بالأردن 🏛️', season: 'summer' },
+  umqais: { name: 'أم قيس', lat: 32.66, lng: 35.68, img: '/umqais.png', desc: 'أطلال رومانية تطل على بحيرة طبريا والجولان 🏛️', season: 'summer' },
+  deadsea: { name: 'البحر الميت', lat: 31.55, lng: 35.47, img: '/dead-sea.png', desc: 'أخفض نقطة على سطح الأرض، مياه مالحة وطمي علاجي 🌊', season: 'summer' },
+  shouna: { name: 'الشونة', lat: 32.34, lng: 35.58, img: '/shouna.png', desc: 'منطقة زراعية خضراء جميلة في الأغوار الشمالية 🌿', season: 'summer' },
+  salt: { name: 'السلط', lat: 32.03, lng: 35.72, img: '/salt.png', desc: 'مدينة تراثية عريقة مدرجة على قائمة التراث العالمي 🏘️', season: 'summer' },
+  petra: { name: 'البتراء', lat: 30.33, lng: 35.44, img: '/petra.png', desc: 'إحدى عجائب الدنيا السبع، أجواء دافئة بالشتاء ☀️', season: 'winter' },
+  wadirum: { name: 'وادي رم', lat: 29.58, lng: 35.42, img: '/wadirum.png', desc: 'صحراء ساحرة بألوانها الذهبية، تجربة تخييم لا تُنسى 🏜️', season: 'winter' },
+  aqaba: { name: 'العقبة', lat: 29.53, lng: 35.01, img: '/aqaba.png', desc: 'مدينة ساحلية دافئة بالشتاء، بحر أحمر ومرجان رائع 🌊', season: 'winter' },
+  madaba: { name: 'مادبا', lat: 31.71, lng: 35.79, img: '/madaba.png', desc: 'مدينة الفسيفساء والكنائس التاريخية الرائعة ⛪', season: 'winter' },
+  karak: { name: 'الكرك', lat: 31.18, lng: 35.70, img: '/karak.png', desc: 'قلعة صليبية شامخة تطل على البحر الميت 🏰', season: 'winter' },
+  deisa: { name: 'الديسة', lat: 29.69, lng: 35.47, img: '/deisa.png', desc: 'وادي ساحر بين الجبال الحمراء، مشي وطبيعة خلابة 🏔️', season: 'winter' },
 };
 
 const summerKeys = ['ajloun', 'jerash', 'umqais', 'deadsea', 'shouna', 'salt'];
@@ -28,11 +28,39 @@ function getDistance(lat1, lon1, lat2, lon2) {
   return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(0);
 }
 
+async function fetchNearbyServices(lat, lng) {
+  const radius = 10000;
+  const query = `
+    [out:json];
+    (
+      node["amenity"="restaurant"](around:${radius},${lat},${lng});
+      node["shop"="supermarket"](around:${radius},${lat},${lng});
+      node["amenity"="fuel"](around:${radius},${lat},${lng});
+      node["tourism"="hotel"](around:${radius},${lat},${lng});
+    );
+    out body;
+  `;
+  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  return data.elements;
+}
+
+function getServiceIcon(tags) {
+  if (tags.amenity === 'restaurant') return '🍽️';
+  if (tags.shop === 'supermarket') return '🛒';
+  if (tags.amenity === 'fuel') return '⛽';
+  if (tags.tourism === 'hotel') return '🏨';
+  return '📍';
+}
+
 function App() {
   const [season, setSeason] = useState('');
   const [openPlace, setOpenPlace] = useState('');
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
+  const [services, setServices] = useState([]);
+  const [loadingServices, setLoadingServices] = useState(false);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -43,8 +71,21 @@ function App() {
     }
   }, []);
 
-  const toggleDetails = (place) => setOpenPlace(openPlace === place ? '' : place);
-  const goHome = () => { setSeason(''); setOpenPlace(''); setSelectedPlace(null); };
+  const toggleDetails = async (key) => {
+    if (openPlace === key) {
+      setOpenPlace('');
+      setServices([]);
+      return;
+    }
+    setOpenPlace(key);
+    setLoadingServices(true);
+    const place = places[key];
+    const result = await fetchNearbyServices(place.lat, place.lng);
+    setServices(result.filter(s => s.tags.name).slice(0, 10));
+    setLoadingServices(false);
+  };
+
+  const goHome = () => { setSeason(''); setOpenPlace(''); setSelectedPlace(null); setServices([]); };
 
   const renderPlace = (key) => {
     const place = places[key];
@@ -62,7 +103,15 @@ function App() {
         <button onClick={() => toggleDetails(key)}>عرض الخدمات القريبة</button>
         {openPlace === key && (
           <div className="services">
-            {place.services.map((s, i) => <p key={i}>{s}</p>)}
+            {loadingServices ? (
+              <p>⏳ جاري تحميل الخدمات...</p>
+            ) : services.length > 0 ? (
+              services.map((s, i) => (
+                <p key={i}>{getServiceIcon(s.tags)} {s.tags.name}</p>
+              ))
+            ) : (
+              <p>لا توجد خدمات قريبة في قاعدة البيانات</p>
+            )}
           </div>
         )}
       </div>
