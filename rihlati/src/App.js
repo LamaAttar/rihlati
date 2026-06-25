@@ -62,7 +62,11 @@ function StarRating({ placeKey, ratings, setRatings }) {
   const handleRate = async (star) => {
     const newRatings = { ...ratings, [placeKey]: star };
     setRatings(newRatings);
-    await setDoc(doc(db, 'ratings', placeKey), { rating: star });
+    try {
+      await setDoc(doc(db, 'ratings', placeKey), { rating: star });
+    } catch (e) {
+      console.error('خطأ بحفظ التقييم:', e);
+    }
   };
 
   return (
@@ -99,16 +103,19 @@ function App() {
       );
     }
 
-    // تحميل التقييمات من Firebase
     const loadRatings = async () => {
-      const newRatings = {};
-      for (const key of Object.keys(places)) {
-        const docSnap = await getDoc(doc(db, 'ratings', key));
-        if (docSnap.exists()) {
-          newRatings[key] = docSnap.data().rating;
+      try {
+        const newRatings = {};
+        for (const key of Object.keys(places)) {
+          const docSnap = await getDoc(doc(db, 'ratings', key));
+          if (docSnap.exists()) {
+            newRatings[key] = docSnap.data().rating;
+          }
         }
+        setRatings(newRatings);
+      } catch (e) {
+        console.error('خطأ بتحميل التقييمات:', e);
       }
-      setRatings(newRatings);
     };
     loadRatings();
   }, []);
