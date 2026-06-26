@@ -2,8 +2,11 @@ import './App.css';
 import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { db } from './firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { auth, signInWithGoogle, logOut } from './Auth';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, setDoc, getDoc, arrayUnion } from 'firebase/firestore';
 import L from 'leaflet';
+import ImageUpload from './ImageUpload';
 
 const places = {
   ajloun: { name: 'عجلون', lat: 32.33, lng: 35.75, img: '/ajloun.png', desc: 'قلعة تاريخية وسط غابات خضراء، أجواء معتدلة بالصيف 🌲', season: 'summer' },
@@ -90,6 +93,8 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [ratings, setRatings] = useState({});
   const [mapServices, setMapServices] = useState([]);
+  const [user, setUser] = useState(null);
+  const [placePhotos, setPlacePhotos] = useState({});
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -108,8 +113,33 @@ function App() {
         setRatings(newRatings);
       } catch (e) {}
     };
+    const loadPhotos = async () => {
+      try {
+        const newPhotos = {};
+        for (const key of Object.keys(places)) {
+          const docSnap = await getDoc(doc(db, 'photos', key));
+          if (docSnap.exists()) newPhotos[key] = docSnap.data().urls || [];
+        }
+        setPlacePhotos(newPhotos);
+      } catch (e) {}
+    };
     loadRatings();
+    loadPhotos();
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
   }, []);
+
+  const handlePhotoUpload = async (placeKey, url) => {
+    try {
+      await setDoc(doc(db, 'photos', placeKey), { urls: arrayUnion(url) }, { merge: true });
+      setPlacePhotos(prev => ({
+        ...prev,
+        [placeKey]: [...(prev[placeKey] || []), url]
+      }));
+    } catch (e) {}
+  };
 
   const toggleDetails = async (key) => {
     if (openPlace === key) { setOpenPlace(''); setServices([]); return; }
@@ -134,6 +164,8 @@ function App() {
       ? `📍 تبعد حوالي ${getDistance(userLocation.lat, userLocation.lng, place.lat, place.lng)} كم عن موقعك`
       : '📍 جاري تحديد موقعك...';
     const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`;
+    const photos = placePhotos[key] || [];
+
     return (
       <div className="place-card" key={key}>
         <h3>{place.name}</h3>
@@ -151,13 +183,36 @@ function App() {
               : <p>لا توجد خدمات قريبة في قاعدة البيانات</p>}
           </div>
         )}
+        {photos.length > 0 && (
+          <div className="photo-gallery">
+            <h4>📸 صور من الزوار</h4>
+            <div className="photos-grid">
+              {photos.map((url, i) => (
+                <img key={i} src={url} alt={`صورة ${i+1}`} className="user-photo" />
+              ))}
+            </div>
+          </div>
+        )}
+        {user && <ImageUpload placeKey={key} onUpload={handlePhotoUpload} />}
+        {!user && <p className="login-hint">🔑 سجلي دخول لإضافة صور</p>}
       </div>
     );
   };
 
   return (
     <div className="App">
-      <h1>رحلتي 🗺️</h1>
+      <div className="navbar">
+        <h1>رحلتي 🗺️</h1>
+        {user ? (
+          <div className="user-info">
+            <img src={user.photoURL} alt={user.displayName} className="user-avatar" />
+            <span>{user.displayName}</span>
+            <button className="logout-btn" onClick={logOut}>تسجيل خروج</button>
+          </div>
+        ) : (
+          <button className="login-btn" onClick={signInWithGoogle}>🔑 تسجيل دخول بـ Google</button>
+        )}
+      </div>
       <p>اكتشف أجمل مناطق الأردن</p>
       <input className="search-input" type="text" placeholder="🔍 ابحث عن منطقة..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
       {searchQuery && <div className="places-grid">{Object.keys(places).filter(key => places[key].name.includes(searchQuery)).map(renderPlace)}</div>}
