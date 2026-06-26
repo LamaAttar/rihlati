@@ -7,20 +7,21 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, setDoc, getDoc, arrayUnion } from 'firebase/firestore';
 import L from 'leaflet';
 import ImageUpload from './ImageUpload';
+import translations from './translations';
 
 const places = {
-  ajloun: { name: 'عجلون', lat: 32.33, lng: 35.75, img: '/ajloun.png', desc: 'قلعة تاريخية وسط غابات خضراء، أجواء معتدلة بالصيف 🌲', season: 'summer' },
-  jerash: { name: 'جرش', lat: 32.28, lng: 35.89, img: '/jerash.png', desc: 'مدينة رومانية أثرية من أهم المواقع التاريخية بالأردن 🏛️', season: 'summer' },
-  umqais: { name: 'أم قيس', lat: 32.66, lng: 35.68, img: '/umqais.png', desc: 'أطلال رومانية تطل على بحيرة طبريا والجولان 🏛️', season: 'summer' },
-  deadsea: { name: 'البحر الميت', lat: 31.70, lng: 35.60, img: '/dead-sea.png', desc: 'أخفض نقطة على سطح الأرض، مياه مالحة وطمي علاجي 🌊', season: 'summer' },
-  shouna: { name: 'الشونة', lat: 32.34, lng: 35.58, img: '/shouna.png', desc: 'منطقة زراعية خضراء جميلة في الأغوار الشمالية 🌿', season: 'summer' },
-  salt: { name: 'السلط', lat: 32.03, lng: 35.72, img: '/salt.png', desc: 'مدينة تراثية عريقة مدرجة على قائمة التراث العالمي 🏘️', season: 'summer' },
-  petra: { name: 'البتراء', lat: 30.33, lng: 35.44, img: '/petra.png', desc: 'إحدى عجائب الدنيا السبع، أجواء دافئة بالشتاء ☀️', season: 'winter' },
-  wadirum: { name: 'وادي رم', lat: 29.58, lng: 35.42, img: '/wadirum.png', desc: 'صحراء ساحرة بألوانها الذهبية، تجربة تخييم لا تُنسى 🏜️', season: 'winter' },
-  aqaba: { name: 'العقبة', lat: 29.53, lng: 35.01, img: '/aqaba.png', desc: 'مدينة ساحلية دافئة بالشتاء، بحر أحمر ومرجان رائع 🌊', season: 'winter' },
-  madaba: { name: 'مادبا', lat: 31.71, lng: 35.79, img: '/madaba.png', desc: 'مدينة الفسيفساء والكنائس التاريخية الرائعة ⛪', season: 'winter' },
-  karak: { name: 'الكرك', lat: 31.18, lng: 35.70, img: '/karak.png', desc: 'قلعة صليبية شامخة تطل على البحر الميت 🏰', season: 'winter' },
-  deisa: { name: 'الديسة', lat: 29.69, lng: 35.47, img: '/deisa.png', desc: 'وادي ساحر بين الجبال الحمراء، مشي وطبيعة خلابة 🏔️', season: 'winter' },
+  ajloun: { name: 'عجلون', nameEn: 'Ajloun', lat: 32.33, lng: 35.75, img: '/ajloun.png', desc: 'قلعة تاريخية وسط غابات خضراء، أجواء معتدلة بالصيف 🌲', descEn: 'A historic castle amid green forests with moderate summer weather 🌲', season: 'summer' },
+  jerash: { name: 'جرش', nameEn: 'Jerash', lat: 32.28, lng: 35.89, img: '/jerash.png', desc: 'مدينة رومانية أثرية من أهم المواقع التاريخية بالأردن 🏛️', descEn: 'An ancient Roman city, one of the most important historical sites in Jordan 🏛️', season: 'summer' },
+  umqais: { name: 'أم قيس', nameEn: 'Um Qais', lat: 32.66, lng: 35.68, img: '/umqais.png', desc: 'أطلال رومانية تطل على بحيرة طبريا والجولان 🏛️', descEn: 'Roman ruins overlooking the Sea of Galilee and the Golan Heights 🏛️', season: 'summer' },
+  deadsea: { name: 'البحر الميت', nameEn: 'Dead Sea', lat: 31.70, lng: 35.60, img: '/dead-sea.png', desc: 'أخفض نقطة على سطح الأرض، مياه مالحة وطمي علاجي 🌊', descEn: 'The lowest point on Earth with healing salt water and therapeutic mud 🌊', season: 'summer' },
+  shouna: { name: 'الشونة', nameEn: 'Shouna', lat: 32.34, lng: 35.58, img: '/shouna.png', desc: 'منطقة زراعية خضراء جميلة في الأغوار الشمالية 🌿', descEn: 'A beautiful green agricultural area in the Northern Jordan Valley 🌿', season: 'summer' },
+  salt: { name: 'السلط', nameEn: 'Salt', lat: 32.03, lng: 35.72, img: '/salt.png', desc: 'مدينة تراثية عريقة مدرجة على قائمة التراث العالمي 🏘️', descEn: 'An ancient heritage city listed as a UNESCO World Heritage Site 🏘️', season: 'summer' },
+  petra: { name: 'البتراء', nameEn: 'Petra', lat: 30.33, lng: 35.44, img: '/petra.png', desc: 'إحدى عجائب الدنيا السبع، أجواء دافئة بالشتاء ☀️', descEn: 'One of the Seven Wonders of the World with warm winter weather ☀️', season: 'winter' },
+  wadirum: { name: 'وادي رم', nameEn: 'Wadi Rum', lat: 29.58, lng: 35.42, img: '/wadirum.png', desc: 'صحراء ساحرة بألوانها الذهبية، تجربة تخييم لا تُنسى 🏜️', descEn: 'A magical desert with golden colors and unforgettable camping experience 🏜️', season: 'winter' },
+  aqaba: { name: 'العقبة', nameEn: 'Aqaba', lat: 29.53, lng: 35.01, img: '/aqaba.png', desc: 'مدينة ساحلية دافئة بالشتاء، بحر أحمر ومرجان رائع 🌊', descEn: 'A warm coastal city in winter with the Red Sea and amazing coral reefs 🌊', season: 'winter' },
+  madaba: { name: 'مادبا', nameEn: 'Madaba', lat: 31.71, lng: 35.79, img: '/madaba.png', desc: 'مدينة الفسيفساء والكنائس التاريخية الرائعة ⛪', descEn: 'The city of mosaics and amazing historic churches ⛪', season: 'winter' },
+  karak: { name: 'الكرك', nameEn: 'Karak', lat: 31.18, lng: 35.70, img: '/karak.png', desc: 'قلعة صليبية شامخة تطل على البحر الميت 🏰', descEn: 'A towering Crusader castle overlooking the Dead Sea 🏰', season: 'winter' },
+  deisa: { name: 'الديسة', nameEn: 'Deisa', lat: 29.69, lng: 35.47, img: '/deisa.png', desc: 'وادي ساحر بين الجبال الحمراء، مشي وطبيعة خلابة 🏔️', descEn: 'An enchanting valley between red mountains with stunning nature 🏔️', season: 'winter' },
 };
 
 const summerKeys = ['ajloun', 'jerash', 'umqais', 'deadsea', 'shouna', 'salt'];
@@ -95,6 +96,9 @@ function App() {
   const [mapServices, setMapServices] = useState([]);
   const [user, setUser] = useState(null);
   const [placePhotos, setPlacePhotos] = useState({});
+  const [lang, setLang] = useState('ar');
+
+  const t = translations[lang];
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -160,85 +164,106 @@ function App() {
 
   const renderPlace = (key) => {
     const place = places[key];
+    const placeName = lang === 'ar' ? place.name : place.nameEn;
+    const placeDesc = lang === 'ar' ? place.desc : place.descEn;
     const distanceText = userLocation
-      ? `📍 تبعد حوالي ${getDistance(userLocation.lat, userLocation.lng, place.lat, place.lng)} كم عن موقعك`
-      : '📍 جاري تحديد موقعك...';
+      ? `📍 ${t.distance} ${getDistance(userLocation.lat, userLocation.lng, place.lat, place.lng)} ${t.fromLocation}`
+      : `📍 ${t.locating}`;
     const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`;
     const photos = placePhotos[key] || [];
 
     return (
       <div className="place-card" key={key}>
-        <h3>{place.name}</h3>
-        <img src={place.img} alt={place.name} />
+        <h3>{placeName}</h3>
+        <img src={place.img} alt={placeName} />
         <p>{distanceText}</p>
-        <p>{place.desc}</p>
+        <p>{placeDesc}</p>
         <StarRating placeKey={key} ratings={ratings} setRatings={setRatings} />
-        <button onClick={() => openMap(place)}>🗺️ عرض على الخريطة</button>
-        <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="directions-btn">🚗 احصل على الاتجاهات</a>
-        <button onClick={() => toggleDetails(key)}>عرض الخدمات القريبة</button>
+        <button onClick={() => openMap(place)}>{t.map}</button>
+        <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="directions-btn">{t.directions}</a>
+        <button onClick={() => toggleDetails(key)}>{t.services}</button>
         {openPlace === key && (
           <div className="services">
-            {loadingServices ? <p>⏳ جاري تحميل الخدمات...</p>
+            {loadingServices ? <p>{t.loading}</p>
               : services.length > 0 ? services.map((s, i) => <p key={i}>{getServiceIcon(s.tags)} {s.tags.name}</p>)
-              : <p>لا توجد خدمات قريبة في قاعدة البيانات</p>}
+              : <p>{t.noServices}</p>}
           </div>
         )}
         {photos.length > 0 && (
           <div className="photo-gallery">
-            <h4>📸 صور من الزوار</h4>
+            <h4>{t.photos}</h4>
             <div className="photos-grid">
               {photos.map((url, i) => (
-                <img key={i} src={url} alt={`صورة ${i+1}`} className="user-photo" />
+                <img key={i} src={url} alt={`photo ${i+1}`} className="user-photo" />
               ))}
             </div>
           </div>
         )}
         {user && <ImageUpload placeKey={key} onUpload={handlePhotoUpload} />}
-        {!user && <p className="login-hint">🔑 سجلي دخول لإضافة صور</p>}
+        {!user && <p className="login-hint">{t.loginHint}</p>}
       </div>
     );
   };
 
   return (
-    <div className="App">
+    <div className="App" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <div className="navbar">
-        <h1>رحلتي 🗺️</h1>
-        {user ? (
-          <div className="user-info">
-            <img src={user.photoURL} alt={user.displayName} className="user-avatar" />
-            <span>{user.displayName}</span>
-            <button className="logout-btn" onClick={logOut}>تسجيل خروج</button>
-          </div>
-        ) : (
-          <button className="login-btn" onClick={signInWithGoogle}>🔑 تسجيل دخول بـ Google</button>
-        )}
+        <h1>{t.title}</h1>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button className="lang-btn" onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}>
+            {lang === 'ar' ? '🌐 English' : '🌐 العربية'}
+          </button>
+          {user ? (
+            <div className="user-info">
+              <img src={user.photoURL} alt={user.displayName} className="user-avatar" />
+              <span>{user.displayName}</span>
+              <button className="logout-btn" onClick={logOut}>{t.logout}</button>
+            </div>
+          ) : (
+            <button className="login-btn" onClick={signInWithGoogle}>{t.login}</button>
+          )}
+        </div>
       </div>
-      <p>اكتشف أجمل مناطق الأردن</p>
-      <input className="search-input" type="text" placeholder="🔍 ابحث عن منطقة..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-      {searchQuery && <div className="places-grid">{Object.keys(places).filter(key => places[key].name.includes(searchQuery)).map(renderPlace)}</div>}
-      {!searchQuery && season === '' && <p className="welcome-msg">👋 اختر الموسم المناسب لرحلتك</p>}
-      {!searchQuery && <><button onClick={() => setSeason('summer')}>☀️ صيف</button><button onClick={() => setSeason('winter')}>❄️ شتاء</button></>}
-      {season !== '' && !searchQuery && <button className="home-btn" onClick={goHome}>🏠 الرئيسية</button>}
+
+      <p>{t.subtitle}</p>
+      <input className="search-input" type="text" placeholder={`🔍 ${t.search}`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+      {searchQuery && (
+        <div className="places-grid">
+          {Object.keys(places)
+            .filter(key => places[key].name.includes(searchQuery) || places[key].nameEn.toLowerCase().includes(searchQuery.toLowerCase()))
+            .map(renderPlace)}
+        </div>
+      )}
+      {!searchQuery && season === '' && <p className="welcome-msg">{t.welcome}</p>}
+      {!searchQuery && <><button onClick={() => setSeason('summer')}>{t.summer}</button><button onClick={() => setSeason('winter')}>{t.winter}</button></>}
+      {season !== '' && !searchQuery && <button className="home-btn" onClick={goHome}>{t.home}</button>}
+
       {selectedPlace && (
         <div className="map-container">
-          <h2>📍 {selectedPlace.name}</h2>
+          <h2>📍 {lang === 'ar' ? selectedPlace.name : selectedPlace.nameEn}</h2>
           <div className="map-legend">
-            <span>🔴 مطاعم</span><span>🟢 ماركتات</span><span>🔵 محطات وقود</span><span>🟠 فنادق</span>
+            <span>🔴 {t.restaurants}</span>
+            <span>🟢 {t.markets}</span>
+            <span>🔵 {t.fuel}</span>
+            <span>🟠 {t.hotels}</span>
           </div>
           <MapContainer center={[selectedPlace.lat, selectedPlace.lng]} zoom={13} style={{ height: '400px', width: '100%', borderRadius: '15px' }}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            <Marker position={[selectedPlace.lat, selectedPlace.lng]}><Popup>{selectedPlace.name}</Popup></Marker>
+            <Marker position={[selectedPlace.lat, selectedPlace.lng]}>
+              <Popup>{lang === 'ar' ? selectedPlace.name : selectedPlace.nameEn}</Popup>
+            </Marker>
             {mapServices.map((s, i) => (
               <Marker key={i} position={[s.lat, s.lon]} icon={createColorIcon(getMarkerColor(s.tags))}>
-                <Popup>{getServiceIcon(s.tags)} {s.tags.name || 'خدمة قريبة'}</Popup>
+                <Popup>{getServiceIcon(s.tags)} {s.tags.name || 'Service'}</Popup>
               </Marker>
             ))}
           </MapContainer>
-          <button className="home-btn" onClick={() => { setSelectedPlace(null); setMapServices([]); }}>✖️ إغلاق الخريطة</button>
+          <button className="home-btn" onClick={() => { setSelectedPlace(null); setMapServices([]); }}>{t.closeMap}</button>
         </div>
       )}
-      {season === 'summer' && !selectedPlace && !searchQuery && <div><h2>مناطق الصيف</h2><div className="places-grid">{summerKeys.map(renderPlace)}</div></div>}
-      {season === 'winter' && !selectedPlace && !searchQuery && <div><h2>مناطق الشتاء</h2><div className="places-grid">{winterKeys.map(renderPlace)}</div></div>}
+
+      {season === 'summer' && !selectedPlace && !searchQuery && <div><h2>{t.summerRegions}</h2><div className="places-grid">{summerKeys.map(renderPlace)}</div></div>}
+      {season === 'winter' && !selectedPlace && !searchQuery && <div><h2>{t.winterRegions}</h2><div className="places-grid">{winterKeys.map(renderPlace)}</div></div>}
     </div>
   );
 }
