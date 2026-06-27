@@ -97,6 +97,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [placePhotos, setPlacePhotos] = useState({});
   const [lang, setLang] = useState('ar');
+  const [lightboxImg, setLightboxImg] = useState(null);
 
   const t = translations[lang];
 
@@ -162,6 +163,9 @@ function App() {
 
   const goHome = () => { setSeason(''); setOpenPlace(''); setSelectedPlace(null); setServices([]); setSearchQuery(''); setMapServices([]); };
 
+  const openLightbox = (url) => setLightboxImg(url);
+  const closeLightbox = () => setLightboxImg(null);
+
   const renderPlace = (key) => {
     const place = places[key];
     const placeName = lang === 'ar' ? place.name : place.nameEn;
@@ -194,7 +198,7 @@ function App() {
             <h4>{t.photos}</h4>
             <div className="photos-grid">
               {photos.map((url, i) => (
-                <img key={i} src={url} alt={`photo ${i+1}`} className="user-photo" />
+                <img key={i} src={url} alt={`photo ${i+1}`} className="user-photo" onClick={() => openLightbox(url)} />
               ))}
             </div>
           </div>
@@ -227,6 +231,7 @@ function App() {
 
       <p>{t.subtitle}</p>
       <input className="search-input" type="text" placeholder={`🔍 ${t.search}`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+
       {searchQuery && (
         <div className="places-grid">
           {Object.keys(places)
@@ -234,8 +239,14 @@ function App() {
             .map(renderPlace)}
         </div>
       )}
+
       {!searchQuery && season === '' && <p className="welcome-msg">{t.welcome}</p>}
-      {!searchQuery && <><button onClick={() => setSeason('summer')}>{t.summer}</button><button onClick={() => setSeason('winter')}>{t.winter}</button></>}
+      {!searchQuery && (
+        <>
+          <button onClick={() => setSeason('summer')}>{t.summer}</button>
+          <button onClick={() => setSeason('winter')}>{t.winter}</button>
+        </>
+      )}
       {season !== '' && !searchQuery && <button className="home-btn" onClick={goHome}>{t.home}</button>}
 
       {selectedPlace && (
@@ -262,8 +273,26 @@ function App() {
         </div>
       )}
 
-      {season === 'summer' && !selectedPlace && !searchQuery && <div><h2>{t.summerRegions}</h2><div className="places-grid">{summerKeys.map(renderPlace)}</div></div>}
-      {season === 'winter' && !selectedPlace && !searchQuery && <div><h2>{t.winterRegions}</h2><div className="places-grid">{winterKeys.map(renderPlace)}</div></div>}
+      {season === 'summer' && !selectedPlace && !searchQuery && (
+        <div>
+          <h2>{t.summerRegions}</h2>
+          <div className="places-grid">{summerKeys.map(renderPlace)}</div>
+        </div>
+      )}
+
+      {season === 'winter' && !selectedPlace && !searchQuery && (
+        <div>
+          <h2>{t.winterRegions}</h2>
+          <div className="places-grid">{winterKeys.map(renderPlace)}</div>
+        </div>
+      )}
+
+      {lightboxImg && (
+        <div className="lightbox" onClick={closeLightbox}>
+          <button className="lightbox-close" onClick={closeLightbox}>✕</button>
+          <img src={lightboxImg} alt="صورة مكبرة" />
+        </div>
+      )}
     </div>
   );
 }
