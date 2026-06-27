@@ -228,10 +228,8 @@ function App() {
           )}
         </div>
       </div>
-
       <p>{t.subtitle}</p>
       <input className="search-input" type="text" placeholder={`🔍 ${t.search}`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-
       {searchQuery && (
         <div className="places-grid">
           {Object.keys(places)
@@ -239,16 +237,9 @@ function App() {
             .map(renderPlace)}
         </div>
       )}
-
       {!searchQuery && season === '' && <p className="welcome-msg">{t.welcome}</p>}
-      {!searchQuery && (
-        <>
-          <button onClick={() => setSeason('summer')}>{t.summer}</button>
-          <button onClick={() => setSeason('winter')}>{t.winter}</button>
-        </>
-      )}
+      {!searchQuery && <><button onClick={() => setSeason('summer')}>{t.summer}</button><button onClick={() => setSeason('winter')}>{t.winter}</button></>}
       {season !== '' && !searchQuery && <button className="home-btn" onClick={goHome}>{t.home}</button>}
-
       {selectedPlace && (
         <div className="map-container">
           <h2>📍 {lang === 'ar' ? selectedPlace.name : selectedPlace.nameEn}</h2>
@@ -272,21 +263,8 @@ function App() {
           <button className="home-btn" onClick={() => { setSelectedPlace(null); setMapServices([]); }}>{t.closeMap}</button>
         </div>
       )}
-
-      {season === 'summer' && !selectedPlace && !searchQuery && (
-        <div>
-          <h2>{t.summerRegions}</h2>
-          <div className="places-grid">{summerKeys.map(renderPlace)}</div>
-        </div>
-      )}
-
-      {season === 'winter' && !selectedPlace && !searchQuery && (
-        <div>
-          <h2>{t.winterRegions}</h2>
-          <div className="places-grid">{winterKeys.map(renderPlace)}</div>
-        </div>
-      )}
-
+      {season === 'summer' && !selectedPlace && !searchQuery && <div><h2>{t.summerRegions}</h2><div className="places-grid">{summerKeys.map(renderPlace)}</div></div>}
+      {season === 'winter' && !selectedPlace && !searchQuery && <div><h2>{t.winterRegions}</h2><div className="places-grid">{winterKeys.map(renderPlace)}</div></div>}
       {lightboxImg && (
         <div className="lightbox" onClick={closeLightbox}>
           <button className="lightbox-close" onClick={closeLightbox}>✕</button>
