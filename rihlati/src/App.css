@@ -367,3 +367,61 @@ button:hover {
   margin: 20px 0 5px;
   text-align: center;
 }
+.add-place-btn {
+  background: linear-gradient(135deg, #C4952A, #8B6914) !important;
+  color: white !important;
+  padding: 12px 25px !important;
+  border-radius: 25px !important;
+  margin: 15px auto !important;
+  display: block !important;
+  font-size: 1rem !important;
+}
+
+.add-place-form {
+  background: white;
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+  text-align: right;
+  margin: 15px auto;
+}
+
+.add-place-form h3 {
+  color: #8B6914;
+  margin-bottom: 15px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 15px;
+  border: 2px solid #C4952A;
+  border-radius: 10px;
+  font-size: 1rem;
+  margin-bottom: 10px;
+  text-align: right;
+  outline: none;
+  font-family: inherit;
+}
+
+.submit-btn {
+  background: #C4952A !important;
+  color: white !important;
+  padding: 10px 20px !important;
+  border-radius: 10px !important;
+  flex: 1 !important;
+}
+
+.cancel-btn {
+  background: #999 !important;
+  color: white !important;
+  padding: 10px 20px !important;
+  border-radius: 10px !important;
+  flex: 1 !important;
+}
+
+.user-badge {
+  display: block;
+  color: #C4952A;
+  font-size: 0.85rem;
+  padding: 0 15px 5px;
+}

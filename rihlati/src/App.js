@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { db } from './firebase';
 import { auth, signInWithGoogle, logOut } from './Auth';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, getDoc, arrayUnion } from 'firebase/firestore';
+import { doc, setDoc, getDoc, arrayUnion, collection, addDoc, getDocs } from 'firebase/firestore';
 import L from 'leaflet';
 import ImageUpload from './ImageUpload';
 import translations from './translations';
@@ -84,6 +84,71 @@ function StarRating({ placeKey, ratings, setRatings }) {
   );
 }
 
+function AddPlaceForm({ user, onAdd }) {
+  const [name, setName] = useState('');
+  const [desc, setDesc] = useState('');
+  const [season, setSeason] = useState('summer');
+  const [imgUrl, setImgUrl] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [show, setShow] = useState(false);
+
+  const handleImgUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', 'rihlati_upload');
+    const res = await fetch('https://api.cloudinary.com/v1_1/dohsowqbg/image/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    setImgUrl(data.secure_url);
+    setUploading(false);
+  };
+
+  const handleSubmit = async () => {
+    if (!name || !desc || !imgUrl) return alert('يرجى ملء كل الحقول وتحميل صورة');
+    const newPlace = {
+      name,
+      desc,
+      season,
+      img: imgUrl,
+      addedBy: user.displayName,
+      addedAt: new Date().toISOString(),
+    };
+    await addDoc(collection(db, 'userPlaces'), newPlace);
+    onAdd(newPlace);
+    setName(''); setDesc(''); setImgUrl(''); setShow(false);
+  };
+
+  if (!show) return (
+    <button className="add-place-btn" onClick={() => setShow(true)}>
+      ➕ أضف منطقة جديدة
+    </button>
+  );
+
+  return (
+    <div className="add-place-form">
+      <h3>➕ أضف منطقة جديدة</h3>
+      <input placeholder="اسم المنطقة" value={name} onChange={e => setName(e.target.value)} className="form-input" />
+      <textarea placeholder="وصف المنطقة" value={desc} onChange={e => setDesc(e.target.value)} className="form-input" rows={3} />
+      <select value={season} onChange={e => setSeason(e.target.value)} className="form-input">
+        <option value="summer">☀️ صيف</option>
+        <option value="winter">❄️ شتاء</option>
+      </select>
+      <label className="upload-btn">
+        📸 ارفع صورة
+        <input type="file" accept="image/*" onChange={handleImgUpload} style={{ display: 'none' }} />
+      </label>
+      {uploading && <p>⏳ جاري رفع الصورة...</p>}
+      {imgUrl && <img src={imgUrl} alt="معاينة" style={{ width: '100%', borderRadius: '10px', marginTop: '10px' }} />}
+      <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+        <button onClick={handleSubmit} className="submit-btn">✅ إضافة</button>
+        <button onClick={() => setShow(false)} className="cancel-btn">❌ إلغاء</button>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [season, setSeason] = useState('');
   const [openPlace, setOpenPlace] = useState('');
@@ -98,6 +163,7 @@ function App() {
   const [placePhotos, setPlacePhotos] = useState({});
   const [lang, setLang] = useState('ar');
   const [lightboxImg, setLightboxImg] = useState(null);
+  const [userPlaces, setUserPlaces] = useState([]);
 
   const t = translations[lang];
 
@@ -128,8 +194,16 @@ function App() {
         setPlacePhotos(newPhotos);
       } catch (e) {}
     };
+    const loadUserPlaces = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, 'userPlaces'));
+        const loaded = snapshot.docs.map(d => d.data());
+        setUserPlaces(loaded);
+      } catch (e) {}
+    };
     loadRatings();
     loadPhotos();
+    loadUserPlaces();
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
     });
@@ -139,10 +213,7 @@ function App() {
   const handlePhotoUpload = async (placeKey, url) => {
     try {
       await setDoc(doc(db, 'photos', placeKey), { urls: arrayUnion(url) }, { merge: true });
-      setPlacePhotos(prev => ({
-        ...prev,
-        [placeKey]: [...(prev[placeKey] || []), url]
-      }));
+      setPlacePhotos(prev => ({ ...prev, [placeKey]: [...(prev[placeKey] || []), url] }));
     } catch (e) {}
   };
 
@@ -162,36 +233,43 @@ function App() {
   };
 
   const goHome = () => { setSeason(''); setOpenPlace(''); setSelectedPlace(null); setServices([]); setSearchQuery(''); setMapServices([]); };
-
   const openLightbox = (url) => setLightboxImg(url);
   const closeLightbox = () => setLightboxImg(null);
 
-  const renderPlace = (key) => {
-    const place = places[key];
-    const placeName = lang === 'ar' ? place.name : place.nameEn;
-    const placeDesc = lang === 'ar' ? place.desc : place.descEn;
-    const distanceText = userLocation
+  const renderPlace = (key, place, isUserPlace = false) => {
+    const placeName = isUserPlace ? place.name : (lang === 'ar' ? place.name : place.nameEn);
+    const placeDesc = isUserPlace ? place.desc : (lang === 'ar' ? place.desc : place.descEn);
+    const distanceText = userLocation && place.lat
       ? `📍 ${t.distance} ${getDistance(userLocation.lat, userLocation.lng, place.lat, place.lng)} ${t.fromLocation}`
       : `📍 ${t.locating}`;
-    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`;
+    const mapsUrl = place.lat ? `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}` : '#';
     const photos = placePhotos[key] || [];
 
     return (
       <div className="place-card" key={key}>
         <h3>{placeName}</h3>
+        {isUserPlace && <span className="user-badge">👤 {place.addedBy}</span>}
         <img src={place.img} alt={placeName} />
-        <p>{distanceText}</p>
+        {place.lat && <p>{distanceText}</p>}
         <p>{placeDesc}</p>
-        <StarRating placeKey={key} ratings={ratings} setRatings={setRatings} />
-        <button onClick={() => openMap(place)}>{t.map}</button>
-        <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="directions-btn">{t.directions}</a>
-        <button onClick={() => toggleDetails(key)}>{t.services}</button>
-        {openPlace === key && (
-          <div className="services">
-            {loadingServices ? <p>{t.loading}</p>
-              : services.length > 0 ? services.map((s, i) => <p key={i}>{getServiceIcon(s.tags)} {s.tags.name}</p>)
-              : <p>{t.noServices}</p>}
-          </div>
+        {!isUserPlace && <StarRating placeKey={key} ratings={ratings} setRatings={setRatings} />}
+        {place.lat && (
+          <>
+            <button onClick={() => openMap(place)}>{t.map}</button>
+            <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="directions-btn">{t.directions}</a>
+          </>
+        )}
+        {!isUserPlace && (
+          <>
+            <button onClick={() => toggleDetails(key)}>{t.services}</button>
+            {openPlace === key && (
+              <div className="services">
+                {loadingServices ? <p>{t.loading}</p>
+                  : services.length > 0 ? services.map((s, i) => <p key={i}>{getServiceIcon(s.tags)} {s.tags.name}</p>)
+                  : <p>{t.noServices}</p>}
+              </div>
+            )}
+          </>
         )}
         {photos.length > 0 && (
           <div className="photo-gallery">
@@ -203,17 +281,20 @@ function App() {
             </div>
           </div>
         )}
-        {user && <ImageUpload placeKey={key} onUpload={handlePhotoUpload} />}
-        {!user && <p className="login-hint">{t.loginHint}</p>}
+        {user && !isUserPlace && <ImageUpload placeKey={key} onUpload={handlePhotoUpload} />}
+        {!user && !isUserPlace && <p className="login-hint">{t.loginHint}</p>}
       </div>
     );
   };
+
+  const userSummerPlaces = userPlaces.filter(p => p.season === 'summer');
+  const userWinterPlaces = userPlaces.filter(p => p.season === 'winter');
 
   return (
     <div className="App" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <div className="navbar">
         <h1>{t.title}</h1>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div className="navbar-right">
           <button className="lang-btn" onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}>
             {lang === 'ar' ? '🌐 English' : '🌐 العربية'}
           </button>
@@ -228,15 +309,25 @@ function App() {
           )}
         </div>
       </div>
+
       <p>{t.subtitle}</p>
       <input className="search-input" type="text" placeholder={`🔍 ${t.search}`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+
+      {user && (
+        <div style={{ margin: '10px auto', maxWidth: '600px' }}>
+          <AddPlaceForm user={user} onAdd={(p) => setUserPlaces(prev => [...prev, p])} />
+        </div>
+      )}
+      {!user && <p className="login-hint" style={{ margin: '10px 0' }}>🔑 سجل دخول لإضافة منطقة جديدة</p>}
+
       {searchQuery && (
         <div className="places-grid">
           {Object.keys(places)
             .filter(key => places[key].name.includes(searchQuery) || places[key].nameEn.toLowerCase().includes(searchQuery.toLowerCase()))
-            .map(renderPlace)}
+            .map(key => renderPlace(key, places[key]))}
         </div>
       )}
+
       {!searchQuery && season === '' && <p className="welcome-msg">{t.welcome}</p>}
       {!searchQuery && (
         <>
@@ -245,9 +336,10 @@ function App() {
         </>
       )}
       {season !== '' && !searchQuery && <button className="home-btn" onClick={goHome}>{t.home}</button>}
+
       {selectedPlace && (
         <div className="map-container">
-          <h2>📍 {lang === 'ar' ? selectedPlace.name : selectedPlace.nameEn}</h2>
+          <h2>📍 {lang === 'ar' ? selectedPlace.name : (selectedPlace.nameEn || selectedPlace.name)}</h2>
           <div className="map-legend">
             <span>🔴 {t.restaurants}</span>
             <span>🟢 {t.markets}</span>
@@ -257,7 +349,7 @@ function App() {
           <MapContainer center={[selectedPlace.lat, selectedPlace.lng]} zoom={13} style={{ height: '400px', width: '100%', borderRadius: '15px' }}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <Marker position={[selectedPlace.lat, selectedPlace.lng]}>
-              <Popup>{lang === 'ar' ? selectedPlace.name : selectedPlace.nameEn}</Popup>
+              <Popup>{lang === 'ar' ? selectedPlace.name : (selectedPlace.nameEn || selectedPlace.name)}</Popup>
             </Marker>
             {mapServices.map((s, i) => (
               <Marker key={i} position={[s.lat, s.lon]} icon={createColorIcon(getMarkerColor(s.tags))}>
@@ -268,18 +360,33 @@ function App() {
           <button className="home-btn" onClick={() => { setSelectedPlace(null); setMapServices([]); }}>{t.closeMap}</button>
         </div>
       )}
+
       {season === 'summer' && !selectedPlace && !searchQuery && (
         <div>
           <h2>{t.summerRegions}</h2>
-          <div className="places-grid">{summerKeys.map(renderPlace)}</div>
+          <div className="places-grid">{summerKeys.map(key => renderPlace(key, places[key]))}</div>
+          {userSummerPlaces.length > 0 && (
+            <div>
+              <h2>🌟 مناطق أضافها الزوار - صيف</h2>
+              <div className="places-grid">{userSummerPlaces.map((p, i) => renderPlace(`user-summer-${i}`, p, true))}</div>
+            </div>
+          )}
         </div>
       )}
+
       {season === 'winter' && !selectedPlace && !searchQuery && (
         <div>
           <h2>{t.winterRegions}</h2>
-          <div className="places-grid">{winterKeys.map(renderPlace)}</div>
+          <div className="places-grid">{winterKeys.map(key => renderPlace(key, places[key]))}</div>
+          {userWinterPlaces.length > 0 && (
+            <div>
+              <h2>🌟 مناطق أضافها الزوار - شتاء</h2>
+              <div className="places-grid">{userWinterPlaces.map((p, i) => renderPlace(`user-winter-${i}`, p, true))}</div>
+            </div>
+          )}
         </div>
       )}
+
       {lightboxImg && (
         <div className="lightbox" onClick={closeLightbox}>
           <button className="lightbox-close" onClick={closeLightbox}>✕</button>
