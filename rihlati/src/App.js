@@ -198,7 +198,7 @@ function App() {
             <h4>{t.photos}</h4>
             <div className="photos-grid">
               {photos.map((url, i) => (
-                <img key={i} src={url} alt={`photo ${i+1}`} className="user-photo" onClick={() => openLightbox(url)} />
+                <img key={i} src={url} alt={`visitor image ${i+1}`} className="user-photo" onClick={() => openLightbox(url)} />
               ))}
             </div>
           </div>
@@ -238,7 +238,12 @@ function App() {
         </div>
       )}
       {!searchQuery && season === '' && <p className="welcome-msg">{t.welcome}</p>}
-      {!searchQuery && <><button onClick={() => setSeason('summer')}>{t.summer}</button><button onClick={() => setSeason('winter')}>{t.winter}</button></>}
+      {!searchQuery && (
+        <>
+          <button onClick={() => setSeason('summer')}>{t.summer}</button>
+          <button onClick={() => setSeason('winter')}>{t.winter}</button>
+        </>
+      )}
       {season !== '' && !searchQuery && <button className="home-btn" onClick={goHome}>{t.home}</button>}
       {selectedPlace && (
         <div className="map-container">
@@ -263,12 +268,22 @@ function App() {
           <button className="home-btn" onClick={() => { setSelectedPlace(null); setMapServices([]); }}>{t.closeMap}</button>
         </div>
       )}
-      {season === 'summer' && !selectedPlace && !searchQuery && <div><h2>{t.summerRegions}</h2><div className="places-grid">{summerKeys.map(renderPlace)}</div></div>}
-      {season === 'winter' && !selectedPlace && !searchQuery && <div><h2>{t.winterRegions}</h2><div className="places-grid">{winterKeys.map(renderPlace)}</div></div>}
+      {season === 'summer' && !selectedPlace && !searchQuery && (
+        <div>
+          <h2>{t.summerRegions}</h2>
+          <div className="places-grid">{summerKeys.map(renderPlace)}</div>
+        </div>
+      )}
+      {season === 'winter' && !selectedPlace && !searchQuery && (
+        <div>
+          <h2>{t.winterRegions}</h2>
+          <div className="places-grid">{winterKeys.map(renderPlace)}</div>
+        </div>
+      )}
       {lightboxImg && (
         <div className="lightbox" onClick={closeLightbox}>
           <button className="lightbox-close" onClick={closeLightbox}>✕</button>
-          <img src={lightboxImg} alt="صورة مكبرة" />
+          <img src={lightboxImg} alt="enlarged view" />
         </div>
       )}
     </div>
