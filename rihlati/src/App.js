@@ -198,7 +198,7 @@ function App() {
             <h4>{t.photos}</h4>
             <div className="photos-grid">
               {photos.map((url, i) => (
-                <img key={i} src={url} alt={`visitor image ${i+1}`} className="user-photo" onClick={() => openLightbox(url)} />
+                <img key={i} src={url} alt={placeName} className="user-photo" onClick={() => openLightbox(url)} />
               ))}
             </div>
           </div>
@@ -283,7 +283,7 @@ function App() {
       {lightboxImg && (
         <div className="lightbox" onClick={closeLightbox}>
           <button className="lightbox-close" onClick={closeLightbox}>✕</button>
-          <img src={lightboxImg} alt="enlarged view" />
+          <img src={lightboxImg} alt="مكبرة" />
         </div>
       )}
     </div>
