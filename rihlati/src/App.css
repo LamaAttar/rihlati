@@ -15,7 +15,7 @@ body {
 
 .navbar {
   background: linear-gradient(135deg, #8B6914, #C4952A);
-  padding: 15px 30px;
+  padding: 12px 25px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -27,36 +27,45 @@ body {
 
 .navbar h1 {
   color: white;
-  font-size: 1.8rem;
+  font-size: 1.6rem;
   margin: 0;
 }
 
-.user-info {
+.navbar-right {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.15);
+  padding: 5px 12px;
+  border-radius: 25px;
+}
+
 .user-avatar {
-  width: 38px;
-  height: 38px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   border: 2px solid white;
 }
 
 .user-info span {
   color: white;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
 .login-btn {
   background: white;
   color: #8B6914;
   border: none;
-  padding: 10px 20px;
+  padding: 8px 18px;
   border-radius: 25px;
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: bold;
   transition: 0.3s;
 }
@@ -67,29 +76,29 @@ body {
 }
 
 .logout-btn {
-  background: #5a3e1b;
+  background: rgba(255,255,255,0.2);
   color: white;
-  border: none;
-  padding: 8px 15px;
-  border-radius: 25px;
+  border: 1px solid rgba(255,255,255,0.4);
+  padding: 6px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: 0.3s;
+}
+
+.lang-btn {
+  background: rgba(255,255,255,0.15);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.3);
+  padding: 7px 14px;
+  border-radius: 20px;
   cursor: pointer;
   font-size: 0.85rem;
   transition: 0.3s;
 }
 
-.lang-btn {
-  background: rgba(255,255,255,0.2);
-  color: white;
-  border: 1px solid rgba(255,255,255,0.4);
-  padding: 8px 15px;
-  border-radius: 25px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: 0.3s;
-}
-
 .lang-btn:hover {
-  background: rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.25);
 }
 
 .App {
