@@ -68,18 +68,34 @@ function createColorIcon(color) {
   });
 }
 
-function StarRating({ placeKey, ratings, setRatings }) {
-  const rating = ratings[placeKey] || 0;
+function StarRating({ placeKey, ratings, setRatings, user }) {
+  const ratingData = ratings[placeKey] || { avg: 0, count: 0 };
+  const avg = ratingData.avg || 0;
+  const count = ratingData.count || 0;
+
   const handleRate = async (star) => {
-    setRatings({ ...ratings, [placeKey]: star });
-    try { await setDoc(doc(db, 'ratings', placeKey), { rating: star }); } catch (e) {}
+    if (!user) return alert('سجل دخول أولاً لتقييم المنطقة');
+    try {
+      const ref = doc(db, 'ratings', placeKey);
+      const snap = await getDoc(ref);
+      let newAvg = star;
+      let newCount = 1;
+      if (snap.exists()) {
+        const old = snap.data();
+        newCount = (old.count || 0) + 1;
+        newAvg = ((old.avg || 0) * (old.count || 0) + star) / newCount;
+      }
+      await setDoc(ref, { avg: newAvg, count: newCount });
+      setRatings({ ...ratings, [placeKey]: { avg: newAvg, count: newCount } });
+    } catch (e) {}
   };
+
   return (
     <div className="star-rating">
       {[1,2,3,4,5].map(star => (
-        <span key={star} onClick={() => handleRate(star)} style={{ cursor:'pointer', fontSize:'1.5rem', color: star <= rating ? '#ffb703' : '#ccc' }}>★</span>
+        <span key={star} onClick={() => handleRate(star)} style={{ cursor:'pointer', fontSize:'1.5rem', color: star <= Math.round(avg) ? '#ffb703' : '#ccc' }}>★</span>
       ))}
-      {rating > 0 && <span style={{ fontSize:'0.9rem', color:'#555' }}> ({rating}/5)</span>}
+      {count > 0 && <span style={{ fontSize:'0.9rem', color:'#555' }}> ({avg.toFixed(1)}/5 | {count} تقييم)</span>}
     </div>
   );
 }
@@ -174,7 +190,7 @@ function App() {
         const newRatings = {};
         for (const key of Object.keys(places)) {
           const docSnap = await getDoc(doc(db, 'ratings', key));
-          if (docSnap.exists()) newRatings[key] = docSnap.data().rating;
+          if (docSnap.exists()) newRatings[key] = docSnap.data();
         }
         setRatings(newRatings);
       } catch (e) {}
@@ -244,7 +260,7 @@ function App() {
           <p>📍 {t.distance} {getDistance(userLocation.lat, userLocation.lng, place.lat, place.lng)} {t.fromLocation}</p>
         )}
         <p>{placeDesc}</p>
-        {!isUserPlace && <StarRating placeKey={key} ratings={ratings} setRatings={setRatings} />}
+        {!isUserPlace && <StarRating placeKey={key} ratings={ratings} setRatings={setRatings} user={user} />}
         {place.lat && (
           <>
             <button onClick={() => openMap(place)}>{t.map}</button>
