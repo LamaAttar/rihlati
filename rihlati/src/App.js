@@ -108,10 +108,7 @@ function AddPlaceForm({ user, onAdd }) {
   const handleSubmit = async () => {
     if (!name || !desc || !imgUrl) return alert('يرجى ملء كل الحقول وتحميل صورة');
     const newPlace = {
-      name,
-      desc,
-      season,
-      img: imgUrl,
+      name, desc, season, img: imgUrl,
       addedBy: user.displayName,
       addedAt: new Date().toISOString(),
     };
@@ -121,9 +118,7 @@ function AddPlaceForm({ user, onAdd }) {
   };
 
   if (!show) return (
-    <button className="add-place-btn" onClick={() => setShow(true)}>
-      ➕ أضف منطقة جديدة
-    </button>
+    <button className="add-place-btn" onClick={() => setShow(true)}>➕ أضف منطقة جديدة</button>
   );
 
   return (
@@ -197,8 +192,7 @@ function App() {
     const loadUserPlaces = async () => {
       try {
         const snapshot = await getDocs(collection(db, 'userPlaces'));
-        const loaded = snapshot.docs.map(d => d.data());
-        setUserPlaces(loaded);
+        setUserPlaces(snapshot.docs.map(d => d.data()));
       } catch (e) {}
     };
     loadRatings();
@@ -239,10 +233,6 @@ function App() {
   const renderPlace = (key, place, isUserPlace = false) => {
     const placeName = isUserPlace ? place.name : (lang === 'ar' ? place.name : place.nameEn);
     const placeDesc = isUserPlace ? place.desc : (lang === 'ar' ? place.desc : place.descEn);
-    const distanceText = userLocation && place.lat
-      ? `📍 ${t.distance} ${getDistance(userLocation.lat, userLocation.lng, place.lat, place.lng)} ${t.fromLocation}`
-      : `📍 ${t.locating}`;
-    const mapsUrl = place.lat ? `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}` : '#';
     const photos = placePhotos[key] || [];
 
     return (
@@ -250,13 +240,15 @@ function App() {
         <h3>{placeName}</h3>
         {isUserPlace && <span className="user-badge">👤 {place.addedBy}</span>}
         <img src={place.img} alt={placeName} />
-        {place.lat && <p>{distanceText}</p>}
+        {place.lat && userLocation && (
+          <p>📍 {t.distance} {getDistance(userLocation.lat, userLocation.lng, place.lat, place.lng)} {t.fromLocation}</p>
+        )}
         <p>{placeDesc}</p>
         {!isUserPlace && <StarRating placeKey={key} ratings={ratings} setRatings={setRatings} />}
         {place.lat && (
           <>
             <button onClick={() => openMap(place)}>{t.map}</button>
-            <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="directions-btn">{t.directions}</a>
+            <a href={`https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`} target="_blank" rel="noopener noreferrer" className="directions-btn">{t.directions}</a>
           </>
         )}
         {!isUserPlace && (
@@ -313,12 +305,25 @@ function App() {
       <p>{t.subtitle}</p>
       <input className="search-input" type="text" placeholder={`🔍 ${t.search}`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
 
-      {user && (
-        <div style={{ margin: '10px auto', maxWidth: '600px' }}>
+      {!searchQuery && season === '' && <p className="welcome-msg">{t.welcome}</p>}
+
+      {!searchQuery && (
+        <>
+          <button onClick={() => setSeason('summer')}>{t.summer}</button>
+          <button onClick={() => setSeason('winter')}>{t.winter}</button>
+        </>
+      )}
+
+      {user && season === '' && !searchQuery && (
+        <div style={{ margin: '15px auto', maxWidth: '600px' }}>
           <AddPlaceForm user={user} onAdd={(p) => setUserPlaces(prev => [...prev, p])} />
         </div>
       )}
-      {!user && <p className="login-hint" style={{ margin: '10px 0' }}>🔑 سجل دخول لإضافة منطقة جديدة</p>}
+      {!user && season === '' && !searchQuery && (
+        <p className="login-hint" style={{ margin: '10px 0' }}>🔑 سجل دخول لإضافة منطقة جديدة</p>
+      )}
+
+      {season !== '' && !searchQuery && <button className="home-btn" onClick={goHome}>{t.home}</button>}
 
       {searchQuery && (
         <div className="places-grid">
@@ -327,15 +332,6 @@ function App() {
             .map(key => renderPlace(key, places[key]))}
         </div>
       )}
-
-      {!searchQuery && season === '' && <p className="welcome-msg">{t.welcome}</p>}
-      {!searchQuery && (
-        <>
-          <button onClick={() => setSeason('summer')}>{t.summer}</button>
-          <button onClick={() => setSeason('winter')}>{t.winter}</button>
-        </>
-      )}
-      {season !== '' && !searchQuery && <button className="home-btn" onClick={goHome}>{t.home}</button>}
 
       {selectedPlace && (
         <div className="map-container">
@@ -367,7 +363,7 @@ function App() {
           <div className="places-grid">{summerKeys.map(key => renderPlace(key, places[key]))}</div>
           {userSummerPlaces.length > 0 && (
             <div>
-              <h2>🌟 مناطق أضافها الزوار - صيف</h2>
+              <h2>🌟 مناطق أضافها الزوار</h2>
               <div className="places-grid">{userSummerPlaces.map((p, i) => renderPlace(`user-summer-${i}`, p, true))}</div>
             </div>
           )}
@@ -380,7 +376,7 @@ function App() {
           <div className="places-grid">{winterKeys.map(key => renderPlace(key, places[key]))}</div>
           {userWinterPlaces.length > 0 && (
             <div>
-              <h2>🌟 مناطق أضافها الزوار - شتاء</h2>
+              <h2>🌟 مناطق أضافها الزوار</h2>
               <div className="places-grid">{userWinterPlaces.map((p, i) => renderPlace(`user-winter-${i}`, p, true))}</div>
             </div>
           )}
