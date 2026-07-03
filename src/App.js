@@ -51,13 +51,18 @@ function getDistance(lat1, lon1, lat2, lon2) {
   return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(0);
 }
 
+function isHebrewText(text) {
+  if (!text) return false;
+  return /[\u0590-\u05FF]/.test(text);
+}
+
 async function fetchNearbyServices(lat, lng) {
   const radius = 15000;
   const query = `[out:json];(node["amenity"="restaurant"](around:${radius},${lat},${lng});node["shop"="supermarket"](around:${radius},${lat},${lng});node["amenity"="fuel"](around:${radius},${lat},${lng});node["tourism"="hotel"](around:${radius},${lat},${lng}););out body;`;
   const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
   const res = await fetch(url);
   const data = await res.json();
-  return data.elements;
+  return data.elements.filter(el => !isHebrewText(el.tags && el.tags.name));
 }
 
 function getServiceIcon(tags) {
