@@ -114,6 +114,12 @@ async function getWeatherInfo(lat, lng, dayOffset) {
   }
 }
 
+function isFriendsQuery(q) {
+  const friendWords = ['اصحاب', 'أصحاب', 'صاحب', 'صاحبي', 'صاحبتي', 'صديق', 'صديقتي', 'اصدقاء', 'أصدقاء', 'رفقة', 'رفاق', 'شلة', 'شلتي', 'جماعة', 'فريق', 'زملاء', 'جروب', 'friends'];
+  const funWords = ['اتسلى', 'أتسلى', 'نتسلى', 'تسلية', 'استمتاع', 'نتفسح', 'فسحة', 'خرجة', 'نطلع', 'طلعة'];
+  return friendWords.some(w => q.includes(w)) || funWords.some(w => q.includes(w));
+}
+
 async function getRahalResponse(question, userLocation, userPlaces) {
   const q = question.trim();
 
@@ -128,8 +134,7 @@ async function getRahalResponse(question, userLocation, userPlaces) {
     return 'أنا رحال 🧭 دليلك السياحي الذكي بموقع رحلتي! بقدر أساعدك تلاقي أفضل الأماكن حسب الموسم، الطقس، نوع النشاط، أو حتى وين تروح بكرا 😊';
   }
 
-  const distMatch = (q.includes('كم يبعد') || q.includes('كم بعد') || q.includes('قديش يبعد') || q.includes('المسافة'));
-  if (distMatch) {
+  if (q.includes('كم يبعد') || q.includes('كم بعد') || q.includes('قديش يبعد') || q.includes('المسافة')) {
     const foundDistKey = Object.keys(places).find(k => q.includes(places[k].name));
     if (foundDistKey) {
       const amman = places.amman;
@@ -154,12 +159,15 @@ async function getRahalResponse(question, userLocation, userPlaces) {
   const wantsTomorrow = q.includes('بكرا') || q.includes('غدا') || q.includes('غداً');
   const wantsToday = q.includes('اليوم') || q.includes('هلق') || q.includes('هلأ');
   const wantsWeekend = q.includes('ويكند') || q.includes('عطلة') || q.includes('نهاية الأسبوع') || q.includes('الجمعة') || q.includes('السبت');
-  const asksWhereToGo = q.includes('وين') || q.includes('روح') || q.includes('نصح') || q.includes('اقترح') || q.includes('مناسب') || q.includes('رحلة') || q.includes('خطط') || q.includes('خطة') || q.includes('مكان اذهب') || q.includes('مكان أذهب');
+  const asksWhereToGo = q.includes('وين') || q.includes('روح') || q.includes('نصح') || q.includes('اقترح') || q.includes('مناسب') || q.includes('رحلة') || q.includes('خطط') || q.includes('خطة') || q.includes('مكان اذهب') || q.includes('مكان أذهب') || q.includes('مكان اتسلى') || q.includes('مكان أتسلى');
 
   if ((wantsTomorrow || wantsToday || wantsWeekend) && asksWhereToGo) {
     const romantic = q.includes('خطيب') || q.includes('خطيبة') || q.includes('زوجي') || q.includes('زوجتي') || q.includes('رومانسي') || q.includes('حبيب');
     if (romantic) {
       return 'لجو رومانسي 💑 جربوا غروب الشمس بوادي رم 🌅، أو ليلة استرخاء بحمامات ماعين ♨️، أو نزهة عالبحر الميت وقت الغروب 🌊';
+    }
+    if (isFriendsQuery(q)) {
+      return 'للخروجات مع الأصدقاء والتسلية 👥: وادي رم للتخييم الجماعي 🏜️، وادي الموجب للمغامرة 🏞️، غابات برقش للفرشة والشواء 🌳، أو البحر الميت ليوم مرح 🌊';
     }
     if (!userLocation) {
       return 'لازم تسمحيلي بالوصول لموقعك عشان أجيب حالة الطقس بالضبط 🌦️ (اضغطي "السماح" لو المتصفح طلب الإذن). بس بشكل عام: لو الجو حر روحي للبحر الميت أو العقبة للسباحة 🌊، ولو معتدل جربي وادي رم أو عجلون للتنزه والشواء 🍖، ولو بارد جربي حمامات ماعين أو الحمة ♨️';
@@ -186,52 +194,39 @@ async function getRahalResponse(question, userLocation, userPlaces) {
   if (q.includes('خطيب') || q.includes('خطيبة') || q.includes('زوجي') || q.includes('زوجتي') || q.includes('رومانسي') || q.includes('حبيب')) {
     return 'لأجواء رومانسية 💑: غروب الشمس بوادي رم 🌅، ليلة هادئة بحمامات ماعين ♨️، أو نزهة على البحر الميت وقت الغروب 🌊';
   }
-  if (q.includes('اصحاب') || q.includes('أصحاب') || q.includه === undefined) {}
-  if (q.includes('اصحاب') || q.includه === undefined) {}
-  if (q.includes('اصحاب') || q.includes('أصحاب') || q.includes('شلة') || q.includes('مجموعة')) {
-    return 'للخروجات مع الشلة 👥: وادي رم للتخييم الجماعي 🏜️، وادي الموجب للمغامرة 🏞️، أو غابات برقش للفرشة والشواء 🌳';
+  if (isFriendsQuery(q)) {
+    return 'للخروجات مع الأصدقاء والتسلية 👥: وادي رم للتخييم الجماعي 🏜️، وادي الموجب للمغامرة 🏞️، غابات برقش للفرشة والشواء 🌳، أو البحر الميت ليوم مرح 🌊';
   }
-  if (q.includes('لحالي') || q.includes('وحدي') || q.includه === undefined) {}
   if (q.includes('لحالي') || q.includes('وحدي')) {
     return 'للسفر لحالك بهدوء 🚶: محمية ضانا 🏔️، الطفيلة ⛰️، أو البتراء لتجربة تأملية';
   }
-  if (q.includes('تصوير') || q.includه === undefined) {}
   if (q.includes('تصوير') || q.includes('انستقرام') || q.includes('صور حلوة')) {
     return 'أجمل أماكن للتصوير 📸: البتراء (الخزنة) 🏛️، وادي رم (غروب الشمس) 🌅، البحر الميت، وقلعة عجلون';
   }
-  if (q.includes('مشي') || q.includه === undefined) {}
   if (q.includes('مشي') || q.includes('هايكنغ') || q.includes('مسار') || q.includes('مسارات')) {
     return 'مسارات مشي رائعة 🥾: محمية ضانا (مسار الوادي الكامل)، وادي الموجب (المسار المائي)، والبتراء (المسير الطويل للدير)';
   }
-  if (q.includes('نجوم') || q.includه === undefined) {}
   if (q.includes('نجوم') || q.includes('تخييم ليلي') || q.includes('سماء')) {
     return 'أفضل مكان لمشاهدة النجوم ⭐ ليلاً: وادي رم 🏜️، بعيد عن أضواء المدن وسماءه صافية جداً بالليل';
   }
-  if (q.includes('شلالات') || q.includه === undefined) {}
   if (q.includes('شلالات') || q.includes('شلال')) {
     return 'شلالات جميلة: حمامات ماعين ♨️ (شلالات ساخنة)، ووادي الموجب 🏞️ (مسارات مائية وشلالات)';
   }
-  if (q.includes('طيور') || q.includه === undefined) {}
   if (q.includes('طيور') || q.includes('مراقبة الطيور')) {
     return 'لمراقبة الطيور 🦅: محمية الأزرق المائية 🦆، وجهة مهمة للطيور المهاجرة';
   }
-  if (q.includes('ثلج') || q.includه === undefined) {}
   if (q.includes('ثلج') || q.includes('تلج')) {
     return 'عجلون من المناطق اللي ممكن يتساقط فيها الثلج شتاءً ❄️🌲 (حسب الموسم)';
   }
-  if (q.includes('قلاع') || q.includه === undefined) {}
-  if (q.includes('قلاع') || q.includes('قلعة') && !foundKey) {
+  if ((q.includes('قلاع') || q.includes('قلعة')) && !foundKey) {
     return 'قلاع تاريخية رائعة 🏰: الكرك، عجلون، الشوبك، وقلعة الأزرق - كل وحدة بطراز وقصة مختلفة';
   }
-  if (q.includes('يونسكو') || q.includه === undefined) {}
   if (q.includes('يونسكو') || q.includes('تراث عالمي')) {
     return 'مواقع مسجلة على قائمة اليونسكو 🏛️: البتراء، أم الرصاص، قصر عمرة، والسلط';
   }
-  if (q.includes('ازدحام') || q.includه === undefined) {}
   if (q.includes('ازدحام') || q.includes('مزدحم') || q.includes('بعيد عن الزحمة')) {
     return 'أماكن هادئة بعيدة عن الزحمة 🌿: محمية ضانا، الطفيلة، أم النمل، وغابات برقش';
   }
-  if (q.includes('افضل وقت') || q.includه === undefined) {}
   if (q.includes('افضل وقت') || q.includes('أفضل وقت')) {
     return 'بشكل عام: الربيع 🌸 (آذار-أيار) والخريف أفضل وقت لمعظم المناطق (طقس معتدل)، الصيف مناسب للمناطق الجبلية الباردة، والشتاء مناسب للبتراء ووادي رم والعقبة (أدفأ) ☀️';
   }
