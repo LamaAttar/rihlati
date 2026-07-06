@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { db } from './firebase';
 import { auth, signInWithGoogle, logOut } from './Auth';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, getDoc, arrayUnion, collection, addDoc, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc, arrayUnion, arrayRemove, collection, addDoc, getDocs } from 'firebase/firestore';
 import L from 'leaflet';
 import ImageUpload from './ImageUpload';
 import translations from './translations';
@@ -115,7 +115,7 @@ async function getWeatherInfo(lat, lng, dayOffset) {
 }
 
 function isFriendsQuery(q) {
-  const friendWords = ['اصحاب', 'أصحاب', 'صاحب', 'صاحبي', 'صاحبتي', 'صديق', 'صديقتي', 'اصدقاء', 'أصدقاء', 'رفقة', 'رفاق', 'شلة', 'شلتي', 'جماعة', 'فريق', 'زملاء', 'جروب', 'friends'];
+  const friendWords = ['اصحاب', 'أصحاب', 'صاحب', 'صاحبي', 'صاحبتي', 'صديق', 'صديقتي', 'اصدقاء', 'أصدقاء', 'رفقة', 'رفاق', 'شلة', 'شلتي', 'جماعة', 'فريق', 'زملاء', 'جروب', 'شباب', 'شب', 'بنات', 'ولاد', 'friends'];
   const funWords = ['اتسلى', 'أتسلى', 'نتسلى', 'تسلية', 'استمتاع', 'نتفسح', 'فسحة', 'خرجة', 'نطلع', 'طلعة'];
   return friendWords.some(w => q.includes(w)) || funWords.some(w => q.includes(w));
 }
@@ -124,7 +124,7 @@ async function getRahalResponse(question, userLocation, userPlaces) {
   const q = question.trim();
 
   const greetings = ['مرحبا', 'مرحباً', 'هاي', 'اهلا', 'أهلا', 'السلام عليكم'];
-  if (greetings.some(g => q.includes(g)) && q.length < 15) {
+  if (greetings.some(g => q.includes(g)) && q.length < 30) {
     return 'أهلاً فيكي! 👋 أنا رحال، دليلك السياحي بالأردن. اسأليني عن أي منطقة أو نشاط أو الطقس!';
   }
   if (q.includes('شكرا') || q.includes('شكراً') || q.includes('تسلم')) {
@@ -162,12 +162,12 @@ async function getRahalResponse(question, userLocation, userPlaces) {
   const asksWhereToGo = q.includes('وين') || q.includes('روح') || q.includes('نصح') || q.includes('اقترح') || q.includes('مناسب') || q.includes('رحلة') || q.includes('خطط') || q.includes('خطة') || q.includes('مكان اذهب') || q.includes('مكان أذهب') || q.includes('مكان اتسلى') || q.includes('مكان أتسلى');
 
   if ((wantsTomorrow || wantsToday || wantsWeekend) && asksWhereToGo) {
+    if (isFriendsQuery(q)) {
+      return 'للخروجات مع الشباب والأصدقاء 👥: وادي رم للتخييم الجماعي 🏜️، وادي الموجب للمغامرة 🏞️، غابات برقش للفرشة والشواء 🌳، أو البحر الميت ليوم مرح 🌊';
+    }
     const romantic = q.includes('خطيب') || q.includes('خطيبة') || q.includes('زوجي') || q.includes('زوجتي') || q.includes('رومانسي') || q.includes('حبيب');
     if (romantic) {
       return 'لجو رومانسي 💑 جربوا غروب الشمس بوادي رم 🌅، أو ليلة استرخاء بحمامات ماعين ♨️، أو نزهة عالبحر الميت وقت الغروب 🌊';
-    }
-    if (isFriendsQuery(q)) {
-      return 'للخروجات مع الأصدقاء والتسلية 👥: وادي رم للتخييم الجماعي 🏜️، وادي الموجب للمغامرة 🏞️، غابات برقش للفرشة والشواء 🌳، أو البحر الميت ليوم مرح 🌊';
     }
     if (!userLocation) {
       return 'لازم تسمحيلي بالوصول لموقعك عشان أجيب حالة الطقس بالضبط 🌦️ (اضغطي "السماح" لو المتصفح طلب الإذن). بس بشكل عام: لو الجو حر روحي للبحر الميت أو العقبة للسباحة 🌊، ولو معتدل جربي وادي رم أو عجلون للتنزه والشواء 🍖، ولو بارد جربي حمامات ماعين أو الحمة ♨️';
@@ -191,11 +191,11 @@ async function getRahalResponse(question, userLocation, userPlaces) {
     return `الجو ${dateLabel} بارد شوي (${Math.round(temp)}°) ❄️ أنسب شي حمامات ماعين ♨️ أو الحمة الأردنية للدفا`;
   }
 
+  if (isFriendsQuery(q)) {
+    return 'للخروجات مع الشباب والأصدقاء 👥: وادي رم للتخييم الجماعي 🏜️، وادي الموجب للمغامرة 🏞️، غابات برقش للفرشة والشواء 🌳، أو البحر الميت ليوم مرح 🌊';
+  }
   if (q.includes('خطيب') || q.includes('خطيبة') || q.includes('زوجي') || q.includes('زوجتي') || q.includes('رومانسي') || q.includes('حبيب')) {
     return 'لأجواء رومانسية 💑: غروب الشمس بوادي رم 🌅، ليلة هادئة بحمامات ماعين ♨️، أو نزهة على البحر الميت وقت الغروب 🌊';
-  }
-  if (isFriendsQuery(q)) {
-    return 'للخروجات مع الأصدقاء والتسلية 👥: وادي رم للتخييم الجماعي 🏜️، وادي الموجب للمغامرة 🏞️، غابات برقش للفرشة والشواء 🌳، أو البحر الميت ليوم مرح 🌊';
   }
   if (q.includes('لحالي') || q.includes('وحدي')) {
     return 'للسفر لحالك بهدوء 🚶: محمية ضانا 🏔️، الطفيلة ⛰️، أو البتراء لتجربة تأملية';
@@ -387,6 +387,50 @@ function AddPlaceForm({ user, onAdd }) {
   );
 }
 
+function ProfilePanel({ user, userPlaces, favoriteKeys, onClose }) {
+  const myPlaces = userPlaces.filter(p => p.addedBy === user.displayName);
+  const favoritePlacesList = favoriteKeys.map(k => places[k]).filter(Boolean);
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', maxWidth: 500, margin: '15px auto', padding: 20, textAlign: 'right', position: 'relative' }}>
+      <button onClick={onClose} style={{ position: 'absolute', top: 12, left: 12, border: 'none', background: 'none', fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <img src={user.photoURL} alt={user.displayName} style={{ width: 60, height: 60, borderRadius: '50%' }} />
+        <div>
+          <h2 style={{ margin: 0 }}>👤 {user.displayName}</h2>
+          <p style={{ margin: 0, color: '#777', fontSize: '0.85rem' }}>{user.email}</p>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 20, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div style={{ background: '#faf6ec', borderRadius: 10, padding: '10px 16px' }}>
+          <strong>📍 {myPlaces.length}</strong> مناطق أضفتها
+        </div>
+        <div style={{ background: '#faf6ec', borderRadius: 10, padding: '10px 16px' }}>
+          <strong>❤️ {favoritePlacesList.length}</strong> أماكن مفضلة
+        </div>
+      </div>
+
+      <h3>❤️ الأماكن المفضلة</h3>
+      {favoritePlacesList.length === 0 ? (
+        <p style={{ color: '#999' }}>ما ضفتي أي مكان للمفضلة بعد. اضغطي القلب ❤️ على أي بطاقة منطقة!</p>
+      ) : (
+        <ul style={{ paddingRight: 20 }}>
+          {favoritePlacesList.map(p => <li key={p.name}>{p.name}</li>)}
+        </ul>
+      )}
+
+      {myPlaces.length > 0 && (
+        <>
+          <h3>📍 مناطق أضفتها</h3>
+          <ul style={{ paddingRight: 20 }}>
+            {myPlaces.map((p, i) => <li key={i}>{p.name}</li>)}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+}
+
 function RahalChatbot({ userLocation, userPlaces }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState([{ from: 'bot', text: 'مرحباً! 👋 كيف يمكنني مساعدتك اليوم؟' }]);
@@ -470,6 +514,8 @@ function App() {
   const [lang, setLang] = useState('ar');
   const [lightboxImg, setLightboxImg] = useState(null);
   const [userPlaces, setUserPlaces] = useState([]);
+  const [favoriteKeys, setFavoriteKeys] = useState([]);
+  const [showProfile, setShowProfile] = useState(false);
 
   const t = translations[lang];
 
@@ -509,11 +555,34 @@ function App() {
     loadRatings();
     loadPhotos();
     loadUserPlaces();
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        try {
+          const favDoc = await getDoc(doc(db, 'favorites', currentUser.uid));
+          if (favDoc.exists()) setFavoriteKeys(favDoc.data().placeKeys || []);
+        } catch (e) {}
+      } else {
+        setFavoriteKeys([]);
+      }
     });
     return () => unsubscribe();
   }, []);
+
+  const toggleFavorite = async (key) => {
+    if (!user) return alert('سجل دخول أولاً لإضافة للمفضلة');
+    const isFav = favoriteKeys.includes(key);
+    try {
+      const ref = doc(db, 'favorites', user.uid);
+      if (isFav) {
+        await setDoc(ref, { placeKeys: arrayRemove(key) }, { merge: true });
+        setFavoriteKeys(prev => prev.filter(k => k !== key));
+      } else {
+        await setDoc(ref, { placeKeys: arrayUnion(key) }, { merge: true });
+        setFavoriteKeys(prev => [...prev, key]);
+      }
+    } catch (e) {}
+  };
 
   const handlePhotoUpload = async (placeKey, url) => {
     try {
@@ -546,9 +615,19 @@ function App() {
     const placeDesc = isUserPlace ? place.desc : (lang === 'ar' ? place.desc : place.descEn);
     const placeFood = isUserPlace ? null : (lang === 'ar' ? place.food : place.foodEn);
     const photos = placePhotos[key] || [];
+    const isFav = !isUserPlace && favoriteKeys.includes(key);
 
     return (
-      <div className="place-card" key={key}>
+      <div className="place-card" key={key} style={{ position: 'relative' }}>
+        {!isUserPlace && (
+          <span
+            onClick={() => toggleFavorite(key)}
+            style={{ position: 'absolute', top: 10, insetInlineStart: 10, fontSize: '1.4rem', cursor: 'pointer', zIndex: 5 }}
+            title={isFav ? 'إزالة من المفضلة' : 'أضف للمفضلة'}
+          >
+            {isFav ? '❤️' : '🤍'}
+          </span>
+        )}
         <h3>{placeName}</h3>
         {isUserPlace && <span className="user-badge">👤 {place.addedBy}</span>}
         <img src={place.img} alt={placeName} />
@@ -606,8 +685,14 @@ function App() {
           </button>
           {user ? (
             <div className="user-info">
-              <img src={user.photoURL} alt={user.displayName} className="user-avatar" />
-              <span>{user.displayName}</span>
+              <img
+                src={user.photoURL}
+                alt={user.displayName}
+                className="user-avatar"
+                style={{ cursor: 'pointer' }}
+                onClick={() => setShowProfile(prev => !prev)}
+              />
+              <span style={{ cursor: 'pointer' }} onClick={() => setShowProfile(prev => !prev)}>{user.displayName}</span>
               <button className="logout-btn" onClick={logOut}>{t.logout}</button>
             </div>
           ) : (
@@ -615,6 +700,10 @@ function App() {
           )}
         </div>
       </div>
+
+      {showProfile && user && (
+        <ProfilePanel user={user} userPlaces={userPlaces} favoriteKeys={favoriteKeys} onClose={() => setShowProfile(false)} />
+      )}
 
       <p>{t.subtitle}</p>
       <input className="search-input" type="text" placeholder={`🔍 ${t.search}`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
