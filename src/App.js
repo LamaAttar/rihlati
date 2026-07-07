@@ -58,20 +58,30 @@ function isHebrewText(text) {
   return /[\u0590-\u05FF]/.test(text);
 }
 
-async function fetchNearbyServices(lat, lng) {
+async function fetchNearbyRestaurants(lat, lng) {
   const radius = 15000;
-  const query = `[out:json];(node["amenity"="restaurant"](around:${radius},${lat},${lng});node["shop"="supermarket"](around:${radius},${lat},${lng});node["amenity"="fuel"](around:${radius},${lat},${lng});node["tourism"="hotel"](around:${radius},${lat},${lng}););out body;`;
+  const query = `[out:json];node["amenity"="restaurant"](around:${radius},${lat},${lng});out body;`;
   const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
   const res = await fetch(url);
   const data = await res.json();
-  return data.elements.filter(el => !isHebrewText(el.tags && el.tags.name));
+  return data.elements.filter(el => !isHebrewText(el.tags && el.tags.name) && el.tags && el.tags.name);
+}
+
+async function fetchNearbySupportServices(lat, lng) {
+  const radius = 15000;
+  const query = `[out:json];(node["amenity"="fuel"](around:${radius},${lat},${lng});node["amenity"="hospital"](around:${radius},${lat},${lng});node["amenity"="clinic"](around:${radius},${lat},${lng});node["shop"="supermarket"](around:${radius},${lat},${lng});node["amenity"="bank"](around:${radius},${lat},${lng}););out body;`;
+  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  return data.elements.filter(el => !isHebrewText(el.tags && el.tags.name) && el.tags && el.tags.name);
 }
 
 function getServiceIcon(tags) {
   if (tags.amenity === 'restaurant') return '🍽️';
   if (tags.shop === 'supermarket') return '🛒';
   if (tags.amenity === 'fuel') return '⛽';
-  if (tags.tourism === 'hotel') return '🏨';
+  if (tags.amenity === 'hospital' || tags.amenity === 'clinic') return '🏥';
+  if (tags.amenity === 'bank') return '🏦';
   return '📍';
 }
 
@@ -79,7 +89,8 @@ function getMarkerColor(tags) {
   if (tags.amenity === 'restaurant') return 'red';
   if (tags.shop === 'supermarket') return 'green';
   if (tags.amenity === 'fuel') return 'blue';
-  if (tags.tourism === 'hotel') return 'orange';
+  if (tags.amenity === 'hospital' || tags.amenity === 'clinic') return 'purple';
+  if (tags.amenity === 'bank') return 'orange';
   return 'gray';
 }
 
@@ -387,26 +398,59 @@ function AddPlaceForm({ user, onAdd }) {
   );
 }
 
-function ProfilePanel({ user, userPlaces, favoriteKeys, onClose }) {
+function Avatar({ user, size }) {
+  const [imgError, setImgError] = useState(false);
+  const initial = (user.displayName || '?').trim().charAt(0).toUpperCase();
+  if (imgError || !user.photoURL) {
+    return (
+      <div style={{ width: size, height: size, borderRadius: '50%', background: '#b8860b', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: size / 2 }}>
+        {initial}
+      </div>
+    );
+  }
+  return (
+    <img
+      src={user.photoURL}
+      alt={user.displayName}
+      referrerPolicy="no-referrer"
+      style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover' }}
+      onError={() => setImgError(true)}
+    />
+  );
+}
+
+function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, onClose }) {
   const myPlaces = userPlaces.filter(p => p.addedBy === user.displayName);
   const favoritePlacesList = favoriteKeys.map(k => places[k]).filter(Boolean);
+
+  const myPhotos = [];
+  Object.keys(placePhotos).forEach(key => {
+    (placePhotos[key] || []).forEach(photoObj => {
+      if (photoObj.uploadedBy === user.displayName) {
+        myPhotos.push({ ...photoObj, placeName: places[key] ? places[key].name : key });
+      }
+    });
+  });
 
   return (
     <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', maxWidth: 500, margin: '15px auto', padding: 20, textAlign: 'right', position: 'relative' }}>
       <button onClick={onClose} style={{ position: 'absolute', top: 12, left: 12, border: 'none', background: 'none', fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <img src={user.photoURL} alt={user.displayName} style={{ width: 60, height: 60, borderRadius: '50%' }} />
+        <Avatar user={user} size={60} />
         <div>
           <h2 style={{ margin: 0 }}>👤 {user.displayName}</h2>
           <p style={{ margin: 0, color: '#777', fontSize: '0.85rem' }}>{user.email}</p>
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 20, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{ background: '#faf6ec', borderRadius: 10, padding: '10px 16px' }}>
           <strong>📍 {myPlaces.length}</strong> مناطق أضفتها
         </div>
         <div style={{ background: '#faf6ec', borderRadius: 10, padding: '10px 16px' }}>
           <strong>❤️ {favoritePlacesList.length}</strong> أماكن مفضلة
+        </div>
+        <div style={{ background: '#faf6ec', borderRadius: 10, padding: '10px 16px' }}>
+          <strong>📸 {myPhotos.length}</strong> صور رفعتها
         </div>
       </div>
 
@@ -417,6 +461,20 @@ function ProfilePanel({ user, userPlaces, favoriteKeys, onClose }) {
         <ul style={{ paddingRight: 20 }}>
           {favoritePlacesList.map(p => <li key={p.name}>{p.name}</li>)}
         </ul>
+      )}
+
+      <h3>📸 الصور التي رفعتها</h3>
+      {myPhotos.length === 0 ? (
+        <p style={{ color: '#999' }}>لسا ما رفعتي أي صورة. رفعي صورة من أي بطاقة منطقة!</p>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+          {myPhotos.map((p, i) => (
+            <div key={i}>
+              <img src={p.url} alt={p.placeName} style={{ width: '100%', height: 70, objectFit: 'cover', borderRadius: 8 }} />
+              <p style={{ fontSize: '0.7rem', margin: '2px 0 0', color: '#777' }}>{p.placeName}</p>
+            </div>
+          ))}
+        </div>
       )}
 
       {myPlaces.length > 0 && (
@@ -505,6 +563,7 @@ function App() {
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [services, setServices] = useState([]);
+  const [restaurants, setRestaurants] = useState([]);
   const [loadingServices, setLoadingServices] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [ratings, setRatings] = useState({});
@@ -541,7 +600,14 @@ function App() {
         const newPhotos = {};
         for (const key of Object.keys(places)) {
           const docSnap = await getDoc(doc(db, 'photos', key));
-          if (docSnap.exists()) newPhotos[key] = docSnap.data().urls || [];
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data.items) {
+              newPhotos[key] = data.items;
+            } else if (data.urls) {
+              newPhotos[key] = data.urls.map(u => ({ url: u, uploadedBy: null }));
+            }
+          }
         }
         setPlacePhotos(newPhotos);
       } catch (e) {}
@@ -586,27 +652,36 @@ function App() {
 
   const handlePhotoUpload = async (placeKey, url) => {
     try {
-      await setDoc(doc(db, 'photos', placeKey), { urls: arrayUnion(url) }, { merge: true });
-      setPlacePhotos(prev => ({ ...prev, [placeKey]: [...(prev[placeKey] || []), url] }));
+      const photoObj = { url, uploadedBy: user ? user.displayName : null, uploadedAt: new Date().toISOString() };
+      await setDoc(doc(db, 'photos', placeKey), { items: arrayUnion(photoObj) }, { merge: true });
+      setPlacePhotos(prev => ({ ...prev, [placeKey]: [...(prev[placeKey] || []), photoObj] }));
     } catch (e) {}
   };
 
   const toggleDetails = async (key) => {
-    if (openPlace === key) { setOpenPlace(''); setServices([]); return; }
+    if (openPlace === key) { setOpenPlace(''); setServices([]); setRestaurants([]); return; }
     setOpenPlace(key);
     setLoadingServices(true);
-    const result = await fetchNearbyServices(places[key].lat, places[key].lng);
-    setServices(result.filter(s => s.tags.name).slice(0, 10));
+    const [supportResult, restaurantResult] = await Promise.all([
+      fetchNearbySupportServices(places[key].lat, places[key].lng),
+      fetchNearbyRestaurants(places[key].lat, places[key].lng),
+    ]);
+    setServices(supportResult.slice(0, 10));
+    setRestaurants(restaurantResult.slice(0, 6));
     setLoadingServices(false);
   };
 
   const openMap = async (place) => {
     setSelectedPlace(place);
-    const result = await fetchNearbyServices(place.lat, place.lng);
-    setMapServices(result.filter(s => s.lat && s.lon));
+    const [supportResult, restaurantResult] = await Promise.all([
+      fetchNearbySupportServices(place.lat, place.lng),
+      fetchNearbyRestaurants(place.lat, place.lng),
+    ]);
+    const combined = [...supportResult, ...restaurantResult];
+    setMapServices(combined.filter(s => s.lat && s.lon));
   };
 
-  const goHome = () => { setSeason(''); setOpenPlace(''); setSelectedPlace(null); setServices([]); setSearchQuery(''); setMapServices([]); };
+  const goHome = () => { setSeason(''); setOpenPlace(''); setSelectedPlace(null); setServices([]); setRestaurants([]); setSearchQuery(''); setMapServices([]); };
   const openLightbox = (url) => setLightboxImg(url);
   const closeLightbox = () => setLightboxImg(null);
 
@@ -622,7 +697,7 @@ function App() {
         {!isUserPlace && (
           <span
             onClick={() => toggleFavorite(key)}
-            style={{ position: 'absolute', top: 10, insetInlineStart: 10, fontSize: '1.4rem', cursor: 'pointer', zIndex: 5 }}
+            style={{ position: 'absolute', top: 10, insetInlineEnd: 10, fontSize: '1.4rem', cursor: 'pointer', zIndex: 5 }}
             title={isFav ? 'إزالة من المفضلة' : 'أضف للمفضلة'}
           >
             {isFav ? '❤️' : '🤍'}
@@ -648,9 +723,14 @@ function App() {
             <button onClick={() => toggleDetails(key)}>{t.services}</button>
             {openPlace === key && (
               <div className="services">
-                {loadingServices ? <p>{t.loading}</p>
-                  : services.length > 0 ? services.map((s, i) => <p key={i}>{getServiceIcon(s.tags)} {s.tags.name}</p>)
-                  : <p>{t.noServices}</p>}
+                {loadingServices ? <p>{t.loading}</p> : (
+                  <>
+                    <h4>🍽️ {lang === 'ar' ? 'مطاعم قريبة' : 'Nearby Restaurants'}</h4>
+                    {restaurants.length > 0 ? restaurants.map((s, i) => <p key={i}>🍽️ {s.tags.name}</p>) : <p>{t.noServices}</p>}
+                    <h4>🏥 {lang === 'ar' ? 'خدمات قريبة' : 'Nearby Services'}</h4>
+                    {services.length > 0 ? services.map((s, i) => <p key={i}>{getServiceIcon(s.tags)} {s.tags.name}</p>) : <p>{t.noServices}</p>}
+                  </>
+                )}
               </div>
             )}
           </>
@@ -659,8 +739,8 @@ function App() {
           <div className="photo-gallery">
             <h4>{t.photos}</h4>
             <div className="photos-grid">
-              {photos.map((url, i) => (
-                <img key={i} src={url} alt={placeName} className="user-photo" onClick={() => openLightbox(url)} />
+              {photos.map((photoObj, i) => (
+                <img key={i} src={photoObj.url} alt={placeName} className="user-photo" onClick={() => openLightbox(photoObj.url)} />
               ))}
             </div>
           </div>
@@ -685,13 +765,9 @@ function App() {
           </button>
           {user ? (
             <div className="user-info">
-              <img
-                src={user.photoURL}
-                alt={user.displayName}
-                className="user-avatar"
-                style={{ cursor: 'pointer' }}
-                onClick={() => setShowProfile(prev => !prev)}
-              />
+              <span style={{ cursor: 'pointer' }} onClick={() => setShowProfile(prev => !prev)}>
+                <Avatar user={user} size={32} />
+              </span>
               <span style={{ cursor: 'pointer' }} onClick={() => setShowProfile(prev => !prev)}>{user.displayName}</span>
               <button className="logout-btn" onClick={logOut}>{t.logout}</button>
             </div>
@@ -702,7 +778,7 @@ function App() {
       </div>
 
       {showProfile && user && (
-        <ProfilePanel user={user} userPlaces={userPlaces} favoriteKeys={favoriteKeys} onClose={() => setShowProfile(false)} />
+        <ProfilePanel user={user} userPlaces={userPlaces} favoriteKeys={favoriteKeys} placePhotos={placePhotos} onClose={() => setShowProfile(false)} />
       )}
 
       <p>{t.subtitle}</p>
@@ -741,10 +817,11 @@ function App() {
         <div className="map-container">
           <h2>📍 {lang === 'ar' ? selectedPlace.name : (selectedPlace.nameEn || selectedPlace.name)}</h2>
           <div className="map-legend">
-            <span>🔴 {t.restaurants}</span>
-            <span>🟢 {t.markets}</span>
-            <span>🔵 {t.fuel}</span>
-            <span>🟠 {t.hotels}</span>
+            <span>🔴 {lang === 'ar' ? 'مطاعم' : 'Restaurants'}</span>
+            <span>🟢 {lang === 'ar' ? 'ماركت' : 'Markets'}</span>
+            <span>🔵 {lang === 'ar' ? 'محطات وقود' : 'Fuel'}</span>
+            <span>🟣 {lang === 'ar' ? 'مراكز صحية' : 'Health'}</span>
+            <span>🟠 {lang === 'ar' ? 'بنوك' : 'Banks'}</span>
           </div>
           <MapContainer center={[selectedPlace.lat, selectedPlace.lng]} zoom={13} style={{ height: '400px', width: '100%', borderRadius: '15px' }}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
