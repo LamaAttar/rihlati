@@ -838,6 +838,7 @@ function App() {
   const [showGenderModal, setShowGenderModal] = useState(false);
   const [points, setPoints] = useState(0);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showFavoritesPage, setShowFavoritesPage] = useState(false);
 
   const t = translations[lang];
 
@@ -986,9 +987,10 @@ return () => unsubscribe();
     setMapServices(combined.filter(s => s.lat && s.lon));
   };
 
-  const goHome = () => { setSeason(''); setOpenPlace(''); setSelectedPlace(null); setServices([]); setRestaurants([]); setSearchQuery(''); setMapServices([]); };
+  const goHome = () => { setSeason(''); setOpenPlace(''); setSelectedPlace(null); setServices([]); setRestaurants([]); setSearchQuery(''); setMapServices([]); setShowFavoritesPage(false); };
   const openLightbox = (url) => setLightboxImg(url);
   const closeLightbox = () => setLightboxImg(null);
+  const openFavoritesPage = () => { setSeason(''); setSelectedPlace(null); setSearchQuery(''); setShowFavoritesPage(true); };
 
   const renderPlace = (key, place, isUserPlace = false) => {
     const placeName = isUserPlace ? place.name : (lang === 'ar' ? place.name : place.nameEn);
@@ -1091,6 +1093,11 @@ return () => unsubscribe();
           <button className="lang-btn" onClick={() => setShowLeaderboard(prev => !prev)}>
             🏆 أفضل الرحالة
           </button>
+          {user && (
+            <button className="lang-btn" onClick={openFavoritesPage}>
+              ❤️ المفضلة
+            </button>
+          )}
           {user ? (
             <div className="user-info">
               <span style={{ cursor: 'pointer' }} onClick={() => setShowProfile(prev => !prev)}>
@@ -1124,28 +1131,41 @@ return () => unsubscribe();
       )}
 
       <p>{t.subtitle}</p>
-      <input className="search-input" type="text" placeholder={`🔍 ${t.search}`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+      <input className="search-input" type="text" placeholder={`🔍 ${t.search}`} value={searchQuery} onChange={(e) => { setShowFavoritesPage(false); setSearchQuery(e.target.value); }} />
 
-      {!searchQuery && season === '' && <p className="welcome-msg">{t.welcome}</p>}
+      {!searchQuery && season === '' && !showFavoritesPage && <p className="welcome-msg">{t.welcome}</p>}
 
       {!searchQuery && (
         <>
-          <button onClick={() => setSeason('summer')}>{t.summer}</button>
-          <button onClick={() => setSeason('winter')}>{t.winter}</button>
-          <button onClick={() => setSeason('spring')}>{t.spring}</button>
+          <button onClick={() => { setShowFavoritesPage(false); setSeason('summer'); }}>{t.summer}</button>
+          <button onClick={() => { setShowFavoritesPage(false); setSeason('winter'); }}>{t.winter}</button>
+          <button onClick={() => { setShowFavoritesPage(false); setSeason('spring'); }}>{t.spring}</button>
         </>
       )}
 
-      {user && season === '' && !searchQuery && (
+      {user && season === '' && !searchQuery && !showFavoritesPage && (
         <div style={{ margin: '15px auto', maxWidth: '600px' }}>
           <AddPlaceForm user={user} onAdd={(p) => setUserPlaces(prev => [...prev, p])} onPointsEarned={() => awardPoints(20)} />
         </div>
       )}
-      {!user && season === '' && !searchQuery && (
+      {!user && season === '' && !searchQuery && !showFavoritesPage && (
         <p className="login-hint" style={{ margin: '10px 0' }}>🔑 سجل دخول لإضافة منطقة جديدة</p>
       )}
 
-      {season !== '' && !searchQuery && <button className="home-btn" onClick={goHome}>{t.home}</button>}
+      {(season !== '' || showFavoritesPage) && !searchQuery && <button className="home-btn" onClick={goHome}>{t.home}</button>}
+
+      {showFavoritesPage && !selectedPlace && !searchQuery && (
+        <div>
+          <h2>❤️ الأماكن المفضلة</h2>
+          {favoriteKeys.length === 0 ? (
+            <p className="login-hint" style={{ textAlign: 'center' }}>ما ضفتي أي مكان للمفضلة بعد، دوسي ❤️ على أي بطاقة منطقة!</p>
+          ) : (
+            <div className="places-grid">
+              {favoriteKeys.map(key => places[key] ? renderPlace(key, places[key]) : null)}
+            </div>
+          )}
+        </div>
+      )}
 
       {searchQuery && (
         <div className="places-grid">
