@@ -425,3 +425,89 @@ button:hover {
   font-size: 0.85rem;
   padding: 0 15px 5px;
 }
+/* ===== كرت الطقس ===== */
+.weather-card-wrap { margin: 10px 0; }
+.weather-card-mini {
+  background: linear-gradient(120deg, #F6C453, #E88A3B);
+  color: #5A3411;
+  padding: 10px 14px;
+  border-radius: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+.weather-card-static {
+  justify-content: center;
+  background: #faf6ec;
+  color: #777;
+  font-weight: normal;
+  cursor: default;
+}
+.weather-detail-mini {
+  background: #fff7e6;
+  padding: 10px 14px;
+  border-radius: 0 0 14px 14px;
+  margin-top: -6px;
+  font-size: 0.85rem;
+  color: #5A3411;
+}
+
+/* ===== اختيار الجنس داخل البروفايل ===== */
+.gender-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+  color: #777;
+}
+.gender-select button {
+  border: none;
+  background: #faf6ec;
+  padding: 5px 12px;
+  border-radius: 16px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.gender-select button.active {
+  background: #b8860b;
+  color: #fff;
+}
+
+/* ===== بوب-أب اختيار الجنس أول تسجيل دخول ===== */
+.gender-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+.gender-modal h3 {
+  background: #fff;
+  padding: 24px 30px 12px;
+  border-radius: 16px 16px 0 0;
+  margin: 0;
+  color: #3E2F22;
+  text-align: center;
+}
+.gender-modal button {
+  background: #fff;
+  border: none;
+  border-top: 1px solid #eee;
+  padding: 14px 40px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: block;
+  width: 100%;
+}
+.gender-modal button:last-child {
+  border-radius: 0 0 16px 16px;
+}
+.gender-modal button:hover {
+  background: #faf6ec;
+}

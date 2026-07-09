@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { db } from './firebase';
 import { auth, signInWithGoogle, logOut } from './Auth';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, getDoc, arrayUnion, arrayRemove, collection, addDoc, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc, arrayUnion, arrayRemove, collection, addDoc, getDocs, increment } from 'firebase/firestore';
 import L from 'leaflet';
 import ImageUpload from './ImageUpload';
 import translations from './translations';
@@ -51,6 +51,13 @@ function getDistance(lat1, lon1, lat2, lon2) {
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
   return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(0);
+}
+
+/* ===== نظام النقاط والمستويات ===== */
+function getLevelInfo(points) {
+  if (points > 300) return { label: 'خبير سياحة', icon: '🥇' };
+  if (points >= 101) return { label: 'رحالة', icon: '🥈' };
+  return { label: 'مستكشف مبتدئ', icon: '🥉' };
 }
 
 function isHebrewText(text) {
@@ -305,7 +312,7 @@ async function getRahalResponse(question, userLocation, userPlaces) {
   return 'ما قدرت ألاقي جواب دقيق لسؤالك 🤔 جربي تسأليني عن: اسم منطقة، الموسم، الأكل، الطبيعة، الآثار، السباحة، المغامرة، التصوير، القلاع، أو "وين أروح بكرا" وبجاوبك حسب الطقس 😊';
 }
 
-function StarRating({ placeKey, ratings, setRatings, user }) {
+function StarRating({ placeKey, ratings, setRatings, user, onRated }) {
   const ratingData = ratings[placeKey] || { avg: 0, count: 0 };
   const avg = ratingData.avg || 0;
   const count = ratingData.count || 0;
@@ -324,6 +331,7 @@ function StarRating({ placeKey, ratings, setRatings, user }) {
       }
       await setDoc(ref, { avg: newAvg, count: newCount });
       setRatings({ ...ratings, [placeKey]: { avg: newAvg, count: newCount } });
+      if (onRated) onRated();
     } catch (e) {}
   };
 
@@ -337,7 +345,7 @@ function StarRating({ placeKey, ratings, setRatings, user }) {
   );
 }
 
-function AddPlaceForm({ user, onAdd }) {
+function AddPlaceForm({ user, onAdd, onPointsEarned }) {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [season, setSeason] = useState('summer');
@@ -367,6 +375,7 @@ function AddPlaceForm({ user, onAdd }) {
     };
     await addDoc(collection(db, 'userPlaces'), newPlace);
     onAdd(newPlace);
+    if (onPointsEarned) onPointsEarned();
     setName(''); setDesc(''); setImgUrl(''); setShow(false);
   };
 
@@ -398,28 +407,135 @@ function AddPlaceForm({ user, onAdd }) {
   );
 }
 
-function Avatar({ user, size }) {
-  const [imgError, setImgError] = useState(false);
-  const initial = (user.displayName || '?').trim().charAt(0).toUpperCase();
-  if (imgError || !user.photoURL) {
+function Avatar({ user, size, gender }) {
+
+  // بنت
+  if (gender === "female") {
     return (
-      <div style={{ width: size, height: size, borderRadius: '50%', background: '#b8860b', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: size / 2 }}>
-        {initial}
-      </div>
+      <img
+        src="/girl.png"
+        alt="girl avatar"
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          objectFit: "cover"
+        }}
+      />
     );
   }
+
+  // شب
+  if (gender === "male") {
+    return (
+      <img
+        src="/boy.png"
+        alt="boy avatar"
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          objectFit: "cover"
+        }}
+      />
+    );
+  }
+
+  // إذا لسا ما اختار
   return (
-    <img
-      src={user.photoURL}
-      alt={user.displayName}
-      referrerPolicy="no-referrer"
-      style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover' }}
-      onError={() => setImgError(true)}
-    />
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        background: "#b8860b",
+        color: "white",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: "bold",
+        fontSize: size / 2
+      }}
+    >
+      ?
+    </div>
   );
 }
 
-function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, onClose }) {
+/* ===== كرت الطقس — بيشتغل للموقع العام أو لمنطقة محددة ===== */
+function WeatherCard({ latitude, longitude, placeName }) {
+  const [weather, setWeather] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!latitude || !longitude) { setLoading(false); return; }
+      setLoading(true);
+      const data = await getWeatherInfo(latitude, longitude, 0);
+      if (!cancelled) { setWeather(data); setLoading(false); }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [latitude, longitude]);
+
+  if (!latitude || !longitude) {
+    return (
+      <div className="weather-card-mini weather-card-static">
+        🌦️ الموقع غير متاح حالياً
+      </div>
+    );
+  }
+  if (loading) {
+    return <div className="weather-card-mini weather-card-static">⏳ جاري جلب حالة الطقس...</div>;
+  }
+  if (!weather || weather.temp === undefined) {
+    return null;
+  }
+
+  const temp = Math.round(weather.temp);
+  const rain = weather.rain || 0;
+  let condition = 'مشمس';
+  let icon = '☀️';
+  let recommendation = 'الجو رائع لزيارة الأماكن الأثرية أو المشي بالطبيعة 🌿';
+
+  if (rain > 2) {
+    condition = 'ممطر';
+    icon = '🌧️';
+    recommendation = 'الجو ممطر شوي، فرصة حلوة لزيارة الأماكن الأثرية أو المسقوفة';
+  } else if (temp >= 30) {
+    condition = 'حر ومشمس';
+    icon = '☀️';
+    recommendation = 'الجو حر، خذي معك ماء وواقي شمس ☀️';
+  } else if (temp >= 20) {
+    condition = 'معتدل';
+    icon = '🌤️';
+    recommendation = 'الجو معتدل ورائع للزيارة والتنزه 🍃';
+  } else {
+    condition = 'بارد';
+    icon = '❄️';
+    recommendation = 'الجو بارد شوي، خذي معك ملابس دافية';
+  }
+
+  return (
+    <div className="weather-card-wrap">
+      <div className={`weather-card-mini ${open ? 'open' : ''}`} onClick={() => setOpen(o => !o)}>
+        <span className="weather-temp-mini">
+          {icon} {placeName ? `${placeName}: ` : ''}{temp}° · {condition}
+        </span>
+        <span className="weather-chevron-mini">{open ? '▲' : '▼'}</span>
+      </div>
+      {open && (
+        <div className="weather-detail-mini">
+          <p>{recommendation}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocation, gender, onGenderChange, points, onClose }) {
   const myPlaces = userPlaces.filter(p => p.addedBy === user.displayName);
   const favoritePlacesList = favoriteKeys.map(k => places[k]).filter(Boolean);
 
@@ -436,13 +552,39 @@ function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, onClose }) 
     <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', maxWidth: 500, margin: '15px auto', padding: 20, textAlign: 'right', position: 'relative' }}>
       <button onClick={onClose} style={{ position: 'absolute', top: 12, left: 12, border: 'none', background: 'none', fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <Avatar user={user} size={60} />
+        <Avatar user={user} size={60} gender={gender} />
         <div>
           <h2 style={{ margin: 0 }}>👤 {user.displayName}</h2>
           <p style={{ margin: 0, color: '#777', fontSize: '0.85rem' }}>{user.email}</p>
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+
+{!gender && (
+  <div className="gender-select">
+    <span>اختر صورة حسابك:</span>
+
+    <button onClick={() => onGenderChange('female')}>
+      👩 بنت
+    </button>
+
+    <button onClick={() => onGenderChange('male')}>
+      👨 شاب
+    </button>
+  </div>
+)}
+
+      <div style={{ background: '#faf6ec', borderRadius: 12, padding: '12px 16px', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: '1.4rem' }}>{getLevelInfo(points).icon}</span>
+        <div style={{ textAlign: 'center' }}>
+          <strong>{getLevelInfo(points).label}</strong>
+          <p style={{ margin: 0, fontSize: '0.8rem', color: '#777' }}>{points} نقطة</p>
+        </div>
+      </div>
+
+      {/* كرت الطقس اليومي — حسب موقع المستخدم */}
+      <WeatherCard latitude={userLocation?.lat} longitude={userLocation?.lng} />
+
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', marginTop: 14 }}>
         <div style={{ background: '#faf6ec', borderRadius: 10, padding: '10px 16px' }}>
           <strong>📍 {myPlaces.length}</strong> مناطق أضفتها
         </div>
@@ -575,6 +717,9 @@ function App() {
   const [userPlaces, setUserPlaces] = useState([]);
   const [favoriteKeys, setFavoriteKeys] = useState([]);
   const [showProfile, setShowProfile] = useState(false);
+  const [gender, setGender] = useState(null);
+  const [showGenderModal, setShowGenderModal] = useState(false);
+  const [points, setPoints] = useState(0);
 
   const t = translations[lang];
 
@@ -621,19 +766,55 @@ function App() {
     loadRatings();
     loadPhotos();
     loadUserPlaces();
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        try {
-          const favDoc = await getDoc(doc(db, 'favorites', currentUser.uid));
-          if (favDoc.exists()) setFavoriteKeys(favDoc.data().placeKeys || []);
-        } catch (e) {}
-      } else {
-        setFavoriteKeys([]);
+   const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+  setUser(currentUser);
+
+  if (currentUser) {
+    try {
+      const favDoc = await getDoc(doc(db, 'favorites', currentUser.uid));
+      if (favDoc.exists()) {
+        setFavoriteKeys(favDoc.data().placeKeys || []);
       }
-    });
-    return () => unsubscribe();
-  }, []);
+    } catch (e) {}
+
+    try {
+      const profileDoc = await getDoc(doc(db, 'userProfiles', currentUser.uid));
+      const profileData = profileDoc.exists() ? profileDoc.data() : {};
+
+      if (profileData.gender) {
+        setGender(profileData.gender);
+      } else {
+        setGender(null);
+        setShowGenderModal(true);
+      }
+      setPoints(profileData.points || 0);
+    } catch (e) {}
+
+  } else {
+    setFavoriteKeys([]);
+    setGender(null);
+    setShowGenderModal(false);
+    setPoints(0);
+  }
+});
+
+return () => unsubscribe();
+}, []);
+  const updateGender = async (g) => {
+    if (!user) return;
+    try {
+      await setDoc(doc(db, 'userProfiles', user.uid), { gender: g }, { merge: true });
+      setGender(g);
+    } catch (e) {}
+  };
+
+  const awardPoints = async (amount) => {
+    if (!user) return;
+    try {
+      await setDoc(doc(db, 'userProfiles', user.uid), { points: increment(amount) }, { merge: true });
+      setPoints(prev => prev + amount);
+    } catch (e) {}
+  };
 
   const toggleFavorite = async (key) => {
     if (!user) return alert('سجل دخول أولاً لإضافة للمفضلة');
@@ -646,6 +827,7 @@ function App() {
       } else {
         await setDoc(ref, { placeKeys: arrayUnion(key) }, { merge: true });
         setFavoriteKeys(prev => [...prev, key]);
+        awardPoints(2);
       }
     } catch (e) {}
   };
@@ -655,6 +837,7 @@ function App() {
       const photoObj = { url, uploadedBy: user ? user.displayName : null, uploadedAt: new Date().toISOString() };
       await setDoc(doc(db, 'photos', placeKey), { items: arrayUnion(photoObj) }, { merge: true });
       setPlacePhotos(prev => ({ ...prev, [placeKey]: [...(prev[placeKey] || []), photoObj] }));
+      awardPoints(5);
     } catch (e) {}
   };
 
@@ -709,9 +892,10 @@ function App() {
         {place.lat && userLocation && (
           <p>📍 {t.distance} {getDistance(userLocation.lat, userLocation.lng, place.lat, place.lng)} {t.fromLocation}</p>
         )}
+        {place.lat && <WeatherCard latitude={place.lat} longitude={place.lng} placeName={placeName} />}
         <p>{placeDesc}</p>
         {placeFood && <p className="food-line">🍽️ {lang === 'ar' ? 'يشتهر بـ:' : 'Famous for:'} {placeFood}</p>}
-        {!isUserPlace && <StarRating placeKey={key} ratings={ratings} setRatings={setRatings} user={user} />}
+        {!isUserPlace && <StarRating placeKey={key} ratings={ratings} setRatings={setRatings} user={user} onRated={() => awardPoints(3)} />}
         {place.lat && (
           <>
             <button onClick={() => openMap(place)}>{t.map}</button>
@@ -757,6 +941,25 @@ function App() {
 
   return (
     <div className="App" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+      {showGenderModal && (
+  <div className="gender-modal">
+    <h3>اختار صورة حسابك</h3>
+
+    <button onClick={() => {
+      updateGender('female');
+      setShowGenderModal(false);
+    }}>
+      👩 بنت
+    </button>
+
+    <button onClick={() => {
+      updateGender('male');
+      setShowGenderModal(false);
+    }}>
+      👨 شب
+    </button>
+  </div>
+)}
       <div className="navbar">
         <h1>{t.title}</h1>
         <div className="navbar-right">
@@ -766,7 +969,7 @@ function App() {
           {user ? (
             <div className="user-info">
               <span style={{ cursor: 'pointer' }} onClick={() => setShowProfile(prev => !prev)}>
-                <Avatar user={user} size={32} />
+                <Avatar user={user} size={32} gender={gender} />
               </span>
               <span style={{ cursor: 'pointer' }} onClick={() => setShowProfile(prev => !prev)}>{user.displayName}</span>
               <button className="logout-btn" onClick={logOut}>{t.logout}</button>
@@ -778,7 +981,17 @@ function App() {
       </div>
 
       {showProfile && user && (
-        <ProfilePanel user={user} userPlaces={userPlaces} favoriteKeys={favoriteKeys} placePhotos={placePhotos} onClose={() => setShowProfile(false)} />
+        <ProfilePanel
+          user={user}
+          userPlaces={userPlaces}
+          favoriteKeys={favoriteKeys}
+          placePhotos={placePhotos}
+          userLocation={userLocation}
+          gender={gender}
+          onGenderChange={updateGender}
+          points={points}
+          onClose={() => setShowProfile(false)}
+        />
       )}
 
       <p>{t.subtitle}</p>
@@ -796,7 +1009,7 @@ function App() {
 
       {user && season === '' && !searchQuery && (
         <div style={{ margin: '15px auto', maxWidth: '600px' }}>
-          <AddPlaceForm user={user} onAdd={(p) => setUserPlaces(prev => [...prev, p])} />
+          <AddPlaceForm user={user} onAdd={(p) => setUserPlaces(prev => [...prev, p])} onPointsEarned={() => awardPoints(20)} />
         </div>
       )}
       {!user && season === '' && !searchQuery && (
