@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { db } from './firebase';
 import { auth, signInWithGoogle, logOut } from './Auth';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, getDoc, arrayUnion, arrayRemove, collection, addDoc, getDocs, increment } from 'firebase/firestore';
+import { doc, setDoc, getDoc, arrayUnion, arrayRemove, collection, addDoc, getDocs, increment, query, orderBy, limit } from 'firebase/firestore';
 import L from 'leaflet';
 import ImageUpload from './ImageUpload';
 import translations from './translations';
@@ -138,8 +138,82 @@ function isFriendsQuery(q) {
   return friendWords.some(w => q.includes(w)) || funWords.some(w => q.includes(w));
 }
 
+/* ===== نظام المرادفات — قابل للتوسعة، ضيفي أي كلمة جديدة هون ===== */
+const KEYWORD_SYNONYMS = {
+  'مطعم': ['مطعم', 'مطاعم', 'restaurant', 'restaurants', 'food', 'eat', 'اكل', 'أكل', 'طعام'],
+  'قريب': ['قريب', 'قريبة', 'قريبين', 'near', 'nearby', 'close by'],
+  'صيف': ['صيف', 'صيفي', 'صيفية', 'summer'],
+  'شتاء': ['شتاء', 'شتوي', 'شتوية', 'winter'],
+  'ربيع': ['ربيع', 'ربيعي', 'spring'],
+  'طقس': ['طقس', 'weather', 'حرارة', 'درجة الحرارة', 'temperature'],
+  'بحر': ['بحر', 'sea', 'سباحة', 'swim', 'swimming', 'beach'],
+  'جبال': ['جبال', 'جبل', 'mountain', 'mountains'],
+  'اثري': ['اثري', 'أثري', 'اثار', 'آثار', 'ancient', 'roman', 'historical', 'history'],
+  'تخييم': ['تخييم', 'خيمة', 'camping', 'camp'],
+  'مغامرة': ['مغامرة', 'adventure'],
+  'تصوير': ['تصوير', 'photo', 'photography', 'انستقرام', 'instagram'],
+  'رومانسي': ['رومانسي', 'romantic', 'حبيب', 'حبيبي', 'خطيب', 'خطيبة', 'زوجي', 'زوجتي'],
+  'اصحاب': ['اصحاب', 'أصحاب', 'friends', 'friend', 'frind', 'صحاب', 'شلة'],
+  'رحلة': ['رحلة', 'trip', 'holiday', 'vacation', 'travel', 'travelling'],
+  'وين': ['وين', 'where'],
+  'مرحبا': ['مرحبا', 'مرحباً', 'hi', 'hello', 'hey', 'salam'],
+};
+
+// يبني تلقائياً مرادفات كل منطقة موجودة بالتطبيق (عربي/إنجليزي) بدون أي شغل يدوي
+function buildPlaceSynonyms() {
+  const map = {};
+  Object.values(places).forEach((p) => {
+    map[p.name] = [p.name, p.nameEn];
+  });
+  return map;
+}
+
+// مسافة التحرير (Levenshtein) — تقيس شبه كلمتين حتى لو في خطأ إملائي بسيط
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i - 1] === b[j - 1]) dp[i][j] = dp[i - 1][j - 1];
+      else dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
+// مطابقة ضبابية: أول شي بتجرب مطابقة تامة (أسرع)، وإذا ما لقت، بتقارن كل كلمة
+// بالنص مع الكلمة المطلوبة وتسمح بفرق بسيط (خطأ إملائي) قبل ما تعتبرها غير متطابقة
+function fuzzyIncludes(text, word) {
+  if (text.includes(word)) return true;
+  if (word.length < 4) return false; // كلمات قصيرة منتجنبها عشان ما نطلع مطابقات غلط
+  const tokens = text.split(/[^a-zA-Zء-ي]+/).filter(Boolean);
+  return tokens.some((tok) => {
+    if (Math.abs(tok.length - word.length) > 2) return false;
+    const dist = levenshtein(tok, word);
+    return dist <= Math.max(1, Math.floor(word.length * 0.25));
+  });
+}
+
+// يفحص النص، ولو لقى أي مرادف (عربي/إنجليزي/حتى بخطأ إملائي بسيط)، بيضيف الكلمة
+// العربية الأساسية عشان منطق الأسئلة الموجود أصلاً (يلي بيدور بـ q.includes(...))
+// يشتغل عليها بدون أي تعديل إضافي
+function expandSynonyms(text) {
+  const lower = text.toLowerCase();
+  let extra = '';
+  const allSynonyms = { ...KEYWORD_SYNONYMS, ...buildPlaceSynonyms() };
+  Object.entries(allSynonyms).forEach(([canonical, variants]) => {
+    const matched = variants.some((v) => fuzzyIncludes(lower, String(v).toLowerCase()));
+    if (matched && !lower.includes(canonical.toLowerCase())) {
+      extra += ' ' + canonical;
+    }
+  });
+  return text + extra;
+}
+
 async function getRahalResponse(question, userLocation, userPlaces) {
-  const q = question.trim();
+  const q = expandSynonyms(question.trim());
 
   const greetings = ['مرحبا', 'مرحباً', 'هاي', 'اهلا', 'أهلا', 'السلام عليكم'];
   if (greetings.some(g => q.includes(g)) && q.length < 30) {
@@ -631,6 +705,49 @@ function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocatio
   );
 }
 
+function Leaderboard({ onClose }) {
+  const [topUsers, setTopUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const q = query(collection(db, 'userProfiles'), orderBy('points', 'desc'), limit(10));
+        const snap = await getDocs(q);
+        setTopUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch (e) {}
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', maxWidth: 500, margin: '15px auto', padding: 20, textAlign: 'right', position: 'relative' }}>
+      <button onClick={onClose} style={{ position: 'absolute', top: 12, left: 12, border: 'none', background: 'none', fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
+      <h2 style={{ color: '#8B6914', marginBottom: 16 }}>🏆 أفضل الرحالة</h2>
+      {loading ? (
+        <p>⏳ جاري التحميل...</p>
+      ) : topUsers.length === 0 ? (
+        <p style={{ color: '#999' }}>لسا ما في نقاط مسجلة</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {topUsers.map((u, i) => (
+            <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#faf6ec', borderRadius: 12, padding: '10px 14px' }}>
+              <strong style={{ width: 22 }}>{i + 1}</strong>
+              <Avatar user={u} size={40} gender={u.gender} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 'bold' }}>{u.name || 'مستخدم'}</div>
+                <div style={{ fontSize: '0.8rem', color: '#777' }}>{getLevelInfo(u.points || 0).icon} {getLevelInfo(u.points || 0).label}</div>
+              </div>
+              <strong style={{ color: '#8B6914' }}>{u.points || 0}</strong>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RahalChatbot({ userLocation, userPlaces }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState([{ from: 'bot', text: 'مرحباً! 👋 كيف يمكنني مساعدتك اليوم؟' }]);
@@ -720,6 +837,7 @@ function App() {
   const [gender, setGender] = useState(null);
   const [showGenderModal, setShowGenderModal] = useState(false);
   const [points, setPoints] = useState(0);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   const t = translations[lang];
 
@@ -775,6 +893,10 @@ function App() {
       if (favDoc.exists()) {
         setFavoriteKeys(favDoc.data().placeKeys || []);
       }
+    } catch (e) {}
+
+    try {
+      await setDoc(doc(db, 'userProfiles', currentUser.uid), { name: currentUser.displayName }, { merge: true });
     } catch (e) {}
 
     try {
@@ -966,6 +1088,9 @@ return () => unsubscribe();
           <button className="lang-btn" onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}>
             {lang === 'ar' ? '🌐 English' : '🌐 العربية'}
           </button>
+          <button className="lang-btn" onClick={() => setShowLeaderboard(prev => !prev)}>
+            🏆 أفضل الرحالة
+          </button>
           {user ? (
             <div className="user-info">
               <span style={{ cursor: 'pointer' }} onClick={() => setShowProfile(prev => !prev)}>
@@ -992,6 +1117,10 @@ return () => unsubscribe();
           points={points}
           onClose={() => setShowProfile(false)}
         />
+      )}
+
+      {showLeaderboard && (
+        <Leaderboard onClose={() => setShowLeaderboard(false)} />
       )}
 
       <p>{t.subtitle}</p>
