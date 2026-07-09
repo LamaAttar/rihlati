@@ -1,6 +1,6 @@
 import './App.css';
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import { db } from './firebase';
 import { auth, signInWithGoogle, logOut } from './Auth';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -44,6 +44,64 @@ const places = {
 const summerKeys = ['ajloun', 'irbid', 'jerash', 'umqais', 'deadsea', 'shouna', 'salt', 'amman', 'ummjimal', 'pella', 'mujib', 'tafilah'];
 const winterKeys = ['petra', 'wadirum', 'aqaba', 'madaba', 'karak', 'deisa', 'dana', 'mainhot', 'himma', 'azraqcastle', 'azraqwetland', 'qasramra', 'hallabat', 'shobak', 'ummrasas'];
 const springKeys = ['birgish', 'ummalnaml'];
+
+/* ===== بيانات تصنيف إضافية لكل منطقة — تُستخدم فقط لترشيح "خطط رحلتي" =====
+   لا تكرر بيانات places (الاسم/الوصف/الصورة)، هي فقط تصنيف: الميزانية، الرفقة المناسبة، والمدة */
+const placeMeta = {
+  ajloun: { budget: 'under20', companions: ['alone', 'family', 'friends', 'kids'], duration: 'half' },
+  irbid: { budget: 'free', companions: ['alone', 'family', 'friends'], duration: '2h' },
+  amman: { budget: 'free', companions: ['alone', 'family', 'friends', 'kids'], duration: 'full' },
+  jerash: { budget: 'under20', companions: ['alone', 'family', 'friends'], duration: 'half' },
+  umqais: { budget: 'under20', companions: ['alone', 'family', 'friends'], duration: 'half' },
+  deadsea: { budget: 'open', companions: ['alone', 'family', 'friends', 'kids'], duration: 'full' },
+  shouna: { budget: 'free', companions: ['alone', 'family'], duration: '2h' },
+  salt: { budget: 'free', companions: ['alone', 'family', 'friends'], duration: 'half' },
+  ummjimal: { budget: 'under20', companions: ['alone', 'family', 'friends'], duration: 'half' },
+  pella: { budget: 'under20', companions: ['alone', 'family', 'friends'], duration: 'half' },
+  mujib: { budget: 'open', companions: ['alone', 'friends'], duration: 'full' },
+  tafilah: { budget: 'free', companions: ['alone', 'family'], duration: '2h' },
+  petra: { budget: 'open', companions: ['alone', 'family', 'friends'], duration: 'full' },
+  wadirum: { budget: 'open', companions: ['alone', 'family', 'friends'], duration: 'full' },
+  aqaba: { budget: 'open', companions: ['alone', 'family', 'friends', 'kids'], duration: 'full' },
+  madaba: { budget: 'under20', companions: ['alone', 'family', 'friends'], duration: 'half' },
+  karak: { budget: 'under20', companions: ['alone', 'family', 'friends'], duration: 'half' },
+  deisa: { budget: 'free', companions: ['alone', 'friends'], duration: 'full' },
+  dana: { budget: 'under20', companions: ['alone', 'family', 'friends'], duration: 'full' },
+  mainhot: { budget: 'under20', companions: ['alone', 'family', 'friends'], duration: 'half' },
+  himma: { budget: 'under20', companions: ['alone', 'family', 'friends'], duration: 'half' },
+  azraqcastle: { budget: 'free', companions: ['alone', 'family', 'friends'], duration: '2h' },
+  azraqwetland: { budget: 'under20', companions: ['alone', 'family', 'friends', 'kids'], duration: 'half' },
+  qasramra: { budget: 'free', companions: ['alone', 'family', 'friends'], duration: '2h' },
+  hallabat: { budget: 'free', companions: ['alone', 'family', 'friends'], duration: '2h' },
+  shobak: { budget: 'under20', companions: ['alone', 'family', 'friends'], duration: 'half' },
+  ummrasas: { budget: 'under20', companions: ['alone', 'family', 'friends'], duration: 'half' },
+  birgish: { budget: 'free', companions: ['alone', 'family', 'friends', 'kids'], duration: 'half' },
+  ummalnaml: { budget: 'free', companions: ['alone', 'family', 'friends', 'kids'], duration: 'half' },
+};
+
+function durationLabel(d) {
+  if (d === '2h') return 'ساعتين تقريباً';
+  if (d === 'half') return 'نص يوم';
+  return 'يوم كامل';
+}
+
+// يحسب مدى ملاءمة منطقة معينة لتفضيلات الرحلة (موسم، رفقة، وقت، ميزانية)
+function scoreTripPlace(place, key, prefs) {
+  const meta = placeMeta[key] || {};
+  let score = 0;
+  if (place.season === prefs.season) score += 3;
+  if (meta.companions && meta.companions.includes(prefs.companion)) score += 2;
+  if (meta.budget) {
+    if (prefs.budget === 'free' && meta.budget === 'free') score += 2;
+    else if (prefs.budget === 'under20' && (meta.budget === 'free' || meta.budget === 'under20')) score += 2;
+    else if (prefs.budget === 'open') score += 1;
+  }
+  if (meta.duration) {
+    const rank = { '2h': 1, half: 2, full: 3 };
+    if (rank[meta.duration] <= rank[prefs.time]) score += 2;
+  }
+  return score;
+}
 
 function getDistance(lat1, lon1, lat2, lon2) {
   const R = 6371;
@@ -419,6 +477,15 @@ function StarRating({ placeKey, ratings, setRatings, user, onRated }) {
   );
 }
 
+function LocationPicker({ onSelect, position }) {
+  useMapEvents({
+    click(e) {
+      onSelect(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return position ? <Marker position={position} /> : null;
+}
+
 function AddPlaceForm({ user, onAdd, onPointsEarned }) {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
@@ -426,6 +493,8 @@ function AddPlaceForm({ user, onAdd, onPointsEarned }) {
   const [imgUrl, setImgUrl] = useState('');
   const [uploading, setUploading] = useState(false);
   const [show, setShow] = useState(false);
+  const [placeLat, setPlaceLat] = useState(null);
+  const [placeLng, setPlaceLng] = useState(null);
 
   const handleImgUpload = async (e) => {
     const file = e.target.files[0];
@@ -442,15 +511,17 @@ function AddPlaceForm({ user, onAdd, onPointsEarned }) {
 
   const handleSubmit = async () => {
     if (!name || !desc || !imgUrl) return alert('يرجى ملء كل الحقول وتحميل صورة');
+    if (!placeLat || !placeLng) return alert('يرجى تحديد موقع المنطقة على الخريطة 📍');
     const newPlace = {
       name, desc, season, img: imgUrl,
+      lat: placeLat, lng: placeLng,
       addedBy: user.displayName,
       addedAt: new Date().toISOString(),
     };
     await addDoc(collection(db, 'userPlaces'), newPlace);
     onAdd(newPlace);
     if (onPointsEarned) onPointsEarned();
-    setName(''); setDesc(''); setImgUrl(''); setShow(false);
+    setName(''); setDesc(''); setImgUrl(''); setPlaceLat(null); setPlaceLng(null); setShow(false);
   };
 
   if (!show) return (
@@ -467,6 +538,19 @@ function AddPlaceForm({ user, onAdd, onPointsEarned }) {
         <option value="winter">❄️ شتاء</option>
         <option value="spring">🌸 ربيع</option>
       </select>
+      <p style={{ fontSize: '0.85rem', color: '#8B6914', margin: '8px 0 6px' }}>📍 دوسي على الخريطة لتحديد موقع المنطقة بالضبط</p>
+      <MapContainer center={[31.95, 35.93]} zoom={7} style={{ height: 220, width: '100%', borderRadius: 10, marginBottom: 8 }}>
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <LocationPicker
+          onSelect={(la, ln) => { setPlaceLat(la); setPlaceLng(ln); }}
+          position={placeLat && placeLng ? [placeLat, placeLng] : null}
+        />
+      </MapContainer>
+      {placeLat && placeLng && (
+        <p style={{ fontSize: '0.75rem', color: '#777', marginBottom: 8 }}>
+          ✅ الموقع المحدد: {placeLat.toFixed(4)}, {placeLng.toFixed(4)}
+        </p>
+      )}
       <label className="upload-btn">
         📸 ارفع صورة
         <input type="file" accept="image/*" onChange={handleImgUpload} style={{ display: 'none' }} />
@@ -748,6 +832,172 @@ function Leaderboard({ onClose }) {
   );
 }
 
+function TripPlanner({ onClose, onOpenMap }) {
+  const [season, setSeasonSel] = useState(null);
+  const [companion, setCompanion] = useState(null);
+  const [time, setTime] = useState(null);
+  const [budget, setBudget] = useState(null);
+  const [result, setResult] = useState(null);
+
+  const seasonOptions = [
+    { key: 'summer', label: '☀️ صيف' },
+    { key: 'winter', label: '❄️ شتاء' },
+    { key: 'spring', label: '🌸 ربيع' },
+  ];
+  const companionOptions = [
+    { key: 'alone', label: '🚶 لحالي' },
+    { key: 'family', label: '👨‍👩‍👧 عائلة' },
+    { key: 'friends', label: '👥 أصحاب' },
+    { key: 'kids', label: '🧒 مع أطفال' },
+  ];
+  const timeOptions = [
+    { key: '2h', label: '⏱️ ساعتين' },
+    { key: 'half', label: '🕐 نص يوم' },
+    { key: 'full', label: '🕘 يوم كامل' },
+  ];
+  const budgetOptions = [
+    { key: 'free', label: '🆓 مجاني' },
+    { key: 'under20', label: '💵 أقل من 20 دينار' },
+    { key: 'open', label: '💰 ميزانية مفتوحة' },
+  ];
+
+  const OptionRow = ({ options, value, onSelect }) => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
+      {options.map(opt => (
+        <button
+          key={opt.key}
+          type="button"
+          onClick={() => onSelect(opt.key)}
+          style={{
+            padding: '8px 16px',
+            borderRadius: 20,
+            border: value === opt.key ? '2px solid #8B6914' : '1px solid #ddd',
+            background: value === opt.key ? '#C4952A' : '#faf6ec',
+            color: value === opt.key ? '#fff' : '#5a3e1b',
+            fontSize: '0.85rem',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            margin: 0,
+            boxShadow: 'none',
+          }}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const generateTrip = () => {
+    if (!season || !companion || !time || !budget) {
+      alert('لازم تختاري كل الخيارات الأربعة الأول 🙏');
+      return;
+    }
+    let best = null;
+    let bestScore = -1;
+    Object.entries(places).forEach(([key, place]) => {
+      const score = scoreTripPlace(place, key, { season, companion, time, budget });
+      if (score > bestScore) {
+        bestScore = score;
+        best = { key, place };
+      }
+    });
+    if (best) {
+      const meta = placeMeta[best.key] || {};
+      const reasons = [];
+      if (best.place.season === season) reasons.push('بيناسب الموسم يلي اخترتيه');
+      if (meta.companions && meta.companions.includes(companion)) reasons.push('مناسب لنوع الرفقة يلي حددتيها');
+      if (meta.budget === 'free') reasons.push('دخول مجاني بالكامل');
+      else if (meta.budget === 'under20' && budget !== 'open') reasons.push('يناسب ميزانيتك');
+      if (meta.duration) reasons.push(`بياخذ تقريباً ${durationLabel(meta.duration)}، وهاد بيناسب الوقت يلي عندك`);
+      setResult({ ...best, reasons, duration: meta.duration });
+    }
+  };
+
+  const resetPlanner = () => {
+    setSeasonSel(null);
+    setCompanion(null);
+    setTime(null);
+    setBudget(null);
+    setResult(null);
+  };
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: '#fff', borderRadius: 20, padding: 24, maxWidth: 480, width: '100%', maxHeight: '85vh', overflowY: 'auto', textAlign: 'right', position: 'relative', boxShadow: '0 15px 40px rgba(0,0,0,0.3)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button onClick={onClose} style={{ position: 'absolute', top: 12, left: 12, border: 'none', background: 'none', fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
+
+        {!result ? (
+          <>
+            <h2 style={{ color: '#8B6914', marginBottom: 4 }}>🗺️ خطط رحلتك</h2>
+            <p style={{ color: '#777', fontSize: '0.9rem', marginBottom: 18 }}>جاوبي على 4 أسئلة بسيطة ورح نقترحلك أفضل مكان</p>
+
+            <h4 style={{ color: '#5a3e1b', marginBottom: 8 }}>🗓️ أي موسم؟</h4>
+            <OptionRow options={seasonOptions} value={season} onSelect={setSeasonSel} />
+
+            <h4 style={{ color: '#5a3e1b', marginBottom: 8 }}>👥 مع مين رايحة؟</h4>
+            <OptionRow options={companionOptions} value={companion} onSelect={setCompanion} />
+
+            <h4 style={{ color: '#5a3e1b', marginBottom: 8 }}>⏱️ قديش عندك وقت؟</h4>
+            <OptionRow options={timeOptions} value={time} onSelect={setTime} />
+
+            <h4 style={{ color: '#5a3e1b', marginBottom: 8 }}>💰 الميزانية؟</h4>
+            <OptionRow options={budgetOptions} value={budget} onSelect={setBudget} />
+
+            <button
+              onClick={generateTrip}
+              style={{ background: 'linear-gradient(135deg, #C4952A, #8B6914)', color: '#fff', width: '100%', padding: 12, borderRadius: 14, fontSize: '1rem', marginTop: 6 }}
+            >
+              ✨ اقترح رحلتي
+            </button>
+          </>
+        ) : (
+          <>
+            <h2 style={{ color: '#8B6914', marginBottom: 14 }}>🎉 خططنالك رحلة!</h2>
+            <div style={{ borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', border: '1px solid #f0e0b0' }}>
+              <img src={result.place.img} alt={result.place.name} style={{ width: '100%', height: 180, objectFit: 'cover' }} />
+              <div style={{ padding: 16 }}>
+                <h3 style={{ color: '#8B6914', marginBottom: 6 }}>{result.place.name}</h3>
+                <p style={{ color: '#555', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: 10 }}>{result.place.desc}</p>
+                <div style={{ background: '#faf6ec', borderRadius: 10, padding: 12, marginBottom: 10 }}>
+                  <strong style={{ fontSize: '0.85rem', color: '#8B6914' }}>ليش اخترنالك هاد المكان؟</strong>
+                  <ul style={{ margin: '6px 0 0', paddingRight: 18, fontSize: '0.8rem', color: '#555' }}>
+                    {result.reasons.map((r, i) => <li key={i}>{r}</li>)}
+                  </ul>
+                </div>
+                {result.duration && (
+                  <p style={{ fontSize: '0.85rem', color: '#777', marginBottom: 12 }}>
+                    ⏱️ مدة الزيارة المتوقعة: {durationLabel(result.duration)}
+                  </p>
+                )}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => { onOpenMap(result.place); onClose(); }}
+                    style={{ flex: 1, background: '#5a3e1b', color: '#fff', padding: 10, borderRadius: 10 }}
+                  >
+                    📍 افتحي على الخريطة
+                  </button>
+                  <button
+                    onClick={resetPlanner}
+                    style={{ flex: 1, background: '#faf6ec', color: '#8B6914', padding: 10, borderRadius: 10, border: '1px solid #e8d5a3' }}
+                  >
+                    🔄 جربي رحلة تانية
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function RahalChatbot({ userLocation, userPlaces }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState([{ from: 'bot', text: 'مرحباً! 👋 كيف يمكنني مساعدتك اليوم؟' }]);
@@ -839,6 +1089,7 @@ function App() {
   const [points, setPoints] = useState(0);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showFavoritesPage, setShowFavoritesPage] = useState(false);
+  const [showTripPlanner, setShowTripPlanner] = useState(false);
 
   const t = translations[lang];
 
@@ -964,13 +1215,13 @@ return () => unsubscribe();
     } catch (e) {}
   };
 
-  const toggleDetails = async (key) => {
+  const toggleDetails = async (key, place) => {
     if (openPlace === key) { setOpenPlace(''); setServices([]); setRestaurants([]); return; }
     setOpenPlace(key);
     setLoadingServices(true);
     const [supportResult, restaurantResult] = await Promise.all([
-      fetchNearbySupportServices(places[key].lat, places[key].lng),
-      fetchNearbyRestaurants(places[key].lat, places[key].lng),
+      fetchNearbySupportServices(place.lat, place.lng),
+      fetchNearbyRestaurants(place.lat, place.lng),
     ]);
     setServices(supportResult.slice(0, 10));
     setRestaurants(restaurantResult.slice(0, 6));
@@ -1026,9 +1277,9 @@ return () => unsubscribe();
             <a href={`https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`} target="_blank" rel="noopener noreferrer" className="directions-btn">{t.directions}</a>
           </>
         )}
-        {!isUserPlace && (
+        {place.lat && (
           <>
-            <button onClick={() => toggleDetails(key)}>{t.services}</button>
+            <button onClick={() => toggleDetails(key, place)}>{t.services}</button>
             {openPlace === key && (
               <div className="services">
                 {loadingServices ? <p>{t.loading}</p> : (
@@ -1134,6 +1385,16 @@ return () => unsubscribe();
       <input className="search-input" type="text" placeholder={`🔍 ${t.search}`} value={searchQuery} onChange={(e) => { setShowFavoritesPage(false); setSearchQuery(e.target.value); }} />
 
       {!searchQuery && season === '' && !showFavoritesPage && <p className="welcome-msg">{t.welcome}</p>}
+
+      {!searchQuery && season === '' && !showFavoritesPage && (
+        <button className="add-place-btn" onClick={() => setShowTripPlanner(true)} style={{ marginBottom: 10 }}>
+          🗺️ خطط رحلتي
+        </button>
+      )}
+
+      {showTripPlanner && (
+        <TripPlanner onClose={() => setShowTripPlanner(false)} onOpenMap={openMap} />
+      )}
 
       {!searchQuery && (
         <>
