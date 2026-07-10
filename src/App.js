@@ -4,18 +4,18 @@ import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaf
 import { db } from './firebase';
 import { auth, signInWithGoogle, logOut } from './Auth';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, getDoc, arrayUnion, arrayRemove, collection, addDoc, getDocs, increment, query, orderBy, limit } from 'firebase/firestore';
+import { doc, setDoc, getDoc, arrayUnion, arrayRemove, collection, addDoc, getDocs, increment, query, orderBy, limit, deleteDoc } from 'firebase/firestore';
 import L from 'leaflet';
 import ImageUpload from './ImageUpload';
 import translations from './translations';
 
 const places = {
   ajloun: { name: 'عجلون', nameEn: 'Ajloun', lat: 32.33, lng: 35.75, img: '/ajloun.png', desc: 'قلعة تاريخية وسط غابات خضراء، أجواء معتدلة بالصيف 🌲', descEn: 'A historic castle amid green forests with moderate summer weather 🌲', food: 'المقلوبة والمنسف', foodEn: 'Maqluba and Mansaf', season: 'summer' },
-  irbid: { name: 'إربد', nameEn: 'Irbid', lat: 32.56, lng: 35.85, img: '/irbid.png', desc: 'مدينة العلم والثقافة بشمال الأردن، أجواء معتدلة ومعالم تاريخية عريقة 🎓', descEn: 'The city of knowledge and culture in northern Jordan, with a moderate climate and rich historical landmarks 🎓', food: 'الفلافل والحمص', foodEn: 'Falafel and Hummus', season: 'summer' },
+  irbid: { name: 'إربد', nameEn: 'Irbid', lat: 32.56, lng: 35.85, img: '/irbid.png', desc: 'مدينة العلم والثقافة بشمال الأردن، أجواء معتدلة ومعالم تاريخية عريقة 🎓', descEn: 'The city of knowledge and culture in northern Jordan, with a moderate climate and rich historical landmarks 🎓', food: 'المكمورة', foodEn: 'Makmoura (traditional northern Jordanian dish)', season: 'summer' },
   amman: { name: 'عمّان', nameEn: 'Amman', lat: 31.95, lng: 35.93, img: '/amman.png', desc: 'عاصمة المملكة النابضة بالحياة، تجمع بين التاريخ الروماني وحيوية المدينة الحديثة 🏛️', descEn: 'The vibrant capital of the Kingdom, blending Roman history with modern city life 🏛️', food: 'المنسف والكنافة', foodEn: 'Mansaf and Knafeh', season: 'summer' },
   jerash: { name: 'جرش', nameEn: 'Jerash', lat: 32.28, lng: 35.89, img: '/jerash.png', desc: 'مدينة رومانية أثرية من أهم المواقع التاريخية بالأردن 🏛️', descEn: 'An ancient Roman city, one of the most important historical sites in Jordan 🏛️', food: 'المسخن والمنسف', foodEn: 'Musakhan and Mansaf', season: 'summer' },
   umqais: { name: 'أم قيس', nameEn: 'Um Qais', lat: 32.66, lng: 35.68, img: '/umqais.png', desc: 'أطلال رومانية تطل على بحيرة طبريا والجولان 🏛️', descEn: 'Roman ruins overlooking the Sea of Galilee and the Golan Heights 🏛️', food: 'المسخن وزيت الزيتون البلدي', foodEn: 'Musakhan and local olive oil', season: 'summer' },
-  deadsea: { name: 'البحر الميت', nameEn: 'Dead Sea', lat: 31.70, lng: 35.60, img: '/dead-sea.png', desc: 'أخفض نقطة على سطح الأرض، مياه مالحة وطمي علاجي 🌊', descEn: 'The lowest point on Earth with healing salt water and therapeutic mud 🌊', food: 'الأسماك الطازجة والتمر', foodEn: 'Fresh fish and dates', season: 'summer' },
+  deadsea: { name: 'البحر الميت', nameEn: 'Dead Sea', lat: 31.70, lng: 35.60, img: '/dead-sea.png', desc: 'أخفض نقطة على سطح الأرض، مياه مالحة وطمي علاجي 🌊', descEn: 'The lowest point on Earth with healing salt water and therapeutic mud 🌊', food: 'التمر ومنتجات الطمي الطبيعية', foodEn: 'Dates and natural Dead Sea mud products', season: 'summer' },
   shouna: { name: 'الشونة', nameEn: 'Shouna', lat: 32.34, lng: 35.58, img: '/shouna.png', desc: 'منطقة زراعية خضراء جميلة في الأغوار الشمالية 🌿', descEn: 'A beautiful green agricultural area in the Northern Jordan Valley 🌿', food: 'الخضار والفواكه الطازجة', foodEn: 'Fresh fruits and vegetables', season: 'summer' },
   salt: { name: 'السلط', nameEn: 'Salt', lat: 32.03, lng: 35.72, img: '/salt.png', desc: 'مدينة تراثية عريقة مدرجة على قائمة التراث العالمي 🏘️', descEn: 'An ancient heritage city listed as a UNESCO World Heritage Site 🏘️', food: 'الكعك السلطي والعصبان', foodEn: "Salt-style Ka'ak and Osban", season: 'summer' },
   ummjimal: { name: 'أم الجمال', nameEn: 'Umm el-Jimal', lat: 32.32, lng: 36.34, img: '/ummjimal.png', desc: 'مدينة أثرية بازلتية سوداء نادرة الطراز شمال شرق الأردن 🏛️', descEn: 'A rare black basalt ancient city in northeastern Jordan 🏛️', food: 'الفريكة ولبن الماعز', foodEn: 'Freekeh and goat yogurt', season: 'summer' },
@@ -86,8 +86,16 @@ function durationLabel(d) {
 }
 
 // يحسب مدى ملاءمة منطقة معينة لتفضيلات الرحلة (موسم، رفقة، وقت، ميزانية)
+// تصنيف افتراضي عام لأي منطقة ما إلها تصنيف يدوي (زي مناطق الزوار) —
+// نفترض إنها مجانية، مناسبة لأي رفقة، وتاخذ نص يوم تقريباً، لحد ما ينحدد تصنيف حقيقي إلها
+const DEFAULT_PLACE_META = { budget: 'free', companions: ['alone', 'family', 'friends', 'kids'], duration: 'half' };
+
+function getPlaceMeta(key) {
+  return placeMeta[key] || DEFAULT_PLACE_META;
+}
+
 function scoreTripPlace(place, key, prefs) {
-  const meta = placeMeta[key] || {};
+  const meta = getPlaceMeta(key);
   let score = 0;
   if (place.season === prefs.season) score += 3;
   if (meta.companions && meta.companions.includes(prefs.companion)) score += 2;
@@ -302,7 +310,8 @@ async function getRahalResponse(question, userLocation, userPlaces) {
   if (userPlaces && userPlaces.length) {
     const foundUserPlace = userPlaces.find(p => q.includes(p.name));
     if (foundUserPlace) {
-      return `${foundUserPlace.name} (أضافها أحد الزوار 👤): ${foundUserPlace.desc}`;
+      const foodLine = foundUserPlace.food ? `\n🍽️ يشتهر بـ: ${foundUserPlace.food}` : '';
+      return `${foundUserPlace.name} (أضافها أحد الزوار 👤): ${foundUserPlace.desc}${foodLine}`;
     }
   }
 
@@ -491,6 +500,7 @@ function AddPlaceForm({ user, onAdd, onPointsEarned }) {
   const [desc, setDesc] = useState('');
   const [season, setSeason] = useState('summer');
   const [imgUrl, setImgUrl] = useState('');
+  const [food, setFood] = useState('');
   const [uploading, setUploading] = useState(false);
   const [show, setShow] = useState(false);
   const [placeLat, setPlaceLat] = useState(null);
@@ -514,14 +524,16 @@ function AddPlaceForm({ user, onAdd, onPointsEarned }) {
     if (!placeLat || !placeLng) return alert('يرجى تحديد موقع المنطقة على الخريطة 📍');
     const newPlace = {
       name, desc, season, img: imgUrl,
+      food: food || null,
       lat: placeLat, lng: placeLng,
       addedBy: user.displayName,
+      addedByUid: user.uid,
       addedAt: new Date().toISOString(),
     };
-    await addDoc(collection(db, 'userPlaces'), newPlace);
-    onAdd(newPlace);
+    const docRef = await addDoc(collection(db, 'userPlaces'), newPlace);
+    onAdd({ id: docRef.id, ...newPlace });
     if (onPointsEarned) onPointsEarned();
-    setName(''); setDesc(''); setImgUrl(''); setPlaceLat(null); setPlaceLng(null); setShow(false);
+    setName(''); setDesc(''); setImgUrl(''); setFood(''); setPlaceLat(null); setPlaceLng(null); setShow(false);
   };
 
   if (!show) return (
@@ -533,6 +545,7 @@ function AddPlaceForm({ user, onAdd, onPointsEarned }) {
       <h3>➕ أضف منطقة جديدة</h3>
       <input placeholder="اسم المنطقة" value={name} onChange={e => setName(e.target.value)} className="form-input" />
       <textarea placeholder="وصف المنطقة" value={desc} onChange={e => setDesc(e.target.value)} className="form-input" rows={3} />
+      <input placeholder="الأكلة المشهورة (اختياري)" value={food} onChange={e => setFood(e.target.value)} className="form-input" />
       <select value={season} onChange={e => setSeason(e.target.value)} className="form-input">
         <option value="summer">☀️ صيف</option>
         <option value="winter">❄️ شتاء</option>
@@ -832,7 +845,7 @@ function Leaderboard({ onClose }) {
   );
 }
 
-function TripPlanner({ onClose, onOpenMap }) {
+function TripPlanner({ onClose, onOpenMap, userPlaces }) {
   const [season, setSeasonSel] = useState(null);
   const [companion, setCompanion] = useState(null);
   const [time, setTime] = useState(null);
@@ -894,6 +907,8 @@ function TripPlanner({ onClose, onOpenMap }) {
     }
     let best = null;
     let bestScore = -1;
+
+    // المناطق الأصلية
     Object.entries(places).forEach(([key, place]) => {
       const score = scoreTripPlace(place, key, { season, companion, time, budget });
       if (score > bestScore) {
@@ -901,14 +916,26 @@ function TripPlanner({ onClose, onOpenMap }) {
         best = { key, place };
       }
     });
+
+    // مناطق الزوار (لازم يكون عندها موقع lat/lng عشان تشارك بالترشيح، بما إنه لازم نفتحها عالخريطة)
+    (userPlaces || []).forEach((place) => {
+      if (!place.lat || !place.lng) return;
+      const score = scoreTripPlace(place, place.id, { season, companion, time, budget });
+      if (score > bestScore) {
+        bestScore = score;
+        best = { key: place.id, place };
+      }
+    });
+
     if (best) {
-      const meta = placeMeta[best.key] || {};
+      const meta = getPlaceMeta(best.key);
       const reasons = [];
       if (best.place.season === season) reasons.push('بيناسب الموسم يلي اخترتيه');
       if (meta.companions && meta.companions.includes(companion)) reasons.push('مناسب لنوع الرفقة يلي حددتيها');
       if (meta.budget === 'free') reasons.push('دخول مجاني بالكامل');
       else if (meta.budget === 'under20' && budget !== 'open') reasons.push('يناسب ميزانيتك');
       if (meta.duration) reasons.push(`بياخذ تقريباً ${durationLabel(meta.duration)}، وهاد بيناسب الوقت يلي عندك`);
+      if (best.place.addedBy) reasons.push(`مكان اكتشفه زائر تاني (${best.place.addedBy}) وضافه للتطبيق 🌟`);
       setResult({ ...best, reasons, duration: meta.duration });
     }
   };
@@ -1130,7 +1157,21 @@ function App() {
     const loadUserPlaces = async () => {
       try {
         const snapshot = await getDocs(collection(db, 'userPlaces'));
-        setUserPlaces(snapshot.docs.map(d => d.data()));
+        const loadedPlaces = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        setUserPlaces(loadedPlaces);
+
+        // نجيب صور كل منطقة زائر لحالها (معرّفها ثابت هلق: نفس id تبع Firestore)
+        const userPhotos = {};
+        for (const p of loadedPlaces) {
+          try {
+            const docSnap = await getDoc(doc(db, 'photos', p.id));
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              if (data.items) userPhotos[p.id] = data.items;
+            }
+          } catch (e) {}
+        }
+        setPlacePhotos(prev => ({ ...prev, ...userPhotos }));
       } catch (e) {}
     };
     loadRatings();
@@ -1215,6 +1256,23 @@ return () => unsubscribe();
     } catch (e) {}
   };
 
+  // حذف منطقة أضافها المستخدم نفسه فقط (ما يقدر يمسح مناطق زوار تانيين)
+  const handleDeleteUserPlace = async (place) => {
+    if (!window.confirm(`متأكدة إنك بدك تحذفي "${place.name}"؟ الإجراء ما بينرجع.`)) return;
+    try {
+      await deleteDoc(doc(db, 'userPlaces', place.id));
+      try { await deleteDoc(doc(db, 'photos', place.id)); } catch (e) {}
+      setUserPlaces(prev => prev.filter(p => p.id !== place.id));
+      setPlacePhotos(prev => {
+        const copy = { ...prev };
+        delete copy[place.id];
+        return copy;
+      });
+    } catch (e) {
+      alert('صار خطأ أثناء الحذف، جربي مرة ثانية');
+    }
+  };
+
   const toggleDetails = async (key, place) => {
     if (openPlace === key) { setOpenPlace(''); setServices([]); setRestaurants([]); return; }
     setOpenPlace(key);
@@ -1246,7 +1304,7 @@ return () => unsubscribe();
   const renderPlace = (key, place, isUserPlace = false) => {
     const placeName = isUserPlace ? place.name : (lang === 'ar' ? place.name : place.nameEn);
     const placeDesc = isUserPlace ? place.desc : (lang === 'ar' ? place.desc : place.descEn);
-    const placeFood = isUserPlace ? null : (lang === 'ar' ? place.food : place.foodEn);
+    const placeFood = isUserPlace ? place.food : (lang === 'ar' ? place.food : place.foodEn);
     const photos = placePhotos[key] || [];
     const isFav = !isUserPlace && favoriteKeys.includes(key);
 
@@ -1263,6 +1321,14 @@ return () => unsubscribe();
         )}
         <h3>{placeName}</h3>
         {isUserPlace && <span className="user-badge">👤 {place.addedBy}</span>}
+        {isUserPlace && user && place.addedBy === user.displayName && (
+          <button
+            onClick={() => handleDeleteUserPlace(place)}
+            style={{ background: '#c0392b', color: '#fff', width: 'calc(100% - 30px)', margin: '5px 15px', padding: 8, borderRadius: 10, fontSize: '0.85rem' }}
+          >
+            🗑️ احذفي هالمنطقة
+          </button>
+        )}
         <img src={place.img} alt={placeName} />
         {place.lat && userLocation && (
           <p>📍 {t.distance} {getDistance(userLocation.lat, userLocation.lng, place.lat, place.lng)} {t.fromLocation}</p>
@@ -1304,8 +1370,8 @@ return () => unsubscribe();
             </div>
           </div>
         )}
-        {user && !isUserPlace && <ImageUpload placeKey={key} onUpload={handlePhotoUpload} />}
-        {!user && !isUserPlace && <p className="login-hint">{t.loginHint}</p>}
+        {user && <ImageUpload placeKey={key} onUpload={handlePhotoUpload} />}
+        {!user && <p className="login-hint">{t.loginHint}</p>}
       </div>
     );
   };
@@ -1393,7 +1459,7 @@ return () => unsubscribe();
       )}
 
       {showTripPlanner && (
-        <TripPlanner onClose={() => setShowTripPlanner(false)} onOpenMap={openMap} />
+        <TripPlanner onClose={() => setShowTripPlanner(false)} onOpenMap={openMap} userPlaces={userPlaces} />
       )}
 
       {!searchQuery && (
@@ -1468,7 +1534,7 @@ return () => unsubscribe();
           {userSummerPlaces.length > 0 && (
             <div>
               <h2>🌟 مناطق أضافها الزوار</h2>
-              <div className="places-grid">{userSummerPlaces.map((p, i) => renderPlace(`user-summer-${i}`, p, true))}</div>
+              <div className="places-grid">{userSummerPlaces.map((p) => renderPlace(p.id, p, true))}</div>
             </div>
           )}
         </div>
@@ -1481,7 +1547,7 @@ return () => unsubscribe();
           {userWinterPlaces.length > 0 && (
             <div>
               <h2>🌟 مناطق أضافها الزوار</h2>
-              <div className="places-grid">{userWinterPlaces.map((p, i) => renderPlace(`user-winter-${i}`, p, true))}</div>
+              <div className="places-grid">{userWinterPlaces.map((p) => renderPlace(p.id, p, true))}</div>
             </div>
           )}
         </div>
@@ -1494,7 +1560,7 @@ return () => unsubscribe();
           {userSpringPlaces.length > 0 && (
             <div>
               <h2>🌟 مناطق أضافها الزوار</h2>
-              <div className="places-grid">{userSpringPlaces.map((p, i) => renderPlace(`user-spring-${i}`, p, true))}</div>
+              <div className="places-grid">{userSpringPlaces.map((p) => renderPlace(p.id, p, true))}</div>
             </div>
           )}
         </div>
