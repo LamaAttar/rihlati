@@ -453,6 +453,31 @@ async function getRahalResponse(question, userLocation, userPlaces) {
   return 'ما قدرت ألاقي جواب دقيق لسؤالك 🤔 جربي تسأليني عن: اسم منطقة، الموسم، الأكل، الطبيعة، الآثار، السباحة، المغامرة، التصوير، القلاع، أو "وين أروح بكرا" وبجاوبك حسب الطقس 😊';
 }
 
+/* ===== رسالة توعية بيئية متناوبة — تظهر بكل صفحات التطبيق ===== */
+const ECO_MESSAGES = [
+  '🌿 المحافظة على نظافة الطبيعة مسؤولية الجميع',
+  '🔥 التأكد من إطفاء النار بالكامل قبل المغادرة',
+  '🌳 عدم قطف أو كسر النباتات والأشجار',
+  '🐾 الحفاظ على الحياة البرية وعدم إزعاج الحيوانات',
+  '💧 ترشيد استهلاك المياه، خصوصاً بالمناطق الصحراوية',
+  '♻️ تفضيل الأدوات القابلة لإعادة الاستخدام بدل البلاستيك',
+];
+
+function EcoBanner() {
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIndex((i) => (i + 1) % ECO_MESSAGES.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, []);
+  return (
+    <div style={{ background: 'linear-gradient(120deg, #6b9b5e, #4f7a45)', color: '#fff', borderRadius: 16, padding: '10px 18px', margin: '12px auto', maxWidth: 600, fontSize: '0.9rem', fontWeight: 'bold', textAlign: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }}>
+      {ECO_MESSAGES[index]}
+    </div>
+  );
+}
+
 function StarRating({ placeKey, ratings, setRatings, user, onRated }) {
   const ratingData = ratings[placeKey] || { avg: 0, count: 0 };
   const avg = ratingData.avg || 0;
@@ -1107,7 +1132,8 @@ function App() {
   const [user, setUser] = useState(null);
   const [placePhotos, setPlacePhotos] = useState({});
   const [lang, setLang] = useState('ar');
-  const [lightboxImg, setLightboxImg] = useState(null);
+  const [lightboxData, setLightboxData] = useState(null);
+  const [galleryModalData, setGalleryModalData] = useState(null);
   const [userPlaces, setUserPlaces] = useState([]);
   const [favoriteKeys, setFavoriteKeys] = useState([]);
   const [showProfile, setShowProfile] = useState(false);
@@ -1227,7 +1253,7 @@ return () => unsubscribe();
     if (!user) return;
     try {
       await setDoc(doc(db, 'userProfiles', user.uid), { points: increment(amount) }, { merge: true });
-      setPoints(prev => prev + amount);
+      setPoints(prev => Math.max(0, prev + amount));
     } catch (e) {}
   };
 
@@ -1239,6 +1265,7 @@ return () => unsubscribe();
       if (isFav) {
         await setDoc(ref, { placeKeys: arrayRemove(key) }, { merge: true });
         setFavoriteKeys(prev => prev.filter(k => k !== key));
+        awardPoints(-2);
       } else {
         await setDoc(ref, { placeKeys: arrayUnion(key) }, { merge: true });
         setFavoriteKeys(prev => [...prev, key]);
@@ -1258,7 +1285,7 @@ return () => unsubscribe();
 
   // حذف منطقة أضافها المستخدم نفسه فقط (ما يقدر يمسح مناطق زوار تانيين)
   const handleDeleteUserPlace = async (place) => {
-    if (!window.confirm(`متأكدة إنك بدك تحذفي "${place.name}"؟ الإجراء ما بينرجع.`)) return;
+    if (!window.confirm(`متأكدة إنك بدك تحذفي "${place.name}"؟ الإجراء ما بينرجع، وراح تنخصم منك 20 نقطة يلي أخذتيها لما ضفتيها.`)) return;
     try {
       await deleteDoc(doc(db, 'userPlaces', place.id));
       try { await deleteDoc(doc(db, 'photos', place.id)); } catch (e) {}
@@ -1268,8 +1295,29 @@ return () => unsubscribe();
         delete copy[place.id];
         return copy;
       });
+      awardPoints(-20);
     } catch (e) {
       alert('صار خطأ أثناء الحذف، جربي مرة ثانية');
+    }
+  };
+
+  // حذف صورة معينة — مسموح فقط لصاحب الصورة نفسها، وبينخصم منه -5 نقطة (نفس النقاط يلي أخذها وقت الرفع)
+  const handleDeletePhoto = async (placeKey, photoObj) => {
+    if (!placeKey || !photoObj) return;
+    if (!window.confirm('متأكدة إنك بدك تحذفي هالصورة؟ الإجراء ما بينرجع.')) return;
+    try {
+      await setDoc(doc(db, 'photos', placeKey), { items: arrayRemove(photoObj) }, { merge: true });
+      setPlacePhotos(prev => ({
+        ...prev,
+        [placeKey]: (prev[placeKey] || []).filter(p => !(p.url === photoObj.url && p.uploadedAt === photoObj.uploadedAt)),
+      }));
+      if (user && photoObj.uploadedBy === user.displayName) {
+        awardPoints(-5);
+      }
+      closeLightbox();
+      closeGalleryModal();
+    } catch (e) {
+      alert('صار خطأ أثناء حذف الصورة، جربي مرة ثانية');
     }
   };
 
@@ -1297,8 +1345,12 @@ return () => unsubscribe();
   };
 
   const goHome = () => { setSeason(''); setOpenPlace(''); setSelectedPlace(null); setServices([]); setRestaurants([]); setSearchQuery(''); setMapServices([]); setShowFavoritesPage(false); };
-  const openLightbox = (url) => setLightboxImg(url);
-  const closeLightbox = () => setLightboxImg(null);
+  const openLightbox = (photos, index, placeNameForLightbox, placeKeyForLightbox) => setLightboxData({ photos, index, placeName: placeNameForLightbox, placeKey: placeKeyForLightbox });
+  const closeLightbox = () => setLightboxData(null);
+  const lightboxPrev = () => setLightboxData(prev => prev ? { ...prev, index: (prev.index - 1 + prev.photos.length) % prev.photos.length } : null);
+  const lightboxNext = () => setLightboxData(prev => prev ? { ...prev, index: (prev.index + 1) % prev.photos.length } : null);
+  const openGalleryModal = (photos, placeNameForGallery, placeKeyForGallery) => setGalleryModalData({ photos, placeName: placeNameForGallery, placeKey: placeKeyForGallery });
+  const closeGalleryModal = () => setGalleryModalData(null);
   const openFavoritesPage = () => { setSeason(''); setSelectedPlace(null); setSearchQuery(''); setShowFavoritesPage(true); };
 
   const renderPlace = (key, place, isUserPlace = false) => {
@@ -1362,12 +1414,18 @@ return () => unsubscribe();
         )}
         {photos.length > 0 && (
           <div className="photo-gallery">
-            <h4>{t.photos}</h4>
+            <h4>{t.photos} ({photos.length})</h4>
             <div className="photos-grid">
-              {photos.map((photoObj, i) => (
-                <img key={i} src={photoObj.url} alt={placeName} className="user-photo" onClick={() => openLightbox(photoObj.url)} />
+              {photos.slice(0, 3).map((photoObj, i) => (
+                <img key={i} src={photoObj.url} alt={placeName} className="user-photo" onClick={() => openGalleryModal(photos, placeName, key)} />
               ))}
             </div>
+            <button
+              onClick={() => openGalleryModal(photos, placeName, key)}
+              style={{ marginTop: 8, background: '#faf6ec', color: '#8B6914', border: '1px solid #e8d5a3', padding: '8px 16px', borderRadius: 10, fontSize: '0.85rem', width: 'calc(100% - 0px)' }}
+            >
+              🖼️ افتحي معرض الصور{photos.length > 3 ? ` (+${photos.length - 3})` : ''}
+            </button>
           </div>
         )}
         {user && <ImageUpload placeKey={key} onUpload={handlePhotoUpload} />}
@@ -1428,6 +1486,8 @@ return () => unsubscribe();
           )}
         </div>
       </div>
+
+      <EcoBanner />
 
       {showProfile && user && (
         <ProfilePanel
@@ -1566,10 +1626,75 @@ return () => unsubscribe();
         </div>
       )}
 
-      {lightboxImg && (
+      {galleryModalData && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 2500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={closeGalleryModal}
+        >
+          <div
+            style={{ background: '#fff', borderRadius: 20, padding: 20, maxWidth: 600, width: '100%', maxHeight: '85vh', overflowY: 'auto', position: 'relative', textAlign: 'right' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button onClick={closeGalleryModal} style={{ position: 'absolute', top: 12, left: 12, border: 'none', background: 'none', fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
+            <h3 style={{ color: '#8B6914', marginBottom: 4 }}>🖼️ معرض صور {galleryModalData.placeName}</h3>
+            <p style={{ color: '#777', fontSize: '0.85rem', marginBottom: 14 }}>{galleryModalData.photos.length} صورة — دوسي على أي وحدة لتكبيرها</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+              {galleryModalData.photos.map((photoObj, i) => (
+                <img
+                  key={i}
+                  src={photoObj.url}
+                  alt={galleryModalData.placeName}
+                  className="user-photo"
+                  style={{ height: 110 }}
+                  onClick={() => openLightbox(galleryModalData.photos, i, galleryModalData.placeName, galleryModalData.placeKey)}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {lightboxData && (
         <div className="lightbox" onClick={closeLightbox}>
           <button className="lightbox-close" onClick={closeLightbox}>✕</button>
-          <img src={lightboxImg} alt="مكبرة" />
+
+          {lightboxData.photos.length > 1 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); lightboxPrev(); }}
+              style={{ position: 'absolute', insetInlineStart: 20, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', color: '#fff', border: 'none', borderRadius: '50%', width: 44, height: 44, fontSize: '1.4rem', cursor: 'pointer' }}
+            >
+              ‹
+            </button>
+          )}
+
+          <img
+            src={lightboxData.photos[lightboxData.index].url}
+            alt={lightboxData.placeName}
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {lightboxData.photos.length > 1 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); lightboxNext(); }}
+              style={{ position: 'absolute', insetInlineEnd: 20, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', color: '#fff', border: 'none', borderRadius: '50%', width: 44, height: 44, fontSize: '1.4rem', cursor: 'pointer' }}
+            >
+              ›
+            </button>
+          )}
+
+          <div style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', color: '#fff', fontSize: '0.9rem', background: 'rgba(0,0,0,0.5)', padding: '6px 16px', borderRadius: 20 }}>
+            {lightboxData.index + 1} من {lightboxData.photos.length}
+            {lightboxData.photos[lightboxData.index].uploadedBy && ` · رفعها ${lightboxData.photos[lightboxData.index].uploadedBy}`}
+          </div>
+
+          {user && lightboxData.photos[lightboxData.index].uploadedBy === user.displayName && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleDeletePhoto(lightboxData.placeKey, lightboxData.photos[lightboxData.index]); }}
+              style={{ position: 'absolute', top: 20, insetInlineStart: 20, background: '#c0392b', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: '0.85rem', cursor: 'pointer' }}
+            >
+              🗑️ احذفي صورتي
+            </button>
+          )}
         </div>
       )}
 
