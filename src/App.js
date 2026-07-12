@@ -1338,8 +1338,11 @@ return () => unsubscribe();
       const updatedPhotos = currentPhotos.map((p) => {
         if (p.url === photoObj.url && p.uploadedAt === photoObj.uploadedAt) {
           const likes = p.likes || [];
-          const hasLiked = likes.includes(user.uid);
-          return { ...p, likes: hasLiked ? likes.filter((id) => id !== user.uid) : [...likes, user.uid] };
+          const hasLiked = likes.some((l) => (l && l.uid) === user.uid);
+          const newLikes = hasLiked
+            ? likes.filter((l) => (l && l.uid) !== user.uid)
+            : [...likes, { uid: user.uid, likedAt: new Date().toISOString() }];
+          return { ...p, likes: newLikes };
         }
         return p;
       });
@@ -1467,21 +1470,21 @@ return () => unsubscribe();
   const userWinterPlaces = userPlaces.filter(p => p.season === 'winter');
   const userSpringPlaces = userPlaces.filter(p => p.season === 'spring');
 
-  // صورة الأسبوع — أعلى صورة إعجابات من بين الصور المرفوعة هالأسبوع، من كل الأماكن
+  // صورة الأسبوع — منافسة حقيقية: بس اللايكات يلي صارت هالأسبوع (تبلش من الصفر كل أسبوع)
   const getPlaceNameForKey = (pKey) => {
     if (places[pKey]) return places[pKey].name;
     const up = userPlaces.find(p => p.id === pKey);
     return up ? up.name : pKey;
   };
-  let weeklyTopPhoto = null;
   const weekStart = getWeekStart();
+  let weeklyTopPhoto = null;
   Object.entries(placePhotos).forEach(([pKey, photosArr]) => {
     (photosArr || []).forEach((p) => {
-      const uploadedDate = new Date(p.uploadedAt);
-      const likeCount = (p.likes || []).length;
-      if (uploadedDate >= weekStart && likeCount > 0) {
-        if (!weeklyTopPhoto || likeCount > weeklyTopPhoto.likeCount) {
-          weeklyTopPhoto = { ...p, likeCount, placeKey: pKey, placeName: getPlaceNameForKey(pKey) };
+      const likes = p.likes || [];
+      const weeklyLikeCount = likes.filter((l) => l && l.likedAt && new Date(l.likedAt) >= weekStart).length;
+      if (weeklyLikeCount > 0) {
+        if (!weeklyTopPhoto || weeklyLikeCount > weeklyTopPhoto.likeCount) {
+          weeklyTopPhoto = { ...p, likeCount: weeklyLikeCount, placeKey: pKey, placeName: getPlaceNameForKey(pKey) };
         }
       }
     });
@@ -1753,7 +1756,7 @@ return () => unsubscribe();
             onClick={(e) => { e.stopPropagation(); handleToggleLike(lightboxData.placeKey, lightboxData.photos[lightboxData.index]); }}
             style={{ position: 'absolute', bottom: 66, left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 20, padding: '6px 16px', color: '#fff', cursor: 'pointer', fontSize: '0.9rem' }}
           >
-            {(lightboxData.photos[lightboxData.index].likes || []).includes(user?.uid) ? '❤️' : '🤍'} {(lightboxData.photos[lightboxData.index].likes || []).length}
+            {(lightboxData.photos[lightboxData.index].likes || []).some((l) => (l && l.uid) === user?.uid) ? '❤️' : '🤍'} {(lightboxData.photos[lightboxData.index].likes || []).length}
           </button>
 
           <div style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', color: '#fff', fontSize: '0.9rem', background: 'rgba(0,0,0,0.5)', padding: '6px 16px', borderRadius: 20 }}>
