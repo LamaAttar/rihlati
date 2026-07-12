@@ -175,6 +175,15 @@ function createColorIcon(color) {
   });
 }
 
+// بداية الأسبوع الحالي (يوم الأحد الساعة 00:00) — أساس حساب "صورة الأسبوع"
+function getWeekStart() {
+  const d = new Date();
+  const day = d.getDay();
+  d.setDate(d.getDate() - day);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 function getArabicDateLabel(offsetDays) {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
@@ -1321,6 +1330,26 @@ return () => unsubscribe();
     }
   };
 
+  // إعجاب/إلغاء إعجاب بصورة — أساس "صورة الأسبوع"
+  const handleToggleLike = async (placeKey, photoObj) => {
+    if (!user) return alert('سجلي دخول أولاً عشان تحطي لايك');
+    try {
+      const currentPhotos = placePhotos[placeKey] || [];
+      const updatedPhotos = currentPhotos.map((p) => {
+        if (p.url === photoObj.url && p.uploadedAt === photoObj.uploadedAt) {
+          const likes = p.likes || [];
+          const hasLiked = likes.includes(user.uid);
+          return { ...p, likes: hasLiked ? likes.filter((id) => id !== user.uid) : [...likes, user.uid] };
+        }
+        return p;
+      });
+      await setDoc(doc(db, 'photos', placeKey), { items: updatedPhotos }, { merge: true });
+      setPlacePhotos((prev) => ({ ...prev, [placeKey]: updatedPhotos }));
+      setLightboxData((prev) => (prev && prev.placeKey === placeKey ? { ...prev, photos: updatedPhotos } : prev));
+      setGalleryModalData((prev) => (prev && prev.placeKey === placeKey ? { ...prev, photos: updatedPhotos } : prev));
+    } catch (e) {}
+  };
+
   const toggleDetails = async (key, place) => {
     if (openPlace === key) { setOpenPlace(''); setServices([]); setRestaurants([]); return; }
     setOpenPlace(key);
@@ -1438,6 +1467,26 @@ return () => unsubscribe();
   const userWinterPlaces = userPlaces.filter(p => p.season === 'winter');
   const userSpringPlaces = userPlaces.filter(p => p.season === 'spring');
 
+  // صورة الأسبوع — أعلى صورة إعجابات من بين الصور المرفوعة هالأسبوع، من كل الأماكن
+  const getPlaceNameForKey = (pKey) => {
+    if (places[pKey]) return places[pKey].name;
+    const up = userPlaces.find(p => p.id === pKey);
+    return up ? up.name : pKey;
+  };
+  let weeklyTopPhoto = null;
+  const weekStart = getWeekStart();
+  Object.entries(placePhotos).forEach(([pKey, photosArr]) => {
+    (photosArr || []).forEach((p) => {
+      const uploadedDate = new Date(p.uploadedAt);
+      const likeCount = (p.likes || []).length;
+      if (uploadedDate >= weekStart && likeCount > 0) {
+        if (!weeklyTopPhoto || likeCount > weeklyTopPhoto.likeCount) {
+          weeklyTopPhoto = { ...p, likeCount, placeKey: pKey, placeName: getPlaceNameForKey(pKey) };
+        }
+      }
+    });
+  });
+
   return (
     <div className="App" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       {showGenderModal && (
@@ -1520,6 +1569,24 @@ return () => unsubscribe();
 
       {showTripPlanner && (
         <TripPlanner onClose={() => setShowTripPlanner(false)} onOpenMap={openMap} userPlaces={userPlaces} />
+      )}
+
+      {weeklyTopPhoto && (
+        <button
+          onClick={() => openGalleryModal(placePhotos[weeklyTopPhoto.placeKey] || [weeklyTopPhoto], weeklyTopPhoto.placeName, weeklyTopPhoto.placeKey)}
+          style={{
+            position: 'fixed', bottom: 20, insetInlineStart: 20, zIndex: 999,
+            width: 60, height: 60, borderRadius: '50%',
+            backgroundImage: `linear-gradient(rgba(139,105,20,0.15), rgba(139,105,20,0.15)), url(${weeklyTopPhoto.url})`,
+            backgroundSize: 'cover', backgroundPosition: 'center',
+            border: '3px solid #fff', boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
+            padding: 0, cursor: 'pointer', overflow: 'hidden',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+          }}
+          title={`🏆 صورة الأسبوع: ${weeklyTopPhoto.placeName}`}
+        >
+          <span style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', width: '100%', fontSize: '0.65rem', borderRadius: '0 0 27px 27px', padding: '2px 0' }}>🏆</span>
+        </button>
       )}
 
       {!searchQuery && (
@@ -1682,6 +1749,13 @@ return () => unsubscribe();
             </button>
           )}
 
+          <button
+            onClick={(e) => { e.stopPropagation(); handleToggleLike(lightboxData.placeKey, lightboxData.photos[lightboxData.index]); }}
+            style={{ position: 'absolute', bottom: 66, left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 20, padding: '6px 16px', color: '#fff', cursor: 'pointer', fontSize: '0.9rem' }}
+          >
+            {(lightboxData.photos[lightboxData.index].likes || []).includes(user?.uid) ? '❤️' : '🤍'} {(lightboxData.photos[lightboxData.index].likes || []).length}
+          </button>
+
           <div style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', color: '#fff', fontSize: '0.9rem', background: 'rgba(0,0,0,0.5)', padding: '6px 16px', borderRadius: 20 }}>
             {lightboxData.index + 1} من {lightboxData.photos.length}
             {lightboxData.photos[lightboxData.index].uploadedBy && ` · رفعها ${lightboxData.photos[lightboxData.index].uploadedBy}`}
@@ -1690,7 +1764,7 @@ return () => unsubscribe();
           {user && lightboxData.photos[lightboxData.index].uploadedBy === user.displayName && (
             <button
               onClick={(e) => { e.stopPropagation(); handleDeletePhoto(lightboxData.placeKey, lightboxData.photos[lightboxData.index]); }}
-              style={{ position: 'absolute', top: 20, insetInlineStart: 20, background: '#c0392b', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: '0.85rem', cursor: 'pointer' }}
+              style={{ position: 'absolute', top: 20, left: 20, background: '#c0392b', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: '0.85rem', cursor: 'pointer' }}
             >
               🗑️ احذفي صورتي
             </button>
