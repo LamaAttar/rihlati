@@ -143,14 +143,22 @@ function buildDaySchedule(startHour) {
   };
 }
 
+// بيوحّد أشكال الألف المختلفة (أ إ آ ا) عشان المطابقة تكون صح
+// حتى لو المستخدم كتب الاسم بشكل مختلف شوي عن المخزّن بالتطبيق
+function normalizeArabic(text) {
+  return text.replace(/[أإآ]/g, 'ا');
+}
+
 // بيدور بالأماكن الرسمية وبالأماكن يلي أضافها الزوار مع بعض
 function extractMentionedPlaces(text, userPlaces) {
+  const normalizedText = normalizeArabic(text);
+
   const officialMatches = Object.keys(places)
-    .filter((key) => text.includes(places[key].name))
+    .filter((key) => normalizedText.includes(normalizeArabic(places[key].name)))
     .map((key) => ({ key, place: places[key], isUserPlace: false }));
 
   const userMatches = (userPlaces || [])
-    .filter((p) => p.name && text.includes(p.name))
+    .filter((p) => p.name && normalizedText.includes(normalizeArabic(p.name)))
     .map((p) => ({ key: p.id, place: p, isUserPlace: true }));
 
   return [...officialMatches, ...userMatches];
