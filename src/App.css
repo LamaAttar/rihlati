@@ -11,6 +11,7 @@ body {
   background: #faf7f2;
   min-height: 100vh;
   direction: rtl;
+  overflow-x: hidden; /* يمنع أي تمرير أفقي غير مرغوب على الموبايل */
 }
 
 .navbar {
@@ -23,6 +24,8 @@ body {
   position: sticky;
   top: 0;
   z-index: 1000;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .navbar h1 {
@@ -35,6 +38,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .user-info {
@@ -510,4 +514,195 @@ button:hover {
 }
 .gender-modal button:hover {
   background: #faf6ec;
+}
+
+/* ============================================================
+   ===== نظام التجاوب الكامل (Responsive) — تابلت وموبايل =====
+   ============================================================ */
+
+/* ===== تابلت (900px وأقل) ===== */
+@media (max-width: 900px) {
+  .navbar {
+    padding: 10px 16px;
+  }
+
+  .navbar h1 {
+    font-size: 1.3rem;
+  }
+
+  .search-input {
+    width: 80%;
+  }
+
+  .places-grid {
+    padding: 16px 20px;
+    gap: 18px;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+
+  .map-container {
+    max-width: 92%;
+    padding: 15px;
+  }
+}
+
+/* ===== موبايل (600px وأقل) ===== */
+@media (max-width: 600px) {
+  .navbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .navbar h1 {
+    text-align: center;
+    font-size: 1.2rem;
+  }
+
+  .navbar-right {
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .lang-btn,
+  .logout-btn,
+  .login-btn {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
+
+  .user-info span {
+    font-size: 0.75rem;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .search-input {
+    width: 92%;
+    padding: 11px 18px;
+    font-size: 0.9rem;
+  }
+
+  .App > p {
+    font-size: 1rem;
+    margin: 15px 10px;
+  }
+
+  .welcome-msg {
+    font-size: 1.05rem;
+    padding: 0 15px;
+  }
+
+  button {
+    font-size: 0.95rem;
+    padding: 10px 18px;
+    margin: 4px 6px;
+  }
+
+  .places-grid {
+    grid-template-columns: 1fr;
+    padding: 12px 14px;
+    gap: 14px;
+  }
+
+  .place-card h3 {
+    font-size: 1.15rem;
+  }
+
+  .place-card img {
+    height: 180px;
+  }
+
+  .place-card button,
+  .directions-btn {
+    width: calc(100% - 20px);
+    margin: 5px 10px;
+    font-size: 0.9rem;
+  }
+
+  .App h2 {
+    font-size: 1.4rem;
+    padding: 0 15px;
+  }
+
+  .map-container {
+    max-width: 100%;
+    margin: 12px 8px;
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .map-legend {
+    gap: 8px;
+    font-size: 0.78rem;
+  }
+
+  .add-place-form {
+    padding: 15px;
+    margin: 12px 8px;
+  }
+
+  .lightbox-close {
+    width: 38px;
+    height: 38px;
+    font-size: 1.2rem;
+    top: 12px;
+    right: 12px;
+  }
+
+  .photos-grid {
+    gap: 5px;
+  }
+
+  .user-photo {
+    height: 70px;
+  }
+
+  .weather-card-mini {
+    font-size: 0.8rem;
+    padding: 8px 12px;
+  }
+
+  .gender-modal h3 {
+    font-size: 1rem;
+    padding: 18px 20px 10px;
+  }
+
+  .gender-modal button {
+    padding: 12px 20px;
+    font-size: 0.9rem;
+  }
+}
+
+/* ===== شاشات صغيرة جداً (380px وأقل) ===== */
+@media (max-width: 380px) {
+  .navbar h1 {
+    font-size: 1.05rem;
+  }
+
+  .search-input {
+    width: 96%;
+    padding: 9px 14px;
+    font-size: 0.85rem;
+  }
+
+  button {
+    font-size: 0.85rem;
+    padding: 9px 14px;
+  }
+
+  .place-card h3 {
+    font-size: 1.05rem;
+  }
+
+  .place-card p {
+    font-size: 0.85rem;
+  }
+
+  .App h2 {
+    font-size: 1.2rem;
+  }
 }
