@@ -1127,15 +1127,15 @@ function WeatherCard({ latitude, longitude, placeName }) {
   } else if (temp >= 30) {
     condition = 'حر ومشمس';
     icon = '☀️';
-    recommendation = 'الجو حر، خذي معك ماء وواقي شمس ☀️';
+    recommendation = 'الجو حر، يُنصح باصطحاب الماء وواقي الشمس ☀️';
   } else if (temp >= 20) {
     condition = 'معتدل';
     icon = '🌤️';
-    recommendation = 'الجو معتدل ورائع للزيارة والتنزه 🍃';
+    recommendation = 'الجو معتدل ومناسب للزيارة والتنزه والاستمتاع بالطبيعة 🍃';
   } else {
     condition = 'بارد';
     icon = '❄️';
-    recommendation = 'الجو بارد شوي، خذي معك ملابس دافية';
+    recommendation = 'الجو بارد، يُنصح بارتداء ملابس دافئة والاستعداد للأجواء الباردة 🧥';
   }
 
   return (
@@ -1700,6 +1700,7 @@ function App() {
   const [restaurants, setRestaurants] = useState([]);
   const [loadingServices, setLoadingServices] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [ratings, setRatings] = useState({});
   const [mapServices, setMapServices] = useState([]);
   const [user, setUser] = useState(null);
@@ -1719,6 +1720,13 @@ function App() {
   const [showAiTripBuilder, setShowAiTripBuilder] = useState(false);
 
   const t = translations[lang];
+
+  // نأخر تحديث نتائج البحث الفعلية 300 ملي ثانية بعد آخر حرف تكتبيه —
+  // هيك الكتابة نفسها بتضل سلسة، وما منعيد رسم كل البطاقات مع كل حرف
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -1976,7 +1984,7 @@ return () => unsubscribe();
             🗑️ احذفي هالمنطقة
           </button>
         )}
-        <img src={place.img} alt={placeName} />
+        <img src={place.img} alt={placeName} loading="lazy" />
         {place.lat && userLocation && (
           <p>📍 {t.distance} {getDistance(userLocation.lat, userLocation.lng, place.lat, place.lng)} {t.fromLocation}</p>
         )}
@@ -2124,9 +2132,9 @@ return () => unsubscribe();
       <p>{t.subtitle}</p>
       <input className="search-input" type="text" placeholder={`🔍 ${t.search}`} value={searchQuery} onChange={(e) => { setShowFavoritesPage(false); setSearchQuery(e.target.value); }} />
 
-      {!searchQuery && season === '' && !showFavoritesPage && <p className="welcome-msg">{t.welcome}</p>}
+      {!debouncedSearchQuery && season === '' && !showFavoritesPage && <p className="welcome-msg">{t.welcome}</p>}
 
-      {!searchQuery && season === '' && !showFavoritesPage && (
+      {!debouncedSearchQuery && season === '' && !showFavoritesPage && (
         <>
           <button className="add-place-btn" onClick={() => setShowTripPlanner(true)} style={{ marginBottom: 10 }}>
             🗺️ خطط رحلتي
@@ -2163,7 +2171,7 @@ return () => unsubscribe();
         </button>
       )}
 
-      {!searchQuery && (
+      {!debouncedSearchQuery && (
         <>
           <button onClick={() => { setShowFavoritesPage(false); setSeason('summer'); }}>{t.summer}</button>
           <button onClick={() => { setShowFavoritesPage(false); setSeason('winter'); }}>{t.winter}</button>
@@ -2171,18 +2179,18 @@ return () => unsubscribe();
         </>
       )}
 
-      {user && season === '' && !searchQuery && !showFavoritesPage && (
+      {user && season === '' && !debouncedSearchQuery && !showFavoritesPage && (
         <div style={{ margin: '15px auto', maxWidth: '600px' }}>
           <AddPlaceForm user={user} onAdd={(p) => setUserPlaces(prev => [...prev, p])} onPointsEarned={() => awardPoints(20)} />
         </div>
       )}
-      {!user && season === '' && !searchQuery && !showFavoritesPage && (
+      {!user && season === '' && !debouncedSearchQuery && !showFavoritesPage && (
         <p className="login-hint" style={{ margin: '10px 0' }}>🔑 سجل دخول لإضافة منطقة جديدة</p>
       )}
 
-      {(season !== '' || showFavoritesPage) && !searchQuery && <button className="home-btn" onClick={goHome}>{t.home}</button>}
+      {(season !== '' || showFavoritesPage) && !debouncedSearchQuery && <button className="home-btn" onClick={goHome}>{t.home}</button>}
 
-      {showFavoritesPage && !selectedPlace && !searchQuery && (
+      {showFavoritesPage && !selectedPlace && !debouncedSearchQuery && (
         <div>
           <h2>❤️ الأماكن المفضلة</h2>
           {favoriteKeys.length === 0 ? (
@@ -2195,10 +2203,10 @@ return () => unsubscribe();
         </div>
       )}
 
-      {searchQuery && (
+      {debouncedSearchQuery && (
         <div className="places-grid">
           {Object.keys(places)
-            .filter(key => places[key].name.includes(searchQuery) || places[key].nameEn.toLowerCase().includes(searchQuery.toLowerCase()))
+            .filter(key => places[key].name.includes(debouncedSearchQuery) || places[key].nameEn.toLowerCase().includes(debouncedSearchQuery.toLowerCase()))
             .map(key => renderPlace(key, places[key]))}
         </div>
       )}
@@ -2228,7 +2236,7 @@ return () => unsubscribe();
         </div>
       )}
 
-      {season === 'summer' && !selectedPlace && !searchQuery && (
+      {season === 'summer' && !selectedPlace && !debouncedSearchQuery && (
         <div>
           <h2>{t.summerRegions}</h2>
           <div className="places-grid">{summerKeys.map(key => renderPlace(key, places[key]))}</div>
@@ -2241,7 +2249,7 @@ return () => unsubscribe();
         </div>
       )}
 
-      {season === 'winter' && !selectedPlace && !searchQuery && (
+      {season === 'winter' && !selectedPlace && !debouncedSearchQuery && (
         <div>
           <h2>{t.winterRegions}</h2>
           <div className="places-grid">{winterKeys.map(key => renderPlace(key, places[key]))}</div>
@@ -2254,7 +2262,7 @@ return () => unsubscribe();
         </div>
       )}
 
-      {season === 'spring' && !selectedPlace && !searchQuery && (
+      {season === 'spring' && !selectedPlace && !debouncedSearchQuery && (
         <div>
           <h2>{t.springRegions}</h2>
           <div className="places-grid">{springKeys.map(key => renderPlace(key, places[key]))}</div>
