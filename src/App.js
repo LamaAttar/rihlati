@@ -45,8 +45,6 @@ const summerKeys = ['ajloun', 'irbid', 'jerash', 'umqais', 'deadsea', 'shouna', 
 const winterKeys = ['petra', 'wadirum', 'aqaba', 'madaba', 'karak', 'deisa', 'dana', 'mainhot', 'himma', 'azraqcastle', 'azraqwetland', 'qasramra', 'hallabat', 'shobak', 'ummrasas'];
 const springKeys = ['birgish', 'ummalnaml'];
 
-/* ===== بيانات تصنيف إضافية لكل منطقة — تُستخدم فقط لترشيح "خطط رحلتي" =====
-   لا تكرر بيانات places (الاسم/الوصف/الصورة)، هي فقط تصنيف: الميزانية، الرفقة المناسبة، والمدة */
 const placeMeta = {
   ajloun: { budget: 'under20', companions: ['alone', 'family', 'friends', 'kids'], duration: 'half' },
   irbid: { budget: 'free', companions: ['alone', 'family', 'friends'], duration: '2h' },
@@ -85,9 +83,267 @@ function durationLabel(d) {
   return 'يوم كامل';
 }
 
-// يحسب مدى ملاءمة منطقة معينة لتفضيلات الرحلة (موسم، رفقة، وقت، ميزانية)
-// تصنيف افتراضي عام لأي منطقة ما إلها تصنيف يدوي (زي مناطق الزوار) —
-// نفترض إنها مجانية، مناسبة لأي رفقة، وتاخذ نص يوم تقريباً، لحد ما ينحدد تصنيف حقيقي إلها
+// ============================================================
+// نظام بناء الرحلات الذكي المحلي — بدون أي AI خارجي
+// بيحلل وصف المستخدم الحر ويبني جدول رحلة كامل من بيانات
+// الأماكن الموجودة أصلاً بالتطبيق (places + userPlaces)
+// ============================================================
+
+function extractDaysCount(text) {
+  const match = text.match(/(\d+)\s*(يوم|أيام|ايام)/);
+  if (match) {
+    const n = parseInt(match[1], 10);
+    if (n >= 1 && n <= 10) return n;
+  }
+  return 2; // افتراضي لو ما ذكر عدد الأيام
+}
+
+function extractBudgetNumber(text) {
+  const match = text.match(/(\d+)\s*(دينار|دنانير)/);
+  if (match) return parseInt(match[1], 10);
+  return null;
+}
+
+// بيدور بالأماكن الرسمية وبالأماكن يلي أضافها الزوار مع بعض
+function extractMentionedPlaces(text, userPlaces) {
+  const officialMatches = Object.keys(places)
+    .filter((key) => text.includes(places[key].name))
+    .map((key) => ({ key, place: places[key], isUserPlace: false }));
+
+  const userMatches = (userPlaces || [])
+    .filter((p) => p.name && text.includes(p.name))
+    .map((p) => ({ key: p.id, place: p, isUserPlace: true }));
+
+  return [...officialMatches, ...userMatches];
+}
+
+function budgetRangeForCategory(category) {
+  if (category === 'free') return '5-10 دينار (أكل ومصاريف بسيطة فقط)';
+  if (category === 'under20') return '15-25 دينار';
+  return '30-50 دينار';
+}
+
+// ===== أنشطة محددة وحقيقية لكل منطقة — مش وصف عام بس =====
+const PLACE_ACTIVITIES = {
+  petra: [
+    { name: 'زيارة الخزنة (Treasury)', description: 'المعلم الأشهر بالبتراء، أول ما تشوفيه بعد المشي بالسيق الضيق', durationHint: 'ساعة إلى ساعتين' },
+    { name: 'المشي لدير البتراء (900 درجة)', description: 'مسير يستاهل التعب، إطلالة رائعة من فوق', durationHint: 'ساعتين إلى ثلاثة' },
+    { name: 'استكشاف المدافن الملكية', description: 'نقوش وواجهات صخرية مذهلة بألوان طبيعية رائعة', durationHint: 'ساعة تقريباً' },
+  ],
+  wadirum: [
+    { name: 'جولة سفاري بسيارات الدفع الرباعي', description: 'استكشاف الوادي والكثبان الرملية والصخور الشهيرة', durationHint: 'ساعتين تقريباً' },
+    { name: 'تسلق الكثبان الرملية ومشاهدة الغروب', description: 'تجربة لا تُنسى وقت غروب الشمس بألوانها الذهبية', durationHint: 'ساعة تقريباً', idealTime: '05:30 مساءً' },
+    { name: 'ركوب الجمال بالصحراء', description: 'تجربة بدوية أصيلة وسط الرمال', durationHint: 'ساعة تقريباً', suitableFor: ['family', 'kids', 'alone'] },
+  ],
+  aqaba: [
+    { name: 'الغطس أو السنوركل بالشعاب المرجانية', description: 'بحر أحمر بألوان وحياة بحرية خلابة', durationHint: 'ساعتين تقريباً', suitableFor: ['friends', 'alone'] },
+    { name: 'نزهة على كورنيش العقبة', description: 'إطلالة على البحر الأحمر وأجواء المدينة الساحلية', durationHint: 'ساعة تقريباً' },
+    { name: 'زيارة القلعة المملوكية', description: 'معلم تاريخي بوسط المدينة يستاهل زيارة سريعة', durationHint: 'نص ساعة' },
+  ],
+  deadsea: [
+    { name: 'طفو بمياه البحر الميت', description: 'تجربة فريدة عالمياً — جسمك بيطفو لحاله', durationHint: 'ساعة تقريباً' },
+    { name: 'تجربة طمي البحر الميت العلاجي', description: 'طمي طبيعي مفيد للبشرة، مأخوذ من نفس المنطقة', durationHint: 'نص ساعة' },
+    { name: 'مشاهدة الغروب على البحر الميت', description: 'مناظر خلابة وقت الغروب فوق المياه', durationHint: 'نص ساعة', idealTime: '05:30 مساءً' },
+  ],
+  jerash: [
+    { name: 'جولة بالمدرج الروماني الجنوبي', description: 'آثار رومانية محفوظة بعناية كبيرة', durationHint: 'ساعة تقريباً' },
+    { name: 'المشي بشارع الأعمدة (Cardo)', description: 'قلب المدينة الأثرية القديمة', durationHint: 'ساعة تقريباً' },
+    { name: 'زيارة معبد أرتميس', description: 'من أهم وأعرق المعابد بالموقع الأثري', durationHint: 'نص ساعة' },
+  ],
+  ajloun: [
+    { name: 'زيارة قلعة عجلون', description: 'قلعة تاريخية بإطلالة رائعة على المنطقة المحيطة', durationHint: 'ساعة تقريباً' },
+    { name: 'مسير بغابات عجلون', description: 'طبيعة خضراء وأجواء منعشة، خصوصاً بالربيع والصيف', durationHint: 'ساعتين تقريباً' },
+  ],
+  madaba: [
+    { name: 'زيارة كنيسة الخريطة الفسيفسائية', description: 'أشهر معلم بمادبا، خريطة فسيفساء تاريخية نادرة', durationHint: 'نص ساعة' },
+    { name: 'جولة بمتحف الفسيفساء الأردني', description: 'فن الفسيفساء التاريخي بتفاصيل رائعة', durationHint: 'ساعة تقريباً' },
+  ],
+  karak: [
+    { name: 'استكشاف قلعة الكرك الصليبية', description: 'قلعة ضخمة بإطلالة مذهلة على البحر الميت', durationHint: 'ساعتين تقريباً' },
+  ],
+  dana: [
+    { name: 'مسير الوادي الكامل بمحمية ضانا', description: 'طبيعة جبلية خلابة وتنوع بيئي مميز', durationHint: 'نص يوم' },
+    { name: 'مراقبة الطيور والحياة البرية', description: 'فرصة لمشاهدة كائنات نادرة بموطنها الطبيعي', durationHint: 'ساعة تقريباً' },
+  ],
+  mainhot: [
+    { name: 'الاستحمام بالشلالات الساخنة', description: 'تجربة علاجية واسترخائية وسط الطبيعة', durationHint: 'ساعة تقريباً' },
+  ],
+  azraqwetland: [
+    { name: 'مراقبة الطيور المهاجرة', description: 'محمية مائية فريدة وسط الصحراء الشرقية', durationHint: 'ساعة تقريباً' },
+  ],
+  amman: [
+    { name: 'زيارة جبل القلعة والمدرج الروماني', description: 'قلب عمّان التاريخي بإطلالة بانورامية على المدينة', durationHint: 'ساعتين تقريباً' },
+    { name: 'التجول بوسط البلد', description: 'أسواق تقليدية وأجواء حيوية أصيلة', durationHint: 'ساعة تقريباً' },
+  ],
+};
+
+// بيرجع أنشطة محددة للمكان لو موجودة، وإلا بيستخدم الوصف العام كـ fallback
+function getPlaceActivities(key, place) {
+  if (PLACE_ACTIVITIES[key]) return PLACE_ACTIVITIES[key];
+  return [{ name: place.name, description: place.desc, durationHint: 'حسب رغبتك' }];
+}
+
+// بيكتشف نوع الرفقة من نص المستخدم عشان نختار أنشطة مناسبة
+function detectCompanionType(text) {
+  const familyWords = ['عائلة', 'عائلتي', 'اهلي', 'أهلي', 'اطفال', 'أطفال', 'ولادي', 'اولادي'];
+  const friendsWords = ['اصحاب', 'أصحاب', 'شباب', 'شلة', 'صحابي', 'رفقة', 'رفاق'];
+  const aloneWords = ['لحالي', 'وحدي', 'لوحدي'];
+  if (familyWords.some((w) => text.includes(w))) return 'family';
+  if (friendsWords.some((w) => text.includes(w))) return 'friends';
+  if (aloneWords.some((w) => text.includes(w))) return 'alone';
+  return null;
+}
+
+// بيرجع أنشطة مناسبة للرفقة تحديداً — لو نشاط ماله علامة suitableFor، معناها مناسب للكل
+function filterActivitiesByCompanion(activities, companionType) {
+  if (!companionType) return activities;
+  const filtered = activities.filter((act) => !act.suitableFor || act.suitableFor.includes(companionType));
+  return filtered.length > 0 ? filtered : activities; // احتياط: لو ما ضل شي، رجعي القائمة الأصلية
+}
+
+// أماكن قريبة بديلة — تُستخدم لما الرحلة كذا يوم بنفس المكان، عشان نتفادى التكرار
+const NEARBY_PLACES = {
+  petra: ['wadirum'],
+  wadirum: ['petra', 'aqaba'],
+  aqaba: ['wadirum'],
+  deadsea: ['madaba', 'mainhot'],
+  madaba: ['deadsea', 'mainhot'],
+  mainhot: ['madaba'],
+  jerash: ['ajloun', 'amman'],
+  ajloun: ['jerash'],
+  amman: ['jerash', 'madaba'],
+  karak: ['dana'],
+  dana: ['karak'],
+  azraqwetland: ['amman'],
+};
+
+function buildLocalTripPlan(userText, userPlaces) {
+  const days = extractDaysCount(userText);
+  const userBudget = extractBudgetNumber(userText);
+  const mentioned = extractMentionedPlaces(userText, userPlaces);
+  const companionType = detectCompanionType(userText);
+
+  // لو المستخدم ذكر أماكن معينة (رسمية أو أضافها زوار)، نستخدمها.
+  // غير هيك، منختار مجموعة مميزة افتراضية من الأماكن الرسمية
+  const defaultHighlights = ['petra', 'wadirum', 'aqaba', 'deadsea', 'jerash', 'ajloun', 'madaba'].map(
+    (key) => ({ key, place: places[key], isUserPlace: false })
+  );
+  let pool = mentioned.length > 0 ? mentioned : defaultHighlights;
+
+  // لو المستخدم ذكر مكان واحد بس وطلب كذا يوم، منضيف أماكن قريبة
+  // للأيام التالية عشان نتفادى تكرار نفس البرنامج كل يوم
+  if (pool.length === 1 && days > 1 && !pool[0].isUserPlace) {
+    const nearbyKeys = NEARBY_PLACES[pool[0].key] || [];
+    const nearbyEntries = nearbyKeys.map((k) => ({ key: k, place: places[k], isUserPlace: false }));
+    pool = [pool[0], ...nearbyEntries];
+  }
+
+  const dayEntries = [];
+  for (let i = 0; i < days; i++) {
+    dayEntries.push(pool[i % pool.length]);
+  }
+
+  const tripDays = dayEntries.map((entry, index) => {
+    const { key, place, isUserPlace } = entry;
+    const meta = isUserPlace ? DEFAULT_PLACE_META : getPlaceMeta(key);
+    const stops = [];
+
+    stops.push({
+      time: '08:00 صباحاً',
+      type: 'فطور',
+      place: `مطعم محلي بالقرب من ${place.name}`,
+      description: 'فطور شعبي بسيط (فول، حمص، مناقيش) قبل بدء اليوم',
+      durationHint: 'نص ساعة تقريباً',
+    });
+
+    // عدد الأنشطة حسب مدة الزيارة المتوقعة للمكان
+    const activityCount = meta.duration === 'full' ? 3 : meta.duration === 'half' ? 2 : 1;
+    const rawActivities = isUserPlace
+      ? [{ name: place.name, description: place.desc, durationHint: durationLabel(meta.duration) }]
+      : filterActivitiesByCompanion(getPlaceActivities(key, place), companionType);
+    const activities = rawActivities.slice(0, activityCount);
+
+    // الأنشطة يلي إلها وقت مثالي محدد (زي الغروب) منحطها بمكانها الصح،
+    // والباقي منوزعهم صباحاً قبل الغدا
+    const eveningActivities = activities.filter((a) => a.idealTime);
+    const regularActivities = activities.filter((a) => !a.idealTime);
+
+    const beforeLunch = regularActivities.slice(0, Math.min(2, regularActivities.length));
+    const afterLunch = regularActivities.slice(2);
+    const morningTimes = ['09:30 صباحاً', '11:30 صباحاً'];
+
+    beforeLunch.forEach((act, i) => {
+      stops.push({
+        time: morningTimes[i] || '10:30 صباحاً',
+        type: 'نشاط',
+        place: act.name + (isUserPlace ? ' 🌟 (اكتشفها زائر تاني)' : ''),
+        description: act.description,
+        durationHint: act.durationHint,
+      });
+    });
+
+    stops.push({
+      time: '01:30 ظهراً',
+      type: 'غدا',
+      place: place.food ? `مطعم يقدم ${place.food}` : 'مطعم محلي قريب',
+      description: place.food
+        ? `تجربة أكلة ${place.food} المشهورة بمنطقة ${place.name}`
+        : `أكل محلي بمنطقة ${place.name}`,
+      durationHint: 'ساعة تقريباً',
+    });
+
+    afterLunch.forEach((act) => {
+      stops.push({
+        time: '03:00 مساءً',
+        type: 'نشاط',
+        place: act.name,
+        description: act.description,
+        durationHint: act.durationHint,
+      });
+    });
+
+    eveningActivities.forEach((act) => {
+      stops.push({
+        time: act.idealTime,
+        type: 'نشاط',
+        place: act.name,
+        description: act.description,
+        durationHint: act.durationHint,
+      });
+    });
+
+    return {
+      dayNumber: index + 1,
+      title: `يوم في ${place.name}`,
+      estimatedBudget: budgetRangeForCategory(meta.budget),
+      stops,
+    };
+  });
+
+  const placeNames = [...new Set(dayEntries.map((e) => e.place.name))];
+  const title = `رحلة ${days} ${days === 1 ? 'يوم' : 'أيام'}: ${placeNames.join('، ')}`;
+
+  const tips = [
+    'احملي معك ماء كافي، خصوصاً لو الرحلة بمناطق صحراوية أو بالصيف',
+    'خذي كاش معك — مو كل الأماكن الصغيرة عندها إمكانية دفع إلكتروني',
+    'احجزي أماكن الإقامة مسبقاً لو الرحلة بموسم الذروة (الصيف أو الأعياد)',
+  ];
+
+  if (userBudget) {
+    const totalEstimateLow = days * 10;
+    const totalEstimateHigh = days * 40;
+    if (userBudget < totalEstimateLow) {
+      tips.push(
+        `ميزانيتك (${userBudget} دينار) أقل من المتوقع لهاي الرحلة — ركزي على الأماكن المجانية والأكل البسيط`
+      );
+    } else if (userBudget > totalEstimateHigh) {
+      tips.push(`ميزانيتك (${userBudget} دينار) مريحة جداً لهاي الرحلة، فيكي تضيفي أنشطة إضافية أو إقامة أفخم`);
+    }
+  }
+
+  return { title, totalDays: days, days: tripDays, tips };
+}
+
 const DEFAULT_PLACE_META = { budget: 'free', companions: ['alone', 'family', 'friends', 'kids'], duration: 'half' };
 
 function getPlaceMeta(key) {
@@ -119,7 +375,6 @@ function getDistance(lat1, lon1, lat2, lon2) {
   return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(0);
 }
 
-/* ===== نظام النقاط والمستويات ===== */
 function getLevelInfo(points) {
   if (points > 300) return { label: 'خبير سياحة', icon: '🥇' };
   if (points >= 101) return { label: 'رحالة', icon: '🥈' };
@@ -175,7 +430,6 @@ function createColorIcon(color) {
   });
 }
 
-// بداية الأسبوع الحالي (يوم الأحد الساعة 00:00) — أساس حساب "صورة الأسبوع"
 function getWeekStart() {
   const d = new Date();
   const day = d.getDay();
@@ -213,7 +467,6 @@ function isFriendsQuery(q) {
   return friendWords.some(w => q.includes(w)) || funWords.some(w => q.includes(w));
 }
 
-/* ===== نظام المرادفات — قابل للتوسعة، ضيفي أي كلمة جديدة هون ===== */
 const KEYWORD_SYNONYMS = {
   'مطعم': ['مطعم', 'مطاعم', 'restaurant', 'restaurants', 'food', 'eat', 'اكل', 'أكل', 'طعام'],
   'قريب': ['قريب', 'قريبة', 'قريبين', 'near', 'nearby', 'close by'],
@@ -234,7 +487,6 @@ const KEYWORD_SYNONYMS = {
   'مرحبا': ['مرحبا', 'مرحباً', 'hi', 'hello', 'hey', 'salam'],
 };
 
-// يبني تلقائياً مرادفات كل منطقة موجودة بالتطبيق (عربي/إنجليزي) بدون أي شغل يدوي
 function buildPlaceSynonyms() {
   const map = {};
   Object.values(places).forEach((p) => {
@@ -243,7 +495,6 @@ function buildPlaceSynonyms() {
   return map;
 }
 
-// مسافة التحرير (Levenshtein) — تقيس شبه كلمتين حتى لو في خطأ إملائي بسيط
 function levenshtein(a, b) {
   const m = a.length, n = b.length;
   const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
@@ -258,11 +509,9 @@ function levenshtein(a, b) {
   return dp[m][n];
 }
 
-// مطابقة ضبابية: أول شي بتجرب مطابقة تامة (أسرع)، وإذا ما لقت، بتقارن كل كلمة
-// بالنص مع الكلمة المطلوبة وتسمح بفرق بسيط (خطأ إملائي) قبل ما تعتبرها غير متطابقة
 function fuzzyIncludes(text, word) {
   if (text.includes(word)) return true;
-  if (word.length < 4) return false; // كلمات قصيرة منتجنبها عشان ما نطلع مطابقات غلط
+  if (word.length < 4) return false;
   const tokens = text.split(/[^a-zA-Zء-ي]+/).filter(Boolean);
   return tokens.some((tok) => {
     if (Math.abs(tok.length - word.length) > 2) return false;
@@ -271,9 +520,6 @@ function fuzzyIncludes(text, word) {
   });
 }
 
-// يفحص النص، ولو لقى أي مرادف (عربي/إنجليزي/حتى بخطأ إملائي بسيط)، بيضيف الكلمة
-// العربية الأساسية عشان منطق الأسئلة الموجود أصلاً (يلي بيدور بـ q.includes(...))
-// يشتغل عليها بدون أي تعديل إضافي
 function expandSynonyms(text) {
   const lower = text.toLowerCase();
   let extra = '';
@@ -286,7 +532,6 @@ function expandSynonyms(text) {
   });
   return text + extra;
 }
-
 async function getRahalResponse(question, userLocation, userPlaces) {
   const q = expandSynonyms(question.trim());
 
@@ -462,7 +707,6 @@ async function getRahalResponse(question, userLocation, userPlaces) {
   return 'ما قدرت ألاقي جواب دقيق لسؤالك 🤔 جربي تسأليني عن: اسم منطقة، الموسم، الأكل، الطبيعة، الآثار، السباحة، المغامرة، التصوير، القلاع، أو "وين أروح بكرا" وبجاوبك حسب الطقس 😊';
 }
 
-/* ===== رسالة توعية بيئية متناوبة — تظهر بكل صفحات التطبيق ===== */
 const ECO_MESSAGES = [
   '🌿 المحافظة على نظافة الطبيعة مسؤولية الجميع',
   '🔥 التأكد من إطفاء النار بالكامل قبل المغادرة',
@@ -528,7 +772,6 @@ function LocationPicker({ onSelect, position }) {
   });
   return position ? <Marker position={position} /> : null;
 }
-
 function AddPlaceForm({ user, onAdd, onPointsEarned }) {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
@@ -614,7 +857,6 @@ function AddPlaceForm({ user, onAdd, onPointsEarned }) {
 
 function Avatar({ user, size, gender }) {
 
-  // بنت
   if (gender === "female") {
     return (
       <img
@@ -630,7 +872,6 @@ function Avatar({ user, size, gender }) {
     );
   }
 
-  // شب
   if (gender === "male") {
     return (
       <img
@@ -646,7 +887,6 @@ function Avatar({ user, size, gender }) {
     );
   }
 
-  // إذا لسا ما اختار
   return (
     <div
       style={{
@@ -667,7 +907,6 @@ function Avatar({ user, size, gender }) {
   );
 }
 
-/* ===== كرت الطقس — بيشتغل للموقع العام أو لمنطقة محددة ===== */
 function WeatherCard({ latitude, longitude, placeName }) {
   const [weather, setWeather] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -786,7 +1025,6 @@ function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocatio
         </div>
       </div>
 
-      {/* كرت الطقس اليومي — حسب موقع المستخدم */}
       <WeatherCard latitude={userLocation?.lat} longitude={userLocation?.lng} />
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', marginTop: 14 }}>
@@ -878,7 +1116,6 @@ function Leaderboard({ onClose }) {
     </div>
   );
 }
-
 function TripPlanner({ onClose, onOpenMap, userPlaces }) {
   const [season, setSeasonSel] = useState(null);
   const [companion, setCompanion] = useState(null);
@@ -942,7 +1179,6 @@ function TripPlanner({ onClose, onOpenMap, userPlaces }) {
     let best = null;
     let bestScore = -1;
 
-    // المناطق الأصلية
     Object.entries(places).forEach(([key, place]) => {
       const score = scoreTripPlace(place, key, { season, companion, time, budget });
       if (score > bestScore) {
@@ -951,7 +1187,6 @@ function TripPlanner({ onClose, onOpenMap, userPlaces }) {
       }
     });
 
-    // مناطق الزوار (لازم يكون عندها موقع lat/lng عشان تشارك بالترشيح، بما إنه لازم نفتحها عالخريطة)
     (userPlaces || []).forEach((place) => {
       if (!place.lat || !place.lng) return;
       const score = scoreTripPlace(place, place.id, { season, companion, time, budget });
@@ -1001,7 +1236,7 @@ function TripPlanner({ onClose, onOpenMap, userPlaces }) {
             <h4 style={{ color: '#5a3e1b', marginBottom: 8 }}>🗓️ أي موسم؟</h4>
             <OptionRow options={seasonOptions} value={season} onSelect={setSeasonSel} />
 
-            <h4 style={{ color: '#5a3e1b', marginBottom: 8 }}>👥 مع مين رايحة؟</h4>
+            <h4 style={{ color: '#5a3e1b', marginBottom: 8 }}>👥 مع مين رايح؟</h4>
             <OptionRow options={companionOptions} value={companion} onSelect={setCompanion} />
 
             <h4 style={{ color: '#5a3e1b', marginBottom: 8 }}>⏱️ قديش عندك وقت؟</h4>
@@ -1052,6 +1287,160 @@ function TripPlanner({ onClose, onOpenMap, userPlaces }) {
                 </div>
               </div>
             </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AITripBuilder({ onClose, userPlaces }) {
+  const [prompt, setPrompt] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [trip, setTrip] = useState(null);
+
+  const handleGenerate = () => {
+    if (!prompt.trim() || prompt.trim().length < 5) {
+      setError('اكتبي وصف واضح لرحلتك (مثلاً: معي 3 أيام وبدي أطلع عالعقبة)');
+      return;
+    }
+
+    setError(null);
+    setLoading(true);
+    setTrip(null);
+
+    // نظام محلي بالكامل — فوري وبدون أي اتصال خارجي أو مفتاح API
+    setTimeout(() => {
+      try {
+        const result = buildLocalTripPlan(prompt.trim(), userPlaces);
+        setTrip(result);
+      } catch (err) {
+        setError('صار خطأ أثناء بناء الرحلة، جربي مرة ثانية 🙏');
+      } finally {
+        setLoading(false);
+      }
+    }, 400);
+  };
+
+  const resetBuilder = () => {
+    setTrip(null);
+    setError(null);
+    setPrompt('');
+  };
+
+  const getTypeIcon = (type) => {
+    if (type === 'فطور') return '☕';
+    if (type === 'غدا') return '🍽️';
+    if (type === 'عشاء') return '🌙';
+    return '📍';
+  };
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: '#fff', borderRadius: 20, padding: 24, maxWidth: 520, width: '100%', maxHeight: '85vh', overflowY: 'auto', textAlign: 'right', position: 'relative', boxShadow: '0 15px 40px rgba(0,0,0,0.3)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button onClick={onClose} style={{ position: 'absolute', top: 12, left: 12, border: 'none', background: 'none', fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
+
+        {!trip ? (
+          <>
+            <h2 style={{ color: '#8B6914', marginBottom: 4 }}>🤖 ابنيلي رحلة بالـ AI</h2>
+            <p style={{ color: '#777', fontSize: '0.9rem', marginBottom: 18 }}>
+              احكيلي عن رحلتك بأي أسلوب، وأنا بجهزلك جدول كامل بالأماكن والفطور والغدا والميزانية
+            </p>
+
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="مثال: معي 3 أيام وبدي أطلع عالعقبة، بحب الأكل البحري والسباحة"
+              rows={4}
+              style={{
+                width: '100%',
+                border: '1.5px solid #e8d5a3',
+                borderRadius: 12,
+                padding: 12,
+                fontSize: '0.95rem',
+                fontFamily: 'inherit',
+                resize: 'vertical',
+                marginBottom: 12,
+                background: '#faf6ec',
+                color: '#3E2A14',
+              }}
+            />
+
+            {error && (
+              <p style={{ color: '#c0392b', fontSize: '0.85rem', marginBottom: 10 }}>{error}</p>
+            )}
+
+            <button
+              onClick={handleGenerate}
+              disabled={loading}
+              style={{
+                background: 'linear-gradient(135deg, #C4952A, #8B6914)',
+                color: '#fff',
+                width: '100%',
+                padding: 12,
+                borderRadius: 14,
+                fontSize: '1rem',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.7 : 1,
+              }}
+            >
+              {loading ? '⏳ جاري بناء رحلتك...' : '✨ ابني الرحلة'}
+            </button>
+          </>
+        ) : (
+          <>
+            <h2 style={{ color: '#8B6914', marginBottom: 4 }}>🤖 {trip.title}</h2>
+            <p style={{ color: '#777', fontSize: '0.85rem', marginBottom: 16 }}>رحلة {trip.totalDays} يوم مبنية خصيصاً إلك</p>
+
+            {trip.days?.map((day, i) => (
+              <div key={i} style={{ background: '#faf6ec', borderRadius: 14, padding: 16, marginBottom: 12, border: '1px solid #e8d5a3' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <h4 style={{ color: '#8B6914', margin: 0 }}>اليوم {day.dayNumber}: {day.title}</h4>
+                  {day.estimatedBudget && (
+                    <span style={{ fontSize: '0.75rem', color: '#8B6914', background: '#fff', padding: '4px 10px', borderRadius: 999, border: '1px solid #e8d5a3' }}>
+                      💰 {day.estimatedBudget}
+                    </span>
+                  )}
+                </div>
+                {day.stops?.map((stop, si) => (
+                  <div key={si} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: si < day.stops.length - 1 ? '1px dashed #e0cfa0' : 'none' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <strong style={{ color: '#5a3e1b', fontSize: '0.9rem' }}>
+                        {getTypeIcon(stop.type)} {stop.place}
+                      </strong>
+                      <span style={{ color: '#8B6914', fontSize: '0.8rem' }}>{stop.time}</span>
+                    </div>
+                    <p style={{ color: '#555', fontSize: '0.82rem', margin: 0, lineHeight: 1.5 }}>{stop.description}</p>
+                    {stop.durationHint && (
+                      <p style={{ color: '#999', fontSize: '0.75rem', margin: '2px 0 0' }}>⏱️ {stop.durationHint}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+
+            {trip.tips?.length > 0 && (
+              <div style={{ background: '#fff8e6', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+                <strong style={{ fontSize: '0.85rem', color: '#8B6914' }}>💡 نصائح لرحلتك</strong>
+                <ul style={{ margin: '8px 0 0', paddingRight: 18, fontSize: '0.8rem', color: '#555' }}>
+                  {trip.tips.map((tip, i) => <li key={i}>{tip}</li>)}
+                </ul>
+              </div>
+            )}
+
+            <button
+              onClick={resetBuilder}
+              style={{ width: '100%', background: '#faf6ec', color: '#8B6914', padding: 10, borderRadius: 10, border: '1px solid #e8d5a3' }}
+            >
+              🔄 ابني رحلة تانية
+            </button>
           </>
         )}
       </div>
@@ -1126,7 +1515,6 @@ function RahalChatbot({ userLocation, userPlaces }) {
     </div>
   );
 }
-
 function App() {
   const [season, setSeason] = useState('');
   const [openPlace, setOpenPlace] = useState('');
@@ -1152,6 +1540,7 @@ function App() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showFavoritesPage, setShowFavoritesPage] = useState(false);
   const [showTripPlanner, setShowTripPlanner] = useState(false);
+  const [showAiTripBuilder, setShowAiTripBuilder] = useState(false);
 
   const t = translations[lang];
 
@@ -1195,7 +1584,6 @@ function App() {
         const loadedPlaces = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         setUserPlaces(loadedPlaces);
 
-        // نجيب صور كل منطقة زائر لحالها (معرّفها ثابت هلق: نفس id تبع Firestore)
         const userPhotos = {};
         for (const p of loadedPlaces) {
           try {
@@ -1292,7 +1680,6 @@ return () => unsubscribe();
     } catch (e) {}
   };
 
-  // حذف منطقة أضافها المستخدم نفسه فقط (ما يقدر يمسح مناطق زوار تانيين)
   const handleDeleteUserPlace = async (place) => {
     if (!window.confirm(`متأكدة إنك بدك تحذفي "${place.name}"؟ الإجراء ما بينرجع، وراح تنخصم منك 20 نقطة يلي أخذتيها لما ضفتيها.`)) return;
     try {
@@ -1310,7 +1697,6 @@ return () => unsubscribe();
     }
   };
 
-  // حذف صورة معينة — مسموح فقط لصاحب الصورة نفسها، وبينخصم منه -5 نقطة (نفس النقاط يلي أخذها وقت الرفع)
   const handleDeletePhoto = async (placeKey, photoObj) => {
     if (!placeKey || !photoObj) return;
     if (!window.confirm('متأكدة إنك بدك تحذفي هالصورة؟ الإجراء ما بينرجع.')) return;
@@ -1330,7 +1716,6 @@ return () => unsubscribe();
     }
   };
 
-  // إعجاب/إلغاء إعجاب بصورة — أساس "صورة الأسبوع"
   const handleToggleLike = async (placeKey, photoObj) => {
     if (!user) return alert('سجلي دخول أولاً عشان تحطي لايك');
     try {
@@ -1470,7 +1855,6 @@ return () => unsubscribe();
   const userWinterPlaces = userPlaces.filter(p => p.season === 'winter');
   const userSpringPlaces = userPlaces.filter(p => p.season === 'spring');
 
-  // صورة الأسبوع — منافسة حقيقية: بس اللايكات يلي صارت هالأسبوع (تبلش من الصفر كل أسبوع)
   const getPlaceNameForKey = (pKey) => {
     if (places[pKey]) return places[pKey].name;
     const up = userPlaces.find(p => p.id === pKey);
@@ -1565,13 +1949,22 @@ return () => unsubscribe();
       {!searchQuery && season === '' && !showFavoritesPage && <p className="welcome-msg">{t.welcome}</p>}
 
       {!searchQuery && season === '' && !showFavoritesPage && (
-        <button className="add-place-btn" onClick={() => setShowTripPlanner(true)} style={{ marginBottom: 10 }}>
-          🗺️ خطط رحلتي
-        </button>
+        <>
+          <button className="add-place-btn" onClick={() => setShowTripPlanner(true)} style={{ marginBottom: 10 }}>
+            🗺️ خطط رحلتي
+          </button>
+          <button className="add-place-btn" onClick={() => setShowAiTripBuilder(true)} style={{ marginBottom: 10, marginRight: 8 }}>
+            🤖 ابنيلي رحلة بالـ AI
+          </button>
+        </>
       )}
 
       {showTripPlanner && (
         <TripPlanner onClose={() => setShowTripPlanner(false)} onOpenMap={openMap} userPlaces={userPlaces} />
+      )}
+
+      {showAiTripBuilder && (
+        <AITripBuilder onClose={() => setShowAiTripBuilder(false)} userPlaces={userPlaces} />
       )}
 
       {weeklyTopPhoto && (
