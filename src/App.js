@@ -909,6 +909,40 @@ function LocationPicker({ onSelect, position }) {
   });
   return position ? <Marker position={position} /> : null;
 }
+// بيصغّر ويضغط الصورة قبل الرفع — نفس الحل يلي طبقناه بمعرض الصور،
+// هلق مطبق هون كمان بنموذج "إضافة منطقة جديدة" عشان نحل مشكلة التغبيش بالكامل
+function compressImageFile(file, maxDimension = 1920, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        const ratio = Math.min(maxDimension / width, maxDimension / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error('فشلت معالجة الصورة'))),
+        'image/jpeg',
+        quality
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('تعذّر تحميل الصورة'));
+    };
+    img.src = url;
+  });
+}
+
 function AddPlaceForm({ user, onAdd, onPointsEarned }) {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
@@ -924,12 +958,17 @@ function AddPlaceForm({ user, onAdd, onPointsEarned }) {
     const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', 'rihlati_upload');
-    const res = await fetch('https://api.cloudinary.com/v1_1/dohsowqbg/image/upload', { method: 'POST', body: formData });
-    const data = await res.json();
-    setImgUrl(data.secure_url);
+    try {
+      const compressedBlob = await compressImageFile(file);
+      const formData = new FormData();
+      formData.append('file', compressedBlob, 'upload.jpg');
+      formData.append('upload_preset', 'rihlati_upload');
+      const res = await fetch('https://api.cloudinary.com/v1_1/dohsowqbg/image/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      setImgUrl(data.secure_url);
+    } catch (e) {
+      alert('صار خطأ أثناء معالجة الصورة، جربي صورة تانية');
+    }
     setUploading(false);
   };
 
@@ -1786,8 +1825,10 @@ return () => unsubscribe();
   const awardPoints = async (amount) => {
     if (!user) return;
     try {
-      await setDoc(doc(db, 'userProfiles', user.uid), { points: increment(amount) }, { merge: true });
-      setPoints(prev => Math.max(0, prev + amount));
+      // نمنع النقاط من تنزل تحت الصفر بقاعدة البيانات نفسها (مش بس بالشاشة)
+      const safeAmount = amount < 0 ? -Math.min(Math.abs(amount), points) : amount;
+      await setDoc(doc(db, 'userProfiles', user.uid), { points: increment(safeAmount) }, { merge: true });
+      setPoints(prev => Math.max(0, prev + safeAmount));
     } catch (e) {}
   };
 
