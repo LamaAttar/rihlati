@@ -222,6 +222,67 @@ const PLACE_ACTIVITIES = {
     { name: 'زيارة جبل القلعة والمدرج الروماني', description: 'قلب عمّان التاريخي بإطلالة بانورامية على المدينة', durationHint: 'ساعتين تقريباً' },
     { name: 'التجول بوسط البلد', description: 'أسواق تقليدية وأجواء حيوية أصيلة', durationHint: 'ساعة تقريباً' },
   ],
+  irbid: [
+    { name: 'زيارة متحف الآثار بجامعة اليرموك', description: 'قطع أثرية نادرة من شمال الأردن بحرم جامعي جميل', durationHint: 'ساعة تقريباً' },
+    { name: 'التجول بحديقة الحسين العامة', description: 'مساحة خضراء واسعة بقلب المدينة للتنزه', durationHint: 'ساعة تقريباً', suitableFor: ['family', 'kids'] },
+    { name: 'استكشاف بيت عرار الثقافي', description: 'بيت الشاعر مصطفى وهبي التل، أجواء تراثية وثقافية', durationHint: 'نص ساعة' },
+  ],
+  umqais: [
+    { name: 'جولة بالآثار الرومانية (أم قيس القديمة)', description: 'أطلال رومانية بإطلالة على بحيرة طبريا والجولان', durationHint: 'ساعتين تقريباً' },
+    { name: 'مشاهدة الغروب من أم قيس', description: 'من أجمل نقاط مشاهدة الغروب بشمال الأردن', durationHint: 'نص ساعة', idealTime: '05:30 مساءً' },
+  ],
+  shouna: [
+    { name: 'جولة بالمزارع والبساتين المحلية', description: 'تجربة زراعية بمنطقة خصبة بالأغوار الشمالية', durationHint: 'ساعة تقريباً', suitableFor: ['family', 'kids'] },
+    { name: 'شراء خضار وفواكه طازجة من المزارعين', description: 'منتجات طازجة مباشرة من الأرض', durationHint: 'نص ساعة' },
+  ],
+  salt: [
+    { name: 'التجول بالبلدة القديمة والمباني التراثية', description: 'عمارة صفراء مميزة مدرجة على قائمة التراث العالمي', durationHint: 'ساعة تقريباً' },
+    { name: 'زيارة متحف السلط التاريخي', description: 'قصص وتاريخ المدينة العريقة', durationHint: 'نص ساعة' },
+    { name: 'تذوق الكعك السلطي من أفران البلدة', description: 'أكلة محلية شهيرة يستاهل تجربتها', durationHint: 'نص ساعة' },
+  ],
+  ummjimal: [
+    { name: 'استكشاف المدينة الأثرية البازلتية السوداء', description: 'طراز معماري نادر شمال شرق الأردن', durationHint: 'ساعة تقريباً' },
+  ],
+  pella: [
+    { name: 'زيارة الموقع الأثري بطبقة فحل', description: 'مدينة أثرية تعود لآلاف السنين بالأغوار الشمالية', durationHint: 'ساعة تقريباً' },
+    { name: 'استكشاف الكنائس والمعابد القديمة', description: 'آثار تاريخية متنوعة بالموقع', durationHint: 'ساعة تقريباً' },
+  ],
+  mujib: [
+    { name: 'مسير المسار المائي بوادي الموجب', description: '"الجراند كانيون" الأردني — مغامرة وسط المياه والصخور', durationHint: 'ساعتين إلى ثلاثة', suitableFor: ['friends', 'alone'] },
+  ],
+  tafilah: [
+    { name: 'التجول بالمدينة الجبلية', description: 'أجواء معتدلة وإطلالات جبلية جنوبية هادئة', durationHint: 'ساعة تقريباً' },
+    { name: 'زيارة بوابة محمية ضانا القريبة', description: 'نقطة انطلاق مثالية لاستكشاف الطبيعة المحيطة', durationHint: 'ساعة تقريباً' },
+  ],
+  deisa: [
+    { name: 'مشي بالوادي بين الجبال الحمراء', description: 'طبيعة خلابة قريبة من العقبة', durationHint: 'ساعتين تقريباً' },
+    { name: 'تخييم ليلي بالطبيعة الجبلية', description: 'تجربة هادئة بعيدة عن صخب المدينة', durationHint: 'حسب رغبتك', suitableFor: ['friends', 'alone'] },
+  ],
+  himma: [
+    { name: 'الاستحمام بالينابيع الكبريتية الساخنة', description: 'تجربة علاجية طبيعية شهيرة شتاءً', durationHint: 'ساعة تقريباً' },
+  ],
+  azraqcastle: [
+    { name: 'استكشاف قلعة الأزرق الأثرية', description: 'قلعة بازلتية سوداء وسط الصحراء الشرقية', durationHint: 'ساعة تقريباً' },
+  ],
+  qasramra: [
+    { name: 'زيارة قصر عمرة الأموي', description: 'موقع مسجل على قائمة التراث العالمي لليونسكو', durationHint: 'ساعة تقريباً' },
+    { name: 'مشاهدة الرسومات الجدارية الأثرية', description: 'نقوش نادرة داخل القصر الصحراوي', durationHint: 'نص ساعة' },
+  ],
+  hallabat: [
+    { name: 'استكشاف قصر الحلابات الأموي', description: 'أعمدة وآثار وسط الصحراء الشرقية', durationHint: 'ساعة تقريباً' },
+  ],
+  shobak: [
+    { name: 'تسلق قلعة الشوبك الصليبية', description: 'قلعة شامخة على قمة جبل بالجنوب الأردني', durationHint: 'ساعة إلى ساعتين' },
+  ],
+  ummrasas: [
+    { name: 'زيارة موقع أم الرصاص الأثري', description: 'موقع مسجل باليونسكو يضم فسيفساء رائعة', durationHint: 'ساعة تقريباً' },
+  ],
+  birgish: [
+    { name: 'فرشة وتنزه بغابات برقش', description: 'غابات خضراء رائعة قرب إربد، مفضلة للربيع', durationHint: 'ساعتين تقريباً', suitableFor: ['family', 'friends', 'kids'] },
+  ],
+  ummalnaml: [
+    { name: 'مشي بالوادي الأخضر ومشاهدة التلال', description: 'وادٍ طبيعي خلاب من أجمل وجهات الربيع', durationHint: 'ساعتين تقريباً', suitableFor: ['family', 'friends', 'kids'] },
+  ],
 };
 
 // بيرجع أنشطة محددة للمكان لو موجودة، وإلا بيستخدم الوصف العام كـ fallback
@@ -249,19 +310,44 @@ function filterActivitiesByCompanion(activities, companionType) {
 }
 
 // أماكن قريبة بديلة — تُستخدم لما الرحلة كذا يوم بنفس المكان، عشان نتفادى التكرار
+// مبنية على القرب الجغرافي الفعلي بين المناطق بالأردن
 const NEARBY_PLACES = {
-  petra: ['wadirum'],
-  wadirum: ['petra', 'aqaba'],
-  aqaba: ['wadirum'],
-  deadsea: ['madaba', 'mainhot'],
-  madaba: ['deadsea', 'mainhot'],
-  mainhot: ['madaba'],
-  jerash: ['ajloun', 'amman'],
-  ajloun: ['jerash'],
-  amman: ['jerash', 'madaba'],
-  karak: ['dana'],
-  dana: ['karak'],
-  azraqwetland: ['amman'],
+  // الشمال
+  irbid: ['umqais', 'ajloun', 'himma', 'birgish'],
+  umqais: ['irbid', 'himma'],
+  himma: ['umqais', 'irbid'],
+  ajloun: ['jerash', 'irbid', 'pella'],
+  jerash: ['ajloun', 'amman', 'pella'],
+  birgish: ['irbid', 'ummalnaml'],
+  ummalnaml: ['birgish', 'irbid'],
+  pella: ['shouna', 'ajloun'],
+  shouna: ['pella', 'salt'],
+
+  // الوسط
+  amman: ['jerash', 'salt', 'madaba'],
+  salt: ['amman', 'shouna'],
+  madaba: ['deadsea', 'mainhot', 'ummrasas', 'amman'],
+  deadsea: ['madaba', 'mainhot', 'karak'],
+  mainhot: ['madaba', 'deadsea'],
+  ummrasas: ['madaba'],
+
+  // الجنوب
+  karak: ['deadsea', 'mujib', 'tafilah', 'dana'],
+  mujib: ['karak', 'madaba'],
+  tafilah: ['karak', 'dana', 'shobak'],
+  dana: ['karak', 'tafilah', 'shobak'],
+  shobak: ['dana', 'tafilah', 'petra'],
+  petra: ['wadirum', 'shobak'],
+  wadirum: ['petra', 'aqaba', 'deisa'],
+  aqaba: ['wadirum', 'deisa'],
+  deisa: ['wadirum', 'aqaba'],
+
+  // الصحراء الشرقية
+  ummjimal: ['azraqcastle', 'hallabat'],
+  azraqcastle: ['azraqwetland', 'ummjimal', 'hallabat'],
+  azraqwetland: ['azraqcastle', 'qasramra'],
+  qasramra: ['azraqwetland', 'hallabat'],
+  hallabat: ['azraqcastle', 'ummjimal', 'qasramra'],
 };
 
 function buildLocalTripPlan(userText, userPlaces) {
