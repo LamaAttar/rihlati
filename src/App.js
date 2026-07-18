@@ -104,6 +104,45 @@ function extractBudgetNumber(text) {
   return null;
 }
 
+// بيدور عن وقت بداية اليوم يلي حددتيه (مثلاً: "بدي أطلع الساعة 11")
+function extractStartTime(text) {
+  const match = text.match(/الساعة\s*(\d{1,2})/);
+  if (match) {
+    const h = parseInt(match[1], 10);
+    if (h >= 1 && h <= 23) return h;
+  }
+  return null;
+}
+
+// بيحول رقم الساعة (ممكن يكون فيه نص ساعة) لصيغة عربية مقروءة
+function formatHour(hourDecimal) {
+  const totalMinutes = Math.round(hourDecimal * 60);
+  let h = Math.floor(totalMinutes / 60) % 24;
+  const m = totalMinutes % 60;
+  const period = h < 12 ? 'صباحاً' : 'مساءً';
+  let displayHour = h % 12;
+  if (displayHour === 0) displayHour = 12;
+  return `${String(displayHour).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
+}
+
+// بيبني جدول الأوقات لليوم كامل حسب وقت البداية يلي حددته (أو 8 الصبح افتراضياً)
+function buildDaySchedule(startHour) {
+  const base = startHour !== null ? startHour : 8;
+  // لو المستخدم بده يطلع الساعة 10 أو بعدها، منفترض إنه فطر قبل — نتخطى الفطور
+  const skipBreakfast = startHour !== null && startHour >= 10;
+  const firstHour = skipBreakfast ? base : base + 1.5;
+  const secondHour = firstHour + 2;
+  const lunchHour = secondHour + 2;
+  const afternoonHour = lunchHour + 1.5;
+  return {
+    skipBreakfast,
+    breakfastTime: formatHour(base),
+    morningTimes: [formatHour(firstHour), formatHour(secondHour)],
+    lunchTime: formatHour(lunchHour),
+    afternoonTime: formatHour(afternoonHour),
+  };
+}
+
 // بيدور بالأماكن الرسمية وبالأماكن يلي أضافها الزوار مع بعض
 function extractMentionedPlaces(text, userPlaces) {
   const officialMatches = Object.keys(places)
@@ -222,6 +261,8 @@ function buildLocalTripPlan(userText, userPlaces) {
   const userBudget = extractBudgetNumber(userText);
   const mentioned = extractMentionedPlaces(userText, userPlaces);
   const companionType = detectCompanionType(userText);
+  const startHour = extractStartTime(userText);
+  const schedule = buildDaySchedule(startHour);
 
   // لو المستخدم ذكر أماكن معينة (رسمية أو أضافها زوار)، نستخدمها.
   // غير هيك، منختار مجموعة مميزة افتراضية من الأماكن الرسمية
@@ -248,13 +289,15 @@ function buildLocalTripPlan(userText, userPlaces) {
     const meta = isUserPlace ? DEFAULT_PLACE_META : getPlaceMeta(key);
     const stops = [];
 
-    stops.push({
-      time: '08:00 صباحاً',
-      type: 'فطور',
-      place: `مطعم محلي بالقرب من ${place.name}`,
-      description: 'فطور شعبي بسيط (فول، حمص، مناقيش) قبل بدء اليوم',
-      durationHint: 'نص ساعة تقريباً',
-    });
+    if (!schedule.skipBreakfast) {
+      stops.push({
+        time: schedule.breakfastTime,
+        type: 'فطور',
+        place: `مطعم محلي بالقرب من ${place.name}`,
+        description: 'فطور شعبي بسيط (فول، حمص، مناقيش) قبل بدء اليوم',
+        durationHint: 'نص ساعة تقريباً',
+      });
+    }
 
     // عدد الأنشطة حسب مدة الزيارة المتوقعة للمكان
     const activityCount = meta.duration === 'full' ? 3 : meta.duration === 'half' ? 2 : 1;
@@ -270,7 +313,7 @@ function buildLocalTripPlan(userText, userPlaces) {
 
     const beforeLunch = regularActivities.slice(0, Math.min(2, regularActivities.length));
     const afterLunch = regularActivities.slice(2);
-    const morningTimes = ['09:30 صباحاً', '11:30 صباحاً'];
+    const morningTimes = schedule.morningTimes;
 
     beforeLunch.forEach((act, i) => {
       stops.push({
@@ -283,7 +326,7 @@ function buildLocalTripPlan(userText, userPlaces) {
     });
 
     stops.push({
-      time: '01:30 ظهراً',
+      time: schedule.lunchTime,
       type: 'غدا',
       place: place.food ? `مطعم يقدم ${place.food}` : 'مطعم محلي قريب',
       description: place.food
@@ -294,7 +337,7 @@ function buildLocalTripPlan(userText, userPlaces) {
 
     afterLunch.forEach((act) => {
       stops.push({
-        time: '03:00 مساءً',
+        time: schedule.afternoonTime,
         type: 'نشاط',
         place: act.name,
         description: act.description,
