@@ -48,12 +48,12 @@ function GoldDivider({ flip = false }) {
 }
 
 const FEATURES = [
-  { icon: '🧭', title: 'خطط رحلتك بالذكاء الاصطناعي', desc: 'جاوبي على كم سؤال بسيط واحصلي على جدول رحلة مخصص من أماكن حقيقية، فوراً.' },
-  { icon: '🗺️', title: 'خريطة تفاعلية', desc: 'استكشفي كل وجهة على خريطة حية مع الاتجاهات والخدمات القريبة.' },
-  { icon: '🏛️', title: 'استكشفي الوجهات', desc: 'من الآثار القديمة للكثبان الصحراوية — اكتشفي أشهر أماكن الأردن.' },
-  { icon: '🤝', title: 'مجتمع المسافرين', desc: 'شاركي صورك، اقرأي التقييمات، وتواصلي مع مستكشفين تانيين بكل البلد.' },
+  { icon: '🧭', title: 'خطط رحلتك بالذكاء الاصطناعي', desc: 'جاوب على كم سؤال بسيط واحصل على جدول رحلة مخصص من أماكن حقيقية، فوراً.' },
+  { icon: '🗺️', title: 'خريطة تفاعلية', desc: 'استكشف كل وجهة على خريطة حية مع الاتجاهات والخدمات القريبة.' },
+  { icon: '🏛️', title: 'استكشف الوجهات', desc: 'من الآثار القديمة للكثبان الصحراوية — اكتشف أشهر أماكن الأردن.' },
+  { icon: '🤝', title: 'مجتمع المسافرين', desc: 'شارك صورك، اقرأ التقييمات، وتواصل مع مستكشفين تانيين بكل البلد.' },
   { icon: '🏆', title: 'صورة الأسبوع', desc: 'الصورة الأكتر إعجاباً كل أسبوع بتظهر لكل المجتمع.' },
-  { icon: '🌿', title: 'سياحة مستدامة', desc: 'سافري بمسؤولية مع تذكيرات مدمجة للحفاظ على الطبيعة والثقافة المحلية.' },
+  { icon: '🌿', title: 'سياحة مستدامة', desc: 'سافر بمسؤولية مع تذكيرات مدمجة للحفاظ على الطبيعة والثقافة المحلية.' },
 ];
 
 const DESTINATIONS = [
@@ -66,8 +66,8 @@ const DESTINATIONS = [
 
 const ECO = [
   { icon: '🌿', title: 'احمي الطبيعة', desc: 'خلي كل مسار زي ما لقيتيه، أو أحلى.' },
-  { icon: '💧', title: 'رشّدي استهلاك المياه', desc: 'استخدمي المياه بوعي، خصوصاً بالمناطق الصحراوية.' },
-  { icon: '🤍', title: 'احترمي الثقافة', desc: 'قدّري العادات والمجتمعات المحلية يلي بتزوريها.' },
+  { icon: '💧', title: 'رشّد استهلاك المياه', desc: 'استخدم المياه بوعي، خصوصاً بالمناطق الصحراوية.' },
+  { icon: '🤍', title: 'احترم الثقافة', desc: 'قدّر العادات والمجتمعات المحلية يلي بتزورها.' },
 ];
 
 export default function LandingPage({ onStart }) {
@@ -140,10 +140,10 @@ export default function LandingPage({ onStart }) {
           <span className="rl-hero-eyebrow">الأردن، بنظرة جديدة</span>
           <h1 className="rl-hero-title">رحلتي</h1>
           <p className="rl-hero-tagline">تعال نكتشف الأردن معاً</p>
-          <p className="rl-hero-sub">خططي لرحلاتك، اكتشفي الأماكن الخفية، وشاركي مغامراتك — كل هذا بمكان واحد.</p>
+          <p className="rl-hero-sub">خطط لرحلاتك، اكتشف الأماكن الخفية، وشارك مغامراتك — كل هذا بمكان واحد.</p>
           <div className="rl-hero-actions">
-            <button className="rl-btn rl-btn-primary" onClick={onStart}>ابدأي رحلتك</button>
-            <button className="rl-btn rl-btn-ghost" onClick={scrollToFeatures}>استكشفي الميزات</button>
+            <button className="rl-btn rl-btn-primary" onClick={onStart}>ابدأ رحلتك</button>
+            <button className="rl-btn rl-btn-ghost" onClick={scrollToFeatures}>استكشف الميزات</button>
           </div>
         </div>
         <div className="rl-scroll-cue" />
@@ -154,8 +154,8 @@ export default function LandingPage({ onStart }) {
       {/* ===== Features ===== */}
       <section className="rl-section" id="rl-features">
         <Reveal as="div" className="rl-section-head">
-          <span className="rl-eyebrow">شو رح تحصلي عليه</span>
-          <h2>كل شي محتاجاه كمسافرة عصرية</h2>
+          <span className="rl-eyebrow">شو رح تحصل عليه</span>
+          <h2>كل شي محتاجه كمسافر عصري</h2>
           <p>ست أدوات مبنية على شكل استكشاف الناس الحقيقي للأردن — قبل الرحلة، أثناءها، وبعدها.</p>
         </Reveal>
         <div className="rl-grid-3">
@@ -174,7 +174,7 @@ export default function LandingPage({ onStart }) {
       {/* ===== Destinations ===== */}
       <section className="rl-section">
         <Reveal as="div" className="rl-section-head">
-          <span className="rl-eyebrow">وين تروحي</span>
+          <span className="rl-eyebrow">وين تروح</span>
           <h2>أشهر وجهات الأردن</h2>
         </Reveal>
         <div className="rl-dest-grid">
@@ -198,10 +198,10 @@ export default function LandingPage({ onStart }) {
       <section className="rl-ai-section">
         <div className="rl-ai-inner">
           <Reveal>
-            <span className="rl-ai-badge">تعرّفي على رحّال</span>
+            <span className="rl-ai-badge">تعرّف على رحّال</span>
             <h2>رفيق سفرك الذكي</h2>
             <p>
-              رحّال بيفهم شو بدك بالضبط — الموسم، مع مين مسافرة، قديش عندك وقت،
+              رحّال بيفهم شو بدك بالضبط — الموسم، مع مين مسافر، قديش عندك وقت،
               وميزانيتك — وبعدها بيبني رحلة مخصصة من أماكن حقيقية بكل الأردن.
               بدون جداول عامة، بس يلي فعلاً يناسبك.
             </p>
@@ -254,7 +254,7 @@ export default function LandingPage({ onStart }) {
               <img className="rl-tow-img" src={travelerOfWeek.url} alt={travelerOfWeek.uploadedBy || 'مسافر'} />
               <div className="rl-tow-body">
                 <span className="rl-tow-badge">🏆 الصورة الأكتر إعجاباً</span>
-                <h3>{travelerOfWeek.uploadedBy || 'مسافرة من رحلتي'}</h3>
+                <h3>{travelerOfWeek.uploadedBy || 'مسافر من رحلتي'}</h3>
                 <p>❤️ {travelerOfWeek.likeCount} إعجاب من المجتمع</p>
               </div>
             </div>
@@ -267,7 +267,7 @@ export default function LandingPage({ onStart }) {
       {/* ===== Sustainable Tourism ===== */}
       <section className="rl-section">
         <Reveal as="div" className="rl-section-head">
-          <span className="rl-eyebrow">سافري بمسؤولية</span>
+          <span className="rl-eyebrow">سافر بمسؤولية</span>
           <h2>سياحة مستدامة، مدمجة بالتطبيق</h2>
         </Reveal>
         <div className="rl-grid-3-sm">
@@ -286,9 +286,9 @@ export default function LandingPage({ onStart }) {
       {/* ===== CTA ===== */}
       <section className="rl-cta">
         <Reveal>
-          <h2>جاهزة تكتشفي الأردن؟</h2>
+          <h2>جاهز تكتشف الأردن؟</h2>
           <p>مغامرتك الجاية بعدها كبسة وحدة — مخططة بذكاء، ومشاركة أوسع.</p>
-          <button className="rl-btn rl-btn-primary" onClick={onStart}>ابدأي رحلتك</button>
+          <button className="rl-btn rl-btn-primary" onClick={onStart}>ابدأ رحلتك</button>
         </Reveal>
       </section>
 
@@ -297,7 +297,7 @@ export default function LandingPage({ onStart }) {
         <div className="rl-footer-inner">
           <div className="rl-footer-brand">
             <h3>رحلتي</h3>
-            <p>منصة سياحية مدعومة بالذكاء الاصطناعي، بتساعدك تكتشفي الأردن بذكاء — خططي لرحلاتك، استكشفي الوجهات، وشاركي رحلتك.</p>
+            <p>منصة سياحية مدعومة بالذكاء الاصطناعي، بتساعدك تكتشف الأردن بذكاء — خطط لرحلاتك، استكشف الوجهات، وشارك رحلتك.</p>
           </div>
           <div className="rl-footer-col">
             <h4>عن المنصة</h4>
@@ -305,12 +305,12 @@ export default function LandingPage({ onStart }) {
             <a href="#rl-features">الميزات</a>
           </div>
           <div className="rl-footer-col">
-            <h4>تواصلي معنا</h4>
+            <h4>تواصل معنا</h4>
             <a href="mailto:hello@rihlati.app">hello@rihlati.app</a>
             <a href="#rl-features">الدعم</a>
           </div>
           <div className="rl-footer-col">
-            <h4>تابعينا</h4>
+            <h4>تابعنا</h4>
             <a href="#rl-features">إنستقرام</a>
             <a href="#rl-features">فيسبوك</a>
           </div>
