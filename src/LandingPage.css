@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
 
 .rl-landing {
   --espresso: #3E2A14;
@@ -8,7 +8,7 @@
   --clay: #B5652B;
   --white: #FFFFFF;
 
-  font-family: 'Inter', 'Tajawal', sans-serif;
+  font-family: 'Cairo', sans-serif;
   color: var(--espresso);
   background: var(--ivory);
   overflow-x: hidden;
@@ -17,7 +17,7 @@
 .rl-landing * { box-sizing: border-box; }
 
 .rl-landing h1, .rl-landing h2, .rl-landing h3 {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Cairo', sans-serif;
   margin: 0;
 }
 
@@ -58,17 +58,18 @@
   inset: 0;
   background-size: cover;
   background-position: center;
-  transform: scale(1.08);
-  animation: rlHeroZoom 18s ease-in-out infinite alternate;
+  transform: scale(1.03);
+  animation: rlHeroZoom 22s ease-in-out infinite alternate;
+  will-change: transform;
 }
 @keyframes rlHeroZoom {
-  from { transform: scale(1.08); }
+  from { transform: scale(1.03); }
   to { transform: scale(1); }
 }
 .rl-hero-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(20,14,6,0.35) 0%, rgba(20,14,6,0.55) 55%, rgba(20,14,6,0.85) 100%);
+  background: linear-gradient(180deg, rgba(20,14,6,0.4) 0%, rgba(20,14,6,0.6) 55%, rgba(20,14,6,0.88) 100%);
 }
 .rl-hero-content {
   position: relative;
@@ -94,8 +95,8 @@
 }
 .rl-hero-tagline {
   font-size: clamp(1.1rem, 2.4vw, 1.5rem);
-  font-family: 'Playfair Display', serif;
-  font-style: italic;
+  font-family: 'Cairo', sans-serif;
+  font-weight: 500;
   color: #F5EFE3;
   margin-top: 18px;
   opacity: 0;
@@ -136,6 +137,7 @@
   border: none;
   transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
   text-decoration: none;
+  font-family: 'Cairo', sans-serif;
 }
 .rl-btn-primary {
   background: linear-gradient(120deg, var(--gold), var(--bronze));

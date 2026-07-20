@@ -48,26 +48,26 @@ function GoldDivider({ flip = false }) {
 }
 
 const FEATURES = [
-  { icon: '🧭', title: 'AI Trip Planner', desc: 'Answer a few questions and get a personalized itinerary built from real destinations, instantly.' },
-  { icon: '🗺️', title: 'Interactive Map', desc: 'Explore every destination on a live map with directions and nearby services.' },
-  { icon: '🏛️', title: 'Explore Destinations', desc: 'From ancient ruins to desert dunes — discover Jordan\'s most iconic places.' },
-  { icon: '🤝', title: 'Traveler Community', desc: 'Share photos, read reviews, and connect with fellow explorers across the country.' },
-  { icon: '🏆', title: 'Traveler of the Week', desc: 'The most-loved photo each week gets featured for the whole community to see.' },
-  { icon: '🌿', title: 'Sustainable Tourism', desc: 'Travel responsibly with built-in reminders to protect nature and local culture.' },
+  { icon: '🧭', title: 'خطط رحلتك بالذكاء الاصطناعي', desc: 'جاوبي على كم سؤال بسيط واحصلي على جدول رحلة مخصص من أماكن حقيقية، فوراً.' },
+  { icon: '🗺️', title: 'خريطة تفاعلية', desc: 'استكشفي كل وجهة على خريطة حية مع الاتجاهات والخدمات القريبة.' },
+  { icon: '🏛️', title: 'استكشفي الوجهات', desc: 'من الآثار القديمة للكثبان الصحراوية — اكتشفي أشهر أماكن الأردن.' },
+  { icon: '🤝', title: 'مجتمع المسافرين', desc: 'شاركي صورك، اقرأي التقييمات، وتواصلي مع مستكشفين تانيين بكل البلد.' },
+  { icon: '🏆', title: 'صورة الأسبوع', desc: 'الصورة الأكتر إعجاباً كل أسبوع بتظهر لكل المجتمع.' },
+  { icon: '🌿', title: 'سياحة مستدامة', desc: 'سافري بمسؤولية مع تذكيرات مدمجة للحفاظ على الطبيعة والثقافة المحلية.' },
 ];
 
 const DESTINATIONS = [
-  { key: 'petra', name: 'Petra', tag: 'Wonder of the World', img: '/petra.png' },
-  { key: 'wadirum', name: 'Wadi Rum', tag: 'The Valley of the Moon', img: '/wadirum.png' },
-  { key: 'deadsea', name: 'Dead Sea', tag: 'Lowest Point on Earth', img: '/dead-sea.png' },
-  { key: 'jerash', name: 'Jerash', tag: 'Roman Legacy', img: '/jerash.png' },
-  { key: 'ajloun', name: 'Ajloun', tag: 'Green Highlands', img: '/ajloun.png' },
+  { key: 'petra', name: 'البتراء', tag: 'إحدى عجائب الدنيا السبع', img: '/petra.png' },
+  { key: 'wadirum', name: 'وادي رم', tag: 'وادي القمر', img: '/wadirum.png' },
+  { key: 'deadsea', name: 'البحر الميت', tag: 'أخفض نقطة على سطح الأرض', img: '/dead-sea.png' },
+  { key: 'jerash', name: 'جرش', tag: 'إرث روماني عريق', img: '/jerash.png' },
+  { key: 'ajloun', name: 'عجلون', tag: 'مرتفعات خضراء', img: '/ajloun.png' },
 ];
 
 const ECO = [
-  { icon: '🌿', title: 'Protect Nature', desc: 'Leave every trail as beautiful as you found it.' },
-  { icon: '💧', title: 'Save Water', desc: 'Use water mindfully, especially in desert regions.' },
-  { icon: '🤍', title: 'Respect Culture', desc: 'Honor local traditions and communities you visit.' },
+  { icon: '🌿', title: 'احمي الطبيعة', desc: 'خلي كل مسار زي ما لقيتيه، أو أحلى.' },
+  { icon: '💧', title: 'رشّدي استهلاك المياه', desc: 'استخدمي المياه بوعي، خصوصاً بالمناطق الصحراوية.' },
+  { icon: '🤍', title: 'احترمي الثقافة', desc: 'قدّري العادات والمجتمعات المحلية يلي بتزوريها.' },
 ];
 
 export default function LandingPage({ onStart }) {
@@ -116,7 +116,7 @@ export default function LandingPage({ onStart }) {
   };
 
   return (
-    <div className="rl-landing" dir="ltr">
+    <div className="rl-landing" dir="rtl">
 
       {/* ===== Hero ===== */}
       <section className="rl-hero">
@@ -137,13 +137,13 @@ export default function LandingPage({ onStart }) {
         )}
         <div className="rl-hero-overlay" />
         <div className="rl-hero-content">
-          <span className="rl-hero-eyebrow">Jordan, Reimagined</span>
-          <h1 className="rl-hero-title">رحلتي 🌍</h1>
+          <span className="rl-hero-eyebrow">الأردن، بنظرة جديدة</span>
+          <h1 className="rl-hero-title">رحلتي</h1>
           <p className="rl-hero-tagline">تعال نكتشف الأردن معاً</p>
-          <p className="rl-hero-sub">Plan your trips, explore hidden gems, and share your adventures — all in one place.</p>
+          <p className="rl-hero-sub">خططي لرحلاتك، اكتشفي الأماكن الخفية، وشاركي مغامراتك — كل هذا بمكان واحد.</p>
           <div className="rl-hero-actions">
-            <button className="rl-btn rl-btn-primary" onClick={onStart}>Start Your Journey</button>
-            <button className="rl-btn rl-btn-ghost" onClick={scrollToFeatures}>Explore Features</button>
+            <button className="rl-btn rl-btn-primary" onClick={onStart}>ابدأي رحلتك</button>
+            <button className="rl-btn rl-btn-ghost" onClick={scrollToFeatures}>استكشفي الميزات</button>
           </div>
         </div>
         <div className="rl-scroll-cue" />
@@ -154,9 +154,9 @@ export default function LandingPage({ onStart }) {
       {/* ===== Features ===== */}
       <section className="rl-section" id="rl-features">
         <Reveal as="div" className="rl-section-head">
-          <span className="rl-eyebrow">What You Get</span>
-          <h2>Everything a modern traveler needs</h2>
-          <p>Six tools built around how people actually explore Jordan — before, during, and after the trip.</p>
+          <span className="rl-eyebrow">شو رح تحصلي عليه</span>
+          <h2>كل شي محتاجاه كمسافرة عصرية</h2>
+          <p>ست أدوات مبنية على شكل استكشاف الناس الحقيقي للأردن — قبل الرحلة، أثناءها، وبعدها.</p>
         </Reveal>
         <div className="rl-grid-3">
           {FEATURES.map((f, i) => (
@@ -174,8 +174,8 @@ export default function LandingPage({ onStart }) {
       {/* ===== Destinations ===== */}
       <section className="rl-section">
         <Reveal as="div" className="rl-section-head">
-          <span className="rl-eyebrow">Where to Go</span>
-          <h2>Jordan's most iconic destinations</h2>
+          <span className="rl-eyebrow">وين تروحي</span>
+          <h2>أشهر وجهات الأردن</h2>
         </Reveal>
         <div className="rl-dest-grid">
           {DESTINATIONS.map((d, i) => (
@@ -198,19 +198,19 @@ export default function LandingPage({ onStart }) {
       <section className="rl-ai-section">
         <div className="rl-ai-inner">
           <Reveal>
-            <span className="rl-ai-badge">Meet Rahal</span>
-            <h2>Your smart travel companion</h2>
+            <span className="rl-ai-badge">تعرّفي على رحّال</span>
+            <h2>رفيق سفرك الذكي</h2>
             <p>
-              Rahal understands what you're looking for — the season, who you're traveling with,
-              how much time you have, and your budget — then builds a personalized trip from real
-              destinations across Jordan. No generic itineraries, just what actually fits you.
+              رحّال بيفهم شو بدك بالضبط — الموسم، مع مين مسافرة، قديش عندك وقت،
+              وميزانيتك — وبعدها بيبني رحلة مخصصة من أماكن حقيقية بكل الأردن.
+              بدون جداول عامة، بس يلي فعلاً يناسبك.
             </p>
           </Reveal>
           <Reveal delay={150}>
             <div className="rl-ai-visual">
-              <div className="rl-ai-chip">🗓️ "I have a free weekend and love hiking..."</div>
-              <div className="rl-ai-chip">🏆 Suggested: Dana Reserve — full-day, moderate budget</div>
-              <div className="rl-ai-chip" style={{ marginBottom: 0 }}>📍 Map, directions & nearby services included</div>
+              <div className="rl-ai-chip">🗓️ "عندي ويكند فاضي وبحب المشي بالطبيعة..."</div>
+              <div className="rl-ai-chip">🏆 اقتراحنا: محمية ضانا — يوم كامل، ميزانية معقولة</div>
+              <div className="rl-ai-chip" style={{ marginBottom: 0 }}>📍 خريطة، اتجاهات، وخدمات قريبة مضمّنة</div>
             </div>
           </Reveal>
         </div>
@@ -222,17 +222,17 @@ export default function LandingPage({ onStart }) {
       {communityPhotos.length > 0 && (
         <section className="rl-section">
           <Reveal as="div" className="rl-section-head">
-            <span className="rl-eyebrow">Real Journeys</span>
-            <h2>From our traveler community</h2>
-            <p>Real photos, shared by real travelers exploring Jordan right now.</p>
+            <span className="rl-eyebrow">رحلات حقيقية</span>
+            <h2>من مجتمع المسافرين عندنا</h2>
+            <p>صور حقيقية، شاركها مسافرون حقيقيون يستكشفوا الأردن هلق.</p>
           </Reveal>
           <div className="rl-community-grid">
             {communityPhotos.map((p, i) => (
               <Reveal key={i} delay={i * 60}>
                 <div className="rl-post-card">
-                  <img src={p.url} alt={p.uploadedBy || 'traveler photo'} />
+                  <img src={p.url} alt={p.uploadedBy || 'صورة مسافر'} />
                   <div className="rl-post-meta">
-                    <span>{p.uploadedBy || 'Traveler'}</span>
+                    <span>{p.uploadedBy || 'مسافر'}</span>
                     <span>❤️ {p.likeCount}</span>
                   </div>
                 </div>
@@ -246,16 +246,16 @@ export default function LandingPage({ onStart }) {
       {travelerOfWeek && (
         <section className="rl-section">
           <Reveal as="div" className="rl-section-head">
-            <span className="rl-eyebrow">Community Favorite</span>
-            <h2>Traveler of the Week</h2>
+            <span className="rl-eyebrow">مفضّلة المجتمع</span>
+            <h2>مسافر الأسبوع</h2>
           </Reveal>
           <Reveal>
             <div className="rl-tow-card">
-              <img className="rl-tow-img" src={travelerOfWeek.url} alt={travelerOfWeek.uploadedBy || 'traveler'} />
+              <img className="rl-tow-img" src={travelerOfWeek.url} alt={travelerOfWeek.uploadedBy || 'مسافر'} />
               <div className="rl-tow-body">
-                <span className="rl-tow-badge">🏆 Most Loved Photo</span>
-                <h3>{travelerOfWeek.uploadedBy || 'A Rihlati Traveler'}</h3>
-                <p>❤️ {travelerOfWeek.likeCount} likes from the community</p>
+                <span className="rl-tow-badge">🏆 الصورة الأكتر إعجاباً</span>
+                <h3>{travelerOfWeek.uploadedBy || 'مسافرة من رحلتي'}</h3>
+                <p>❤️ {travelerOfWeek.likeCount} إعجاب من المجتمع</p>
               </div>
             </div>
           </Reveal>
@@ -267,8 +267,8 @@ export default function LandingPage({ onStart }) {
       {/* ===== Sustainable Tourism ===== */}
       <section className="rl-section">
         <Reveal as="div" className="rl-section-head">
-          <span className="rl-eyebrow">Travel Responsibly</span>
-          <h2>Sustainable tourism, built in</h2>
+          <span className="rl-eyebrow">سافري بمسؤولية</span>
+          <h2>سياحة مستدامة، مدمجة بالتطبيق</h2>
         </Reveal>
         <div className="rl-grid-3-sm">
           {ECO.map((e, i) => (
@@ -286,9 +286,9 @@ export default function LandingPage({ onStart }) {
       {/* ===== CTA ===== */}
       <section className="rl-cta">
         <Reveal>
-          <h2>Ready to Discover Jordan?</h2>
-          <p>Your next adventure is one click away — planned smarter, shared further.</p>
-          <button className="rl-btn rl-btn-primary" onClick={onStart}>Start Your Journey</button>
+          <h2>جاهزة تكتشفي الأردن؟</h2>
+          <p>مغامرتك الجاية بعدها كبسة وحدة — مخططة بذكاء، ومشاركة أوسع.</p>
+          <button className="rl-btn rl-btn-primary" onClick={onStart}>ابدأي رحلتك</button>
         </Reveal>
       </section>
 
@@ -296,28 +296,27 @@ export default function LandingPage({ onStart }) {
       <footer className="rl-footer">
         <div className="rl-footer-inner">
           <div className="rl-footer-brand">
-            <h3>Rihlati</h3>
-            <p>An AI-powered tourism platform helping you discover Jordan smarter — plan trips, explore destinations, and share your journey.</p>
+            <h3>رحلتي</h3>
+            <p>منصة سياحية مدعومة بالذكاء الاصطناعي، بتساعدك تكتشفي الأردن بذكاء — خططي لرحلاتك، استكشفي الوجهات، وشاركي رحلتك.</p>
           </div>
           <div className="rl-footer-col">
-            <h4>About</h4>
-            <a href="#rl-features">Our Story</a>
-            <a href="#rl-features">Features</a>
+            <h4>عن المنصة</h4>
+            <a href="#rl-features">قصتنا</a>
+            <a href="#rl-features">الميزات</a>
           </div>
           <div className="rl-footer-col">
-            <h4>Contact</h4>
+            <h4>تواصلي معنا</h4>
             <a href="mailto:hello@rihlati.app">hello@rihlati.app</a>
-            <a href="#rl-features">Support</a>
+            <a href="#rl-features">الدعم</a>
           </div>
           <div className="rl-footer-col">
-            <h4>Follow</h4>
-            <a href="#rl-features">Instagram</a>
-            <a href="#rl-features">Facebook</a>
+            <h4>تابعينا</h4>
+            <a href="#rl-features">إنستقرام</a>
+            <a href="#rl-features">فيسبوك</a>
           </div>
         </div>
         <div className="rl-footer-bottom">
-          <span>© {new Date().getFullYear()} Rihlati. All rights reserved.</span>
-          <button className="rl-lang-toggle">🌐 العربية</button>
+          <span>© {new Date().getFullYear()} رحلتي. جميع الحقوق محفوظة.</span>
         </div>
       </footer>
     </div>
