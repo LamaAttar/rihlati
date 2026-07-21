@@ -173,7 +173,7 @@ function budgetRangeForCategory(category) {
 // ===== أنشطة محددة وحقيقية لكل منطقة — مش وصف عام بس =====
 const PLACE_ACTIVITIES = {
   petra: [
-    { name: 'زيارة الخزنة (Treasury)', description: 'المعلم الأشهر بالبتراء، أول ما تشوفيه بعد المشي بالسيق الضيق', durationHint: 'ساعة إلى ساعتين' },
+    { name: 'زيارة الخزنة (Treasury)', description: 'المعلم الأشهر بالبتراء، أول ما تشوفه بعد المشي بالسيق الضيق', durationHint: 'ساعة إلى ساعتين' },
     { name: 'المشي لدير البتراء (900 درجة)', description: 'مسير يستاهل التعب، إطلالة رائعة من فوق', durationHint: 'ساعتين إلى ثلاثة' },
     { name: 'استكشاف المدافن الملكية', description: 'نقوش وواجهات صخرية مذهلة بألوان طبيعية رائعة', durationHint: 'ساعة تقريباً' },
   ],
@@ -462,7 +462,7 @@ function buildLocalTripPlan(userText, userPlaces) {
 
   const tips = [
     'احملي معك ماء كافي، خصوصاً لو الرحلة بمناطق صحراوية أو بالصيف',
-    'خذي كاش معك — مو كل الأماكن الصغيرة عندها إمكانية دفع إلكتروني',
+    'خذ كاش معك — مو كل الأماكن الصغيرة عندها إمكانية دفع إلكتروني',
     'احجزي أماكن الإقامة مسبقاً لو الرحلة بموسم الذروة (الصيف أو الأعياد)',
   ];
 
@@ -720,7 +720,7 @@ async function getRahalResponse(question, userLocation, userPlaces) {
       return 'لجو رومانسي 💑 جربوا غروب الشمس بوادي رم 🌅، أو ليلة استرخاء بحمامات ماعين ♨️، أو نزهة عالبحر الميت وقت الغروب 🌊';
     }
     if (!userLocation) {
-      return 'لازم تسمحيلي بالوصول لموقعك عشان أجيب حالة الطقس بالضبط 🌦️ (اضغطي "السماح" لو المتصفح طلب الإذن). بس بشكل عام: لو الجو حر روحي للبحر الميت أو العقبة للسباحة 🌊، ولو معتدل جربي وادي رم أو عجلون للتنزه والشواء 🍖، ولو بارد جربي حمامات ماعين أو الحمة ♨️';
+      return 'لازم تسمحلي بالوصول لموقعك عشان أجيب حالة الطقس بالضبط 🌦️ (اضغط "السماح" لو المتصفح طلب الإذن). بس بشكل عام: لو الجو حر روح للبحر الميت أو العقبة للسباحة 🌊، ولو معتدل جرب وادي رم أو عجلون للتنزه والشواء 🍖، ولو بارد جرب حمامات ماعين أو الحمة ♨️';
     }
     const offset = (wantsTomorrow || wantsWeekend) ? 1 : 0;
     const weather = await getWeatherInfo(userLocation.lat, userLocation.lng, offset);
@@ -733,10 +733,10 @@ async function getRahalResponse(question, userLocation, userPlaces) {
       return `الجو ${dateLabel} ممطر شوي ☔ بحسها فرصة حلوة للمناطق الأثرية أو حمامات ماعين ♨️ والحمة الأردنية`;
     }
     if (temp >= 30) {
-      return `الجو ${dateLabel} حر (${Math.round(temp)}°) ☀️ مناسب جداً للسباحة، جربي البحر الميت 🌊، العقبة، أو محمية وادي الموجب`;
+      return `الجو ${dateLabel} حر (${Math.round(temp)}°) ☀️ مناسب جداً للسباحة، جرب البحر الميت 🌊، العقبة، أو محمية وادي الموجب`;
     }
     if (temp >= 20) {
-      return `الجو ${dateLabel} معتدل ورائع (${Math.round(temp)}°) 🌤️ مناسب للتنزه والشواء (الزرب)، جربي وادي رم 🏜️، عجلون 🌲، أو غابات برقش للفرشة 🌳`;
+      return `الجو ${dateLabel} معتدل ورائع (${Math.round(temp)}°) 🌤️ مناسب للتنزه والشواء (الزرب)، جرب وادي رم 🏜️، عجلون 🌲، أو غابات برقش للفرشة 🌳`;
     }
     return `الجو ${dateLabel} بارد شوي (${Math.round(temp)}°) ❄️ أنسب شي حمامات ماعين ♨️ أو الحمة الأردنية للدفا`;
   }
@@ -814,7 +814,7 @@ async function getRahalResponse(question, userLocation, userPlaces) {
     return 'للهدوء والاستجمام: محمية ضانا 🏔️، الطفيلة ⛰️، أو الديسة 🏞️ - أماكن هادئة بعيدة عن الزحمة';
   }
   if (q.includes('غروب') || q.includes('شروق')) {
-    return 'أجمل غروب تشوفيه بوادي رم 🌅 أو العقبة على شاطئ البحر الأحمر 🌇';
+    return 'أجمل غروب تشوفه بوادي رم 🌅 أو العقبة على شاطئ البحر الأحمر 🌇';
   }
   if (q.includes('رخيص') || q.includes('مجاني') || q.includes('بدون فلوس') || q.includes('اقتصادي')) {
     return 'أماكن كتير بدون رسوم دخول: غابات برقش 🌳، أم النمل 🌸، وأغلب المدن زي عمّان وإربد والسلط 🏘️';
@@ -841,7 +841,7 @@ async function getRahalResponse(question, userLocation, userPlaces) {
     return 'عمّان: عاصمة المملكة، فيها جبل القلعة والمدرج الروماني ووسط البلد النابض بالحياة 🏛️';
   }
 
-  return 'ما قدرت ألاقي جواب دقيق لسؤالك 🤔 جربي تسأليني عن: اسم منطقة، الموسم، الأكل، الطبيعة، الآثار، السباحة، المغامرة، التصوير، القلاع، أو "وين أروح بكرا" وبجاوبك حسب الطقس 😊';
+  return 'ما قدرت ألاقي جواب دقيق لسؤالك 🤔 جرب تسألني عن: اسم منطقة، الموسم، الأكل، الطبيعة، الآثار، السباحة، المغامرة، التصوير، القلاع، أو "وين أروح بكرا" وبجاوبك حسب الطقس 😊';
 }
 
 const ECO_MESSAGES = [
@@ -967,7 +967,7 @@ function AddPlaceForm({ user, onAdd, onPointsEarned }) {
       const data = await res.json();
       setImgUrl(data.secure_url);
     } catch (e) {
-      alert('صار خطأ أثناء معالجة الصورة، جربي صورة تانية');
+      alert('صار خطأ أثناء معالجة الصورة، جرب صورة تانية');
     }
     setUploading(false);
   };
@@ -1004,7 +1004,7 @@ function AddPlaceForm({ user, onAdd, onPointsEarned }) {
         <option value="winter">❄️ شتاء</option>
         <option value="spring">🌸 ربيع</option>
       </select>
-      <p style={{ fontSize: '0.85rem', color: '#8B6914', margin: '8px 0 6px' }}>📍 دوسي على الخريطة لتحديد موقع المنطقة بالضبط</p>
+      <p style={{ fontSize: '0.85rem', color: '#8B6914', margin: '8px 0 6px' }}>📍 دوس على الخريطة لتحديد موقع المنطقة بالضبط</p>
       <MapContainer center={[31.95, 35.93]} zoom={7} style={{ height: 220, width: '100%', borderRadius: 10, marginBottom: 8 }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <LocationPicker
@@ -1127,15 +1127,15 @@ function WeatherCard({ latitude, longitude, placeName }) {
   } else if (temp >= 30) {
     condition = 'حر ومشمس';
     icon = '☀️';
-    recommendation = 'الجو حر، يُنصح باصطحاب الماء وواقي الشمس ☀️';
+    recommendation = 'الجو حر، خذ معك ماء وواقي شمس ☀️';
   } else if (temp >= 20) {
     condition = 'معتدل';
     icon = '🌤️';
-    recommendation = 'الجو معتدل ومناسب للزيارة والتنزه والاستمتاع بالطبيعة 🍃';
+    recommendation = 'الجو معتدل ورائع للزيارة والتنزه 🍃';
   } else {
     condition = 'بارد';
     icon = '❄️';
-    recommendation = 'الجو بارد، يُنصح بارتداء ملابس دافئة والاستعداد للأجواء الباردة 🧥';
+    recommendation = 'الجو بارد شوي، خذ معك ملابس دافية';
   }
 
   return (
@@ -1217,7 +1217,7 @@ function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocatio
 
       <h3>❤️ الأماكن المفضلة</h3>
       {favoritePlacesList.length === 0 ? (
-        <p style={{ color: '#999' }}>ما ضفتي أي مكان للمفضلة بعد. اضغطي القلب ❤️ على أي بطاقة منطقة!</p>
+        <p style={{ color: '#999' }}>ما ضفت أي مكان للمفضلة بعد. اضغط القلب ❤️ على أي بطاقة منطقة!</p>
       ) : (
         <ul style={{ paddingRight: 20 }}>
           {favoritePlacesList.map(p => <li key={p.name}>{p.name}</li>)}
@@ -1226,7 +1226,7 @@ function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocatio
 
       <h3>📸 الصور التي رفعتها</h3>
       {myPhotos.length === 0 ? (
-        <p style={{ color: '#999' }}>لسا ما رفعتي أي صورة. رفعي صورة من أي بطاقة منطقة!</p>
+        <p style={{ color: '#999' }}>لسا ما رفعت أي صورة. ارفع صورة من أي بطاقة منطقة!</p>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
           {myPhotos.map((p, i) => (
@@ -1452,13 +1452,13 @@ function TripPlanner({ onClose, onOpenMap, userPlaces }) {
                     onClick={() => { onOpenMap(result.place); onClose(); }}
                     style={{ flex: 1, background: '#5a3e1b', color: '#fff', padding: 10, borderRadius: 10 }}
                   >
-                    📍 افتحي على الخريطة
+                    📍 افتح على الخريطة
                   </button>
                   <button
                     onClick={resetPlanner}
                     style={{ flex: 1, background: '#faf6ec', color: '#8B6914', padding: 10, borderRadius: 10, border: '1px solid #e8d5a3' }}
                   >
-                    🔄 جربي رحلة تانية
+                    🔄 جرب رحلة تانية
                   </button>
                 </div>
               </div>
@@ -1478,7 +1478,7 @@ function AITripBuilder({ onClose, userPlaces }) {
 
   const handleGenerate = () => {
     if (!prompt.trim() || prompt.trim().length < 5) {
-      setError('اكتبي وصف واضح لرحلتك (مثلاً: معي 3 أيام وبدي أطلع عالعقبة)');
+      setError('اكتب وصف واضح لرحلتك (مثلاً: معي 3 أيام وبدي أطلع عالعقبة)');
       return;
     }
 
@@ -1492,7 +1492,7 @@ function AITripBuilder({ onClose, userPlaces }) {
         const result = buildLocalTripPlan(prompt.trim(), userPlaces);
         setTrip(result);
       } catch (err) {
-        setError('صار خطأ أثناء بناء الرحلة، جربي مرة ثانية 🙏');
+        setError('صار خطأ أثناء بناء الرحلة، جرب مرة ثانية 🙏');
       } finally {
         setLoading(false);
       }
@@ -1567,7 +1567,7 @@ function AITripBuilder({ onClose, userPlaces }) {
                 opacity: loading ? 0.7 : 1,
               }}
             >
-              {loading ? '⏳ جاري بناء رحلتك...' : '✨ ابني الرحلة'}
+              {loading ? '⏳ جاري بناء رحلتك...' : '✨ ابنِ الرحلة'}
             </button>
           </>
         ) : (
@@ -1615,7 +1615,7 @@ function AITripBuilder({ onClose, userPlaces }) {
               onClick={resetBuilder}
               style={{ width: '100%', background: '#faf6ec', color: '#8B6914', padding: 10, borderRadius: 10, border: '1px solid #e8d5a3' }}
             >
-              🔄 ابني رحلة تانية
+              🔄 ابنِ رحلة تانية
             </button>
           </>
         )}
@@ -1867,7 +1867,7 @@ return () => unsubscribe();
   };
 
   const handleDeleteUserPlace = async (place) => {
-    if (!window.confirm(`متأكدة إنك بدك تحذفي "${place.name}"؟ الإجراء ما بينرجع، وراح تنخصم منك 20 نقطة يلي أخذتيها لما ضفتيها.`)) return;
+    if (!window.confirm(`متأكد إنك بدك تحذف "${place.name}"؟ الإجراء ما بينرجع، وراح تنخصم منك 20 نقطة يلي أخذتها لما ضفتها.`)) return;
     try {
       await deleteDoc(doc(db, 'userPlaces', place.id));
       try { await deleteDoc(doc(db, 'photos', place.id)); } catch (e) {}
@@ -1879,13 +1879,13 @@ return () => unsubscribe();
       });
       awardPoints(-20);
     } catch (e) {
-      alert('صار خطأ أثناء الحذف، جربي مرة ثانية');
+      alert('صار خطأ أثناء الحذف، جرب مرة ثانية');
     }
   };
 
   const handleDeletePhoto = async (placeKey, photoObj) => {
     if (!placeKey || !photoObj) return;
-    if (!window.confirm('متأكدة إنك بدك تحذفي هالصورة؟ الإجراء ما بينرجع.')) return;
+    if (!window.confirm('متأكد إنك بدك تحذف هالصورة؟ الإجراء ما بينرجع.')) return;
     try {
       await setDoc(doc(db, 'photos', placeKey), { items: arrayRemove(photoObj) }, { merge: true });
       setPlacePhotos(prev => ({
@@ -1898,12 +1898,12 @@ return () => unsubscribe();
       closeLightbox();
       closeGalleryModal();
     } catch (e) {
-      alert('صار خطأ أثناء حذف الصورة، جربي مرة ثانية');
+      alert('صار خطأ أثناء حذف الصورة، جرب مرة ثانية');
     }
   };
 
   const handleToggleLike = async (placeKey, photoObj) => {
-    if (!user) return alert('سجلي دخول أولاً عشان تحطي لايك');
+    if (!user) return alert('سجل دخول أولاً عشان تحط لايك');
     try {
       const currentPhotos = placePhotos[placeKey] || [];
       const updatedPhotos = currentPhotos.map((p) => {
@@ -1981,7 +1981,7 @@ return () => unsubscribe();
             onClick={() => handleDeleteUserPlace(place)}
             style={{ background: '#c0392b', color: '#fff', width: 'calc(100% - 30px)', margin: '5px 15px', padding: 8, borderRadius: 10, fontSize: '0.85rem' }}
           >
-            🗑️ احذفي هالمنطقة
+            🗑️ احذف هالمنطقة
           </button>
         )}
         <img src={place.img} alt={placeName} loading="lazy" />
@@ -2027,7 +2027,7 @@ return () => unsubscribe();
               onClick={() => openGalleryModal(photos, placeName, key)}
               style={{ marginTop: 8, background: '#faf6ec', color: '#8B6914', border: '1px solid #e8d5a3', padding: '8px 16px', borderRadius: 10, fontSize: '0.85rem', width: 'calc(100% - 0px)' }}
             >
-              🖼️ افتحي معرض الصور{photos.length > 3 ? ` (+${photos.length - 3})` : ''}
+              🖼️ افتح معرض الصور{photos.length > 3 ? ` (+${photos.length - 3})` : ''}
             </button>
           </div>
         )}
@@ -2194,7 +2194,7 @@ return () => unsubscribe();
         <div>
           <h2>❤️ الأماكن المفضلة</h2>
           {favoriteKeys.length === 0 ? (
-            <p className="login-hint" style={{ textAlign: 'center' }}>ما ضفتي أي مكان للمفضلة بعد، دوسي ❤️ على أي بطاقة منطقة!</p>
+            <p className="login-hint" style={{ textAlign: 'center' }}>ما ضفت أي مكان للمفضلة بعد، دوس ❤️ على أي بطاقة منطقة!</p>
           ) : (
             <div className="places-grid">
               {favoriteKeys.map(key => places[key] ? renderPlace(key, places[key]) : null)}
@@ -2286,7 +2286,7 @@ return () => unsubscribe();
           >
             <button onClick={closeGalleryModal} style={{ position: 'absolute', top: 12, left: 12, border: 'none', background: 'none', fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
             <h3 style={{ color: '#8B6914', marginBottom: 4 }}>🖼️ معرض صور {galleryModalData.placeName}</h3>
-            <p style={{ color: '#777', fontSize: '0.85rem', marginBottom: 14 }}>{galleryModalData.photos.length} صورة — دوسي على أي وحدة لتكبيرها</p>
+            <p style={{ color: '#777', fontSize: '0.85rem', marginBottom: 14 }}>{galleryModalData.photos.length} صورة — دوس على أي وحدة لتكبيرها</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
               {galleryModalData.photos.map((photoObj, i) => (
                 <img
@@ -2348,7 +2348,7 @@ return () => unsubscribe();
               onClick={(e) => { e.stopPropagation(); handleDeletePhoto(lightboxData.placeKey, lightboxData.photos[lightboxData.index]); }}
               style={{ position: 'absolute', top: 20, left: 20, background: '#c0392b', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: '0.85rem', cursor: 'pointer' }}
             >
-              🗑️ احذفي صورتي
+              🗑️ احذف صورتي
             </button>
           )}
         </div>
