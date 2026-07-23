@@ -127,7 +127,7 @@ body {
   font-size: 1rem;
   margin: 10px auto 25px;
   display: block;
-  text-align: right;
+  text-align: start;
   outline: none;
   box-shadow: 0 4px 15px rgba(196,149,42,0.15);
   transition: 0.3s;
@@ -196,7 +196,7 @@ button:active {
   overflow: hidden;
   box-shadow: 0 4px 18px rgba(139,105,20,0.09);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
-  text-align: right;
+  text-align: start;
   border-top: 4px solid #C4952A;
 }
 
@@ -403,7 +403,7 @@ button:active {
   border-radius: 20px;
   padding: 20px;
   box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-  text-align: right;
+  text-align: start;
   margin: 15px auto;
 }
 
@@ -419,7 +419,7 @@ button:active {
   border-radius: 10px;
   font-size: 1rem;
   margin-bottom: 10px;
-  text-align: right;
+  text-align: start;
   outline: none;
   font-family: inherit;
 }

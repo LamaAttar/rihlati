@@ -844,26 +844,37 @@ async function getRahalResponse(question, userLocation, userPlaces) {
   return 'ما قدرت ألاقي جواب دقيق لسؤالك 🤔 جرب تسألني عن: اسم منطقة، الموسم، الأكل، الطبيعة، الآثار، السباحة، المغامرة، التصوير، القلاع، أو "وين أروح بكرا" وبجاوبك حسب الطقس 😊';
 }
 
-const ECO_MESSAGES = [
-  '🌿 المحافظة على نظافة الطبيعة مسؤولية الجميع',
-  '🔥 التأكد من إطفاء النار بالكامل قبل المغادرة',
-  '🌳 عدم قطف أو كسر النباتات والأشجار',
-  '🐾 الحفاظ على الحياة البرية وعدم إزعاج الحيوانات',
-  '💧 ترشيد استهلاك المياه، خصوصاً بالمناطق الصحراوية',
-  '♻️ تفضيل الأدوات القابلة لإعادة الاستخدام بدل البلاستيك',
-];
+const ECO_MESSAGES = {
+  ar: [
+    '🌿 المحافظة على نظافة الطبيعة مسؤولية الجميع',
+    '🔥 التأكد من إطفاء النار بالكامل قبل المغادرة',
+    '🌳 عدم قطف أو كسر النباتات والأشجار',
+    '🐾 الحفاظ على الحياة البرية وعدم إزعاج الحيوانات',
+    '💧 ترشيد استهلاك المياه، خصوصاً بالمناطق الصحراوية',
+    '♻️ تفضيل الأدوات القابلة لإعادة الاستخدام بدل البلاستيك',
+  ],
+  en: [
+    '🌿 Keeping nature clean is everyone\'s responsibility',
+    '🔥 Make sure to fully put out fires before leaving',
+    '🌳 Don\'t pick or break plants and trees',
+    '🐾 Protect wildlife and avoid disturbing animals',
+    '💧 Use water wisely, especially in desert areas',
+    '♻️ Prefer reusable tools over plastic',
+  ],
+};
 
-function EcoBanner() {
+function EcoBanner({ lang = 'ar' }) {
   const [index, setIndex] = useState(0);
+  const messages = ECO_MESSAGES[lang] || ECO_MESSAGES.ar;
   useEffect(() => {
     const interval = setInterval(() => {
-      setIndex((i) => (i + 1) % ECO_MESSAGES.length);
+      setIndex((i) => (i + 1) % messages.length);
     }, 6000);
     return () => clearInterval(interval);
-  }, []);
+  }, [messages.length]);
   return (
     <div style={{ background: 'linear-gradient(120deg, #6b9b5e, #4f7a45)', color: '#fff', borderRadius: 16, padding: '10px 18px', margin: '12px auto', maxWidth: 600, fontSize: '0.9rem', fontWeight: 'bold', textAlign: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }}>
-      {ECO_MESSAGES[index]}
+      {messages[index % messages.length]}
     </div>
   );
 }
@@ -943,7 +954,46 @@ function compressImageFile(file, maxDimension = 1920, quality = 0.85) {
   });
 }
 
-function AddPlaceForm({ user, onAdd, onPointsEarned }) {
+const ADD_PLACE_TEXT = {
+  ar: {
+    addButton: '➕ أضف منطقة جديدة',
+    formTitle: '➕ أضف منطقة جديدة',
+    namePlaceholder: 'اسم المنطقة',
+    descPlaceholder: 'وصف المنطقة',
+    foodPlaceholder: 'الأكلة المشهورة (اختياري)',
+    summer: '☀️ صيف', winter: '❄️ شتاء', spring: '🌸 ربيع',
+    mapHint: '📍 دوس على الخريطة لتحديد موقع المنطقة بالضبط',
+    locationSet: (lat, lng) => `✅ الموقع المحدد: ${lat}, ${lng}`,
+    uploadPhoto: '📸 ارفع صورة',
+    uploading: '⏳ جاري رفع الصورة...',
+    previewAlt: 'معاينة',
+    submit: '✅ إضافة',
+    cancel: '❌ إلغاء',
+    imgError: 'صار خطأ أثناء معالجة الصورة، جرب صورة تانية',
+    fillAllError: 'يرجى ملء كل الحقول وتحميل صورة',
+    locationError: 'يرجى تحديد موقع المنطقة على الخريطة 📍',
+  },
+  en: {
+    addButton: '➕ Add New Place',
+    formTitle: '➕ Add New Place',
+    namePlaceholder: 'Place name',
+    descPlaceholder: 'Place description',
+    foodPlaceholder: 'Famous dish (optional)',
+    summer: '☀️ Summer', winter: '❄️ Winter', spring: '🌸 Spring',
+    mapHint: '📍 Tap the map to set the exact location',
+    locationSet: (lat, lng) => `✅ Selected location: ${lat}, ${lng}`,
+    uploadPhoto: '📸 Upload Photo',
+    uploading: '⏳ Uploading photo...',
+    previewAlt: 'Preview',
+    submit: '✅ Add',
+    cancel: '❌ Cancel',
+    imgError: 'An error occurred while processing the photo, try another one',
+    fillAllError: 'Please fill in all fields and upload a photo',
+    locationError: 'Please select the location on the map 📍',
+  },
+};
+
+function AddPlaceForm({ user, onAdd, onPointsEarned, lang = 'ar' }) {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [season, setSeason] = useState('summer');
@@ -953,6 +1003,7 @@ function AddPlaceForm({ user, onAdd, onPointsEarned }) {
   const [show, setShow] = useState(false);
   const [placeLat, setPlaceLat] = useState(null);
   const [placeLng, setPlaceLng] = useState(null);
+  const t = ADD_PLACE_TEXT[lang] || ADD_PLACE_TEXT.ar;
 
   const handleImgUpload = async (e) => {
     const file = e.target.files[0];
@@ -967,14 +1018,14 @@ function AddPlaceForm({ user, onAdd, onPointsEarned }) {
       const data = await res.json();
       setImgUrl(data.secure_url);
     } catch (e) {
-      alert('صار خطأ أثناء معالجة الصورة، جرب صورة تانية');
+      alert(t.imgError);
     }
     setUploading(false);
   };
 
   const handleSubmit = async () => {
-    if (!name || !desc || !imgUrl) return alert('يرجى ملء كل الحقول وتحميل صورة');
-    if (!placeLat || !placeLng) return alert('يرجى تحديد موقع المنطقة على الخريطة 📍');
+    if (!name || !desc || !imgUrl) return alert(t.fillAllError);
+    if (!placeLat || !placeLng) return alert(t.locationError);
     const newPlace = {
       name, desc, season, img: imgUrl,
       food: food || null,
@@ -990,21 +1041,21 @@ function AddPlaceForm({ user, onAdd, onPointsEarned }) {
   };
 
   if (!show) return (
-    <button className="add-place-btn" onClick={() => setShow(true)}>➕ أضف منطقة جديدة</button>
+    <button className="add-place-btn" onClick={() => setShow(true)}>{t.addButton}</button>
   );
 
   return (
     <div className="add-place-form">
-      <h3>➕ أضف منطقة جديدة</h3>
-      <input placeholder="اسم المنطقة" value={name} onChange={e => setName(e.target.value)} className="form-input" />
-      <textarea placeholder="وصف المنطقة" value={desc} onChange={e => setDesc(e.target.value)} className="form-input" rows={3} />
-      <input placeholder="الأكلة المشهورة (اختياري)" value={food} onChange={e => setFood(e.target.value)} className="form-input" />
+      <h3>{t.formTitle}</h3>
+      <input placeholder={t.namePlaceholder} value={name} onChange={e => setName(e.target.value)} className="form-input" />
+      <textarea placeholder={t.descPlaceholder} value={desc} onChange={e => setDesc(e.target.value)} className="form-input" rows={3} />
+      <input placeholder={t.foodPlaceholder} value={food} onChange={e => setFood(e.target.value)} className="form-input" />
       <select value={season} onChange={e => setSeason(e.target.value)} className="form-input">
-        <option value="summer">☀️ صيف</option>
-        <option value="winter">❄️ شتاء</option>
-        <option value="spring">🌸 ربيع</option>
+        <option value="summer">{t.summer}</option>
+        <option value="winter">{t.winter}</option>
+        <option value="spring">{t.spring}</option>
       </select>
-      <p style={{ fontSize: '0.85rem', color: '#8B6914', margin: '8px 0 6px' }}>📍 دوس على الخريطة لتحديد موقع المنطقة بالضبط</p>
+      <p style={{ fontSize: '0.85rem', color: '#8B6914', margin: '8px 0 6px' }}>{t.mapHint}</p>
       <MapContainer center={[31.95, 35.93]} zoom={7} style={{ height: 220, width: '100%', borderRadius: 10, marginBottom: 8 }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <LocationPicker
@@ -1014,18 +1065,18 @@ function AddPlaceForm({ user, onAdd, onPointsEarned }) {
       </MapContainer>
       {placeLat && placeLng && (
         <p style={{ fontSize: '0.75rem', color: '#777', marginBottom: 8 }}>
-          ✅ الموقع المحدد: {placeLat.toFixed(4)}, {placeLng.toFixed(4)}
+          {t.locationSet(placeLat.toFixed(4), placeLng.toFixed(4))}
         </p>
       )}
       <label className="upload-btn">
-        📸 ارفع صورة
+        {t.uploadPhoto}
         <input type="file" accept="image/*" onChange={handleImgUpload} style={{ display: 'none' }} />
       </label>
-      {uploading && <p>⏳ جاري رفع الصورة...</p>}
-      {imgUrl && <img src={imgUrl} alt="معاينة" style={{ width: '100%', borderRadius: '10px', marginTop: '10px' }} />}
+      {uploading && <p>{t.uploading}</p>}
+      {imgUrl && <img src={imgUrl} alt={t.previewAlt} style={{ width: '100%', borderRadius: '10px', marginTop: '10px' }} />}
       <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-        <button onClick={handleSubmit} className="submit-btn">✅ إضافة</button>
-        <button onClick={() => setShow(false)} className="cancel-btn">❌ إلغاء</button>
+        <button onClick={handleSubmit} className="submit-btn">{t.submit}</button>
+        <button onClick={() => setShow(false)} className="cancel-btn">{t.cancel}</button>
       </div>
     </div>
   );
@@ -1083,7 +1134,7 @@ function Avatar({ user, size, gender }) {
   );
 }
 
-function WeatherCard({ latitude, longitude, placeName }) {
+function WeatherCard({ latitude, longitude, placeName, lang = 'ar' }) {
   const [weather, setWeather] = useState(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -1103,12 +1154,16 @@ function WeatherCard({ latitude, longitude, placeName }) {
   if (!latitude || !longitude) {
     return (
       <div className="weather-card-mini weather-card-static">
-        🌦️ الموقع غير متاح حالياً
+        {lang === 'ar' ? '🌦️ الموقع غير متاح حالياً' : '🌦️ Location not available'}
       </div>
     );
   }
   if (loading) {
-    return <div className="weather-card-mini weather-card-static">⏳ جاري جلب حالة الطقس...</div>;
+    return (
+      <div className="weather-card-mini weather-card-static">
+        {lang === 'ar' ? '⏳ جاري جلب حالة الطقس...' : '⏳ Fetching weather...'}
+      </div>
+    );
   }
   if (!weather || weather.temp === undefined) {
     return null;
@@ -1116,26 +1171,32 @@ function WeatherCard({ latitude, longitude, placeName }) {
 
   const temp = Math.round(weather.temp);
   const rain = weather.rain || 0;
-  let condition = 'مشمس';
-  let icon = '☀️';
-  let recommendation = 'الجو رائع لزيارة الأماكن الأثرية أو المشي بالطبيعة 🌿';
+  let condition, icon, recommendation;
 
   if (rain > 2) {
-    condition = 'ممطر';
+    condition = lang === 'ar' ? 'ممطر' : 'Rainy';
     icon = '🌧️';
-    recommendation = 'الجو ممطر شوي، فرصة حلوة لزيارة الأماكن الأثرية أو المسقوفة';
+    recommendation = lang === 'ar'
+      ? 'الجو ممطر شوي، فرصة حلوة لزيارة الأماكن الأثرية أو المسقوفة'
+      : 'A bit rainy — good chance to visit indoor or historical sites';
   } else if (temp >= 30) {
-    condition = 'حر ومشمس';
+    condition = lang === 'ar' ? 'حر ومشمس' : 'Hot & sunny';
     icon = '☀️';
-    recommendation = 'الجو حر، خذ معك ماء وواقي شمس ☀️';
+    recommendation = lang === 'ar'
+      ? 'الجو حر، خذ معك ماء وواقي شمس ☀️'
+      : "It's hot — bring water and sunscreen ☀️";
   } else if (temp >= 20) {
-    condition = 'معتدل';
+    condition = lang === 'ar' ? 'معتدل' : 'Mild';
     icon = '🌤️';
-    recommendation = 'الجو معتدل ورائع للزيارة والتنزه 🍃';
+    recommendation = lang === 'ar'
+      ? 'الجو معتدل ورائع للزيارة والتنزه 🍃'
+      : 'Mild and pleasant for visiting and walking around 🍃';
   } else {
-    condition = 'بارد';
+    condition = lang === 'ar' ? 'بارد' : 'Cold';
     icon = '❄️';
-    recommendation = 'الجو بارد شوي، خذ معك ملابس دافية';
+    recommendation = lang === 'ar'
+      ? 'الجو بارد شوي، خذ معك ملابس دافية'
+      : "It's a bit cold — bring warm clothes";
   }
 
   return (
@@ -1155,7 +1216,7 @@ function WeatherCard({ latitude, longitude, placeName }) {
   );
 }
 
-function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocation, gender, onGenderChange, points, onClose }) {
+function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocation, gender, onGenderChange, points, onClose, lang }) {
   const myPlaces = userPlaces.filter(p => p.addedBy === user.displayName);
   const favoritePlacesList = favoriteKeys.map(k => places[k]).filter(Boolean);
 
@@ -1201,7 +1262,7 @@ function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocatio
         </div>
       </div>
 
-      <WeatherCard latitude={userLocation?.lat} longitude={userLocation?.lng} />
+      <WeatherCard latitude={userLocation?.lat} longitude={userLocation?.lng} lang={lang} />
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', marginTop: 14 }}>
         <div style={{ background: '#faf6ec', borderRadius: 10, padding: '10px 16px' }}>
@@ -1988,7 +2049,7 @@ return () => unsubscribe();
         {place.lat && userLocation && (
           <p>📍 {t.distance} {getDistance(userLocation.lat, userLocation.lng, place.lat, place.lng)} {t.fromLocation}</p>
         )}
-        {place.lat && <WeatherCard latitude={place.lat} longitude={place.lng} placeName={placeName} />}
+        {place.lat && <WeatherCard latitude={place.lat} longitude={place.lng} placeName={placeName} lang={lang} />}
         <p>{placeDesc}</p>
         {placeFood && <p className="food-line">🍽️ {lang === 'ar' ? 'يشتهر بـ:' : 'Famous for:'} {placeFood}</p>}
         {!isUserPlace && <StarRating placeKey={key} ratings={ratings} setRatings={setRatings} user={user} onRated={() => awardPoints(3)} />}
@@ -2031,7 +2092,7 @@ return () => unsubscribe();
             </button>
           </div>
         )}
-        {user && <ImageUpload placeKey={key} onUpload={handlePhotoUpload} />}
+        {user && <ImageUpload placeKey={key} onUpload={handlePhotoUpload} lang={lang} />}
         {!user && <p className="login-hint">{t.loginHint}</p>}
       </div>
     );
@@ -2109,7 +2170,7 @@ return () => unsubscribe();
         </div>
       </div>
 
-      <EcoBanner />
+      <EcoBanner lang={lang} />
 
       {showProfile && user && (
         <ProfilePanel
@@ -2122,6 +2183,7 @@ return () => unsubscribe();
           onGenderChange={updateGender}
           points={points}
           onClose={() => setShowProfile(false)}
+          lang={lang}
         />
       )}
 
@@ -2137,10 +2199,10 @@ return () => unsubscribe();
       {!debouncedSearchQuery && season === '' && !showFavoritesPage && (
         <>
           <button className="add-place-btn" onClick={() => setShowTripPlanner(true)} style={{ marginBottom: 10 }}>
-            🗺️ خطط رحلتي
+            {lang === 'ar' ? '🗺️ خطط رحلتي' : '🗺️ Plan My Trip'}
           </button>
           <button className="add-place-btn" onClick={() => setShowAiTripBuilder(true)} style={{ marginBottom: 10, marginRight: 8 }}>
-            🤖 ابنيلي رحلة بالـ AI
+            {lang === 'ar' ? '🤖 ابنيلي رحلة بالـ AI' : '🤖 Build My Trip with AI'}
           </button>
         </>
       )}
@@ -2181,7 +2243,7 @@ return () => unsubscribe();
 
       {user && season === '' && !debouncedSearchQuery && !showFavoritesPage && (
         <div style={{ margin: '15px auto', maxWidth: '600px' }}>
-          <AddPlaceForm user={user} onAdd={(p) => setUserPlaces(prev => [...prev, p])} onPointsEarned={() => awardPoints(20)} />
+          <AddPlaceForm user={user} onAdd={(p) => setUserPlaces(prev => [...prev, p])} onPointsEarned={() => awardPoints(20)} lang={lang} />
         </div>
       )}
       {!user && season === '' && !debouncedSearchQuery && !showFavoritesPage && (
