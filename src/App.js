@@ -8,6 +8,7 @@ import { doc, setDoc, getDoc, arrayUnion, arrayRemove, collection, addDoc, getDo
 import L from 'leaflet';
 import ImageUpload from './ImageUpload';
 import translations from './translations';
+import AboutPage from './AboutPage';
 
 const places = {
   ajloun: { name: 'عجلون', nameEn: 'Ajloun', lat: 32.33, lng: 35.75, img: '/ajloun.png', desc: 'قلعة تاريخية وسط غابات خضراء، أجواء معتدلة بالصيف 🌲', descEn: 'A historic castle amid green forests with moderate summer weather 🌲', food: 'المقلوبة والمنسف', foodEn: 'Maqluba and Mansaf', season: 'summer' },
@@ -1782,6 +1783,7 @@ function App() {
   const [showFavoritesPage, setShowFavoritesPage] = useState(false);
   const [showTripPlanner, setShowTripPlanner] = useState(false);
   const [showAiTripBuilder, setShowAiTripBuilder] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
 
   const t = translations[lang];
 
@@ -2154,6 +2156,9 @@ return () => unsubscribe();
           <button className="lang-btn" onClick={() => setShowLeaderboard(prev => !prev)}>
             🏆 أفضل الرحالة
           </button>
+          <button className="lang-btn" onClick={() => setShowAbout(true)}>
+            {lang === 'ar' ? 'عن رحلتي' : 'About'}
+          </button>
           {user && (
             <button className="lang-btn" onClick={openFavoritesPage}>
               ❤️ المفضلة
@@ -2192,6 +2197,10 @@ return () => unsubscribe();
 
       {showLeaderboard && (
         <Leaderboard onClose={() => setShowLeaderboard(false)} />
+      )}
+
+      {showAbout && (
+        <AboutPage lang={lang} onClose={() => setShowAbout(false)} />
       )}
 
       <p>{t.subtitle}</p>
