@@ -45,6 +45,9 @@ const summerKeys = ['ajloun', 'irbid', 'jerash', 'umqais', 'deadsea', 'shouna', 
 const winterKeys = ['petra', 'wadirum', 'aqaba', 'madaba', 'karak', 'deisa', 'dana', 'mainhot', 'himma', 'azraqcastle', 'azraqwetland', 'qasramra', 'hallabat', 'shobak', 'ummrasas'];
 const springKeys = ['birgish', 'ummalnaml'];
 
+// أماكن مميزة تظهر بقسم "الأكثر زيارة" بالصفحة الرئيسية
+const POPULAR_PLACE_KEYS = ['petra', 'wadirum', 'deadsea', 'jerash'];
+
 const placeMeta = {
   ajloun: { budget: 'under20', companions: ['alone', 'family', 'friends', 'kids'], duration: 'half' },
   irbid: { budget: 'free', companions: ['alone', 'family', 'friends'], duration: '2h' },
@@ -2205,6 +2208,52 @@ return () => unsubscribe();
             {lang === 'ar' ? '🤖 ابنيلي رحلة بالـ AI' : '🤖 Build My Trip with AI'}
           </button>
         </>
+      )}
+
+      {!debouncedSearchQuery && season === '' && !showFavoritesPage && (
+        <div style={{ maxWidth: 1200, margin: '30px auto 10px', padding: '0 20px' }}>
+          <h2 style={{ color: '#8B6914', fontSize: '1.5rem', marginBottom: 20, textAlign: 'center' }}>
+            {lang === 'ar' ? '🏆 الأماكن الأكثر زيارة' : '🏆 Most Visited Places'}
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+            {POPULAR_PLACE_KEYS.map((key) => {
+              const p = places[key];
+              const placeName = lang === 'ar' ? p.name : p.nameEn;
+              const ratingData = ratings[key] || { avg: 0, count: 0 };
+              return (
+                <div
+                  key={key}
+                  className="rl-popular-card"
+                  style={{ background: '#fff', borderRadius: 18, overflow: 'hidden', boxShadow: '0 6px 20px rgba(139,105,20,0.1)', border: '1px solid rgba(196,149,42,0.15)' }}
+                >
+                  <div style={{ position: 'relative' }}>
+                    <img src={p.img} alt={placeName} loading="lazy" style={{ width: '100%', height: 170, objectFit: 'cover', display: 'block' }} />
+                    <span style={{ position: 'absolute', top: 10, insetInlineStart: 10, background: 'rgba(139,105,20,0.85)', color: '#fff', fontSize: '0.72rem', padding: '4px 10px', borderRadius: 999 }}>
+                      {p.season === 'summer' ? '☀️' : p.season === 'winter' ? '❄️' : '🌸'} {lang === 'ar' ? (p.season === 'summer' ? 'صيف' : p.season === 'winter' ? 'شتاء' : 'ربيع') : (p.season === 'summer' ? 'Summer' : p.season === 'winter' ? 'Winter' : 'Spring')}
+                    </span>
+                  </div>
+                  <div style={{ padding: 16 }}>
+                    <h3 style={{ color: '#8B6914', fontSize: '1.1rem', marginBottom: 6 }}>{placeName}</h3>
+                    <div style={{ fontSize: '1rem', marginBottom: 10 }}>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <span key={star} style={{ color: star <= Math.round(ratingData.avg) ? '#ffb703' : '#ddd' }}>★</span>
+                      ))}
+                      {ratingData.count > 0 && (
+                        <span style={{ fontSize: '0.78rem', color: '#888' }}> ({ratingData.avg.toFixed(1)})</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => { setSeason(p.season); }}
+                      style={{ width: '100%', background: 'linear-gradient(135deg, #C4952A, #8B6914)', color: '#fff', padding: 10, borderRadius: 10, fontSize: '0.9rem', margin: 0 }}
+                    >
+                      {lang === 'ar' ? 'استكشف 🔎' : 'Explore 🔎'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {showTripPlanner && (
