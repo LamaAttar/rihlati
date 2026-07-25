@@ -522,28 +522,109 @@ function getLevelInfo(points) {
   return { label: 'مستكشف مبتدئ', icon: '🥉' };
 }
 
+// ============================================================
+// كاش الخدمات القريبة — نخزّن النتيجة 6 ساعات بالمتصفح، عشان
+// لما نرجع نفتح نفس المكان ما نستنى الـ API من الصفر كل مرة
+// ============================================================
+const SERVICES_CACHE_TTL = 1000 * 60 * 60 * 6; // 6 ساعات
+const SERVICES_FETCH_TIMEOUT = 7000; // 7 ثواني بالحد الأقصى، وبعدها منوقف الانتظار
+
+function getServicesCacheKey(type, lat, lng) {
+  // نقرّب الإحداثيات لأربع خانات عشرية (تقريباً 11 متر دقة) عشان
+  // نفس المكان تقريباً يرجع يستخدم نفس الكاش حتى لو فيه فرق بسيط بالإحداثية
+  return `rl_v2_${type}_${lat.toFixed(4)}_${lng.toFixed(4)}`;
+}
+
+function getCachedServices(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Date.now() - parsed.savedAt > SERVICES_CACHE_TTL) return null;
+    return parsed.data;
+  } catch (e) {
+    return null;
+  }
+}
+
+function setCachedServices(key, data) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), data }));
+  } catch (e) {}
+}
+
+async function fetchWithTimeout(url, ms = SERVICES_FETCH_TIMEOUT) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), ms);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    return res;
+  } catch (e) {
+    clearTimeout(timeoutId);
+    throw e;
+  }
+}
+
 function isHebrewText(text) {
   if (!text) return false;
   return /[\u0590-\u05FF]/.test(text);
 }
 
+// أكتر من سيرفر Overpass مجاني — لو الأول بطيء أو واقع، منجرب يلي بعده
+// فوراً بدل ما نرجع "لا توجد نتائج" بالغلط بسبب سيرفر واحد بس
+const OVERPASS_SERVERS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.openstreetmap.ru/api/interpreter',
+];
+
+async function runOverpassQuery(query) {
+  let lastError = null;
+  for (const server of OVERPASS_SERVERS) {
+    const url = `${server}?data=${encodeURIComponent(query)}`;
+    try {
+      const res = await fetchWithTimeout(url, 9000);
+      if (!res.ok) { lastError = new Error('bad status'); continue; }
+      const data = await res.json();
+      if (data && data.elements) return data.elements;
+      lastError = new Error('no elements');
+    } catch (e) {
+      lastError = e; // نكمل على السيرفر يلي بعده
+    }
+  }
+  throw lastError || new Error('all servers failed');
+}
+
 async function fetchNearbyRestaurants(lat, lng) {
+  const cacheKey = getServicesCacheKey('restaurants', lat, lng);
   const radius = 15000;
-  const query = `[out:json];node["amenity"="restaurant"](around:${radius},${lat},${lng});out body;`;
-  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  return data.elements.filter(el => !isHebrewText(el.tags && el.tags.name) && el.tags && el.tags.name);
+  const query = `[out:json][timeout:9];node["amenity"="restaurant"](around:${radius},${lat},${lng});out body 20;`;
+  try {
+    const elements = await runOverpassQuery(query);
+    const result = elements.filter(el => !isHebrewText(el.tags && el.tags.name) && el.tags && el.tags.name);
+    if (result.length > 0) setCachedServices(cacheKey, result);
+    return result;
+  } catch (e) {
+    // كل السيرفرات فشلت — نرجع الكاش القديم لو موجود (حتى لو قديم شوي) بدل ما نرجع فاضي
+    return getCachedServices(cacheKey) || [];
+  }
 }
 
 async function fetchNearbySupportServices(lat, lng) {
+  const cacheKey = getServicesCacheKey('support', lat, lng);
   const radius = 15000;
-  const query = `[out:json];(node["amenity"="fuel"](around:${radius},${lat},${lng});node["amenity"="hospital"](around:${radius},${lat},${lng});node["amenity"="clinic"](around:${radius},${lat},${lng});node["shop"="supermarket"](around:${radius},${lat},${lng});node["amenity"="bank"](around:${radius},${lat},${lng}););out body;`;
-  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  return data.elements.filter(el => !isHebrewText(el.tags && el.tags.name) && el.tags && el.tags.name);
+  const query = `[out:json][timeout:9];(node["amenity"="fuel"](around:${radius},${lat},${lng});node["amenity"="hospital"](around:${radius},${lat},${lng});node["amenity"="clinic"](around:${radius},${lat},${lng});node["shop"="supermarket"](around:${radius},${lat},${lng});node["amenity"="bank"](around:${radius},${lat},${lng}););out body 25;`;
+  try {
+    const elements = await runOverpassQuery(query);
+    const result = elements.filter(el => !isHebrewText(el.tags && el.tags.name) && el.tags && el.tags.name);
+    if (result.length > 0) setCachedServices(cacheKey, result);
+    return result;
+  } catch (e) {
+    return getCachedServices(cacheKey) || [];
+  }
 }
+
 
 function getServiceIcon(tags) {
   if (tags.amenity === 'restaurant') return '🍽️';
@@ -1993,18 +2074,47 @@ return () => unsubscribe();
   const toggleDetails = async (key, place) => {
     if (openPlace === key) { setOpenPlace(''); setServices([]); setRestaurants([]); return; }
     setOpenPlace(key);
-    setLoadingServices(true);
+
+    // نعرض النتائج المخزّنة (من زيارة سابقة) فوراً بدون أي انتظار، لو موجودة
+    const cachedSupport = getCachedServices(getServicesCacheKey('support', place.lat, place.lng));
+    const cachedRestaurants = getCachedServices(getServicesCacheKey('restaurants', place.lat, place.lng));
+    if (cachedSupport || cachedRestaurants) {
+      setServices((cachedSupport || []).slice(0, 10));
+      setRestaurants((cachedRestaurants || []).slice(0, 6));
+      setLoadingServices(false);
+    } else {
+      setServices([]);
+      setRestaurants([]);
+      setLoadingServices(true);
+    }
+
+    // وبنفس الوقت منجيب نسخة محدثة بالخلفية (حتى لو كان في كاش) عشان
+    // البيانات تضل صحيحة، ومنحدث الشاشة لما توصل النتيجة الجديدة
     const [supportResult, restaurantResult] = await Promise.all([
       fetchNearbySupportServices(place.lat, place.lng),
       fetchNearbyRestaurants(place.lat, place.lng),
     ]);
-    setServices(supportResult.slice(0, 10));
-    setRestaurants(restaurantResult.slice(0, 6));
-    setLoadingServices(false);
+    // لو المستخدم بدّل لمكان تاني بالأثناء، ما منحدث الشاشة بنتيجة المكان القديم
+    setOpenPlace((current) => {
+      if (current === key) {
+        setServices(supportResult.slice(0, 10));
+        setRestaurants(restaurantResult.slice(0, 6));
+        setLoadingServices(false);
+      }
+      return current;
+    });
   };
 
   const openMap = async (place) => {
     setSelectedPlace(place);
+
+    const cachedSupport = getCachedServices(getServicesCacheKey('support', place.lat, place.lng));
+    const cachedRestaurants = getCachedServices(getServicesCacheKey('restaurants', place.lat, place.lng));
+    if (cachedSupport || cachedRestaurants) {
+      const combinedCached = [...(cachedSupport || []), ...(cachedRestaurants || [])];
+      setMapServices(combinedCached.filter(s => s.lat && s.lon));
+    }
+
     const [supportResult, restaurantResult] = await Promise.all([
       fetchNearbySupportServices(place.lat, place.lng),
       fetchNearbyRestaurants(place.lat, place.lng),
