@@ -992,7 +992,9 @@ function StarRating({ placeKey, ratings, setRatings, user, onRated }) {
       {[1,2,3,4,5].map(star => (
         <span key={star} onClick={() => handleRate(star)} style={{ cursor:'pointer', fontSize:'1.5rem', color: star <= Math.round(avg) ? '#ffb703' : '#ccc' }}>★</span>
       ))}
-      {count > 0 && <span style={{ fontSize:'0.9rem', color:'#555' }}> ({avg.toFixed(1)}/5 | {count} تقييم)</span>}
+      {count > 0
+        ? <span style={{ fontSize:'0.9rem', color:'#555' }}> ({avg.toFixed(1)}/5 | {count} تقييم)</span>
+        : <span className="no-rating-msg">كن أول من يقيم المكان ✨</span>}
     </div>
   );
 }
@@ -1164,6 +1166,31 @@ function AddPlaceForm({ user, onAdd, onPointsEarned, lang = 'ar' }) {
         <button onClick={() => setShow(false)} className="cancel-btn">{t.cancel}</button>
       </div>
     </div>
+  );
+}
+
+// أيقونات SVG بسيطة بلون ذهبي ثابت — بديل عن الإيموجي عشان تضل نفس
+// الشكل واللون بالضبط على كل الأجهزة (الإيموجي بتتغيّر شكلها حسب نظام التشغيل)
+function StatStarIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="#C4952A">
+      <path d="M12 2l2.9 6.3 6.9.7-5.2 4.7 1.5 6.8L12 17l-6.1 3.5 1.5-6.8L2.2 9l6.9-.7L12 2z" />
+    </svg>
+  );
+}
+function StatBagIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C4952A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="7" width="18" height="13" rx="2" fill="#C4952A" stroke="none" />
+      <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
+}
+function StatPinIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="#C4952A">
+      <path d="M12 2C7.6 2 4 5.6 4 10c0 5.5 8 12 8 12s8-6.5 8-12c0-4.4-3.6-8-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" />
+    </svg>
   );
 }
 
@@ -1865,6 +1892,7 @@ function App() {
   const [showTripPlanner, setShowTripPlanner] = useState(false);
   const [showAiTripBuilder, setShowAiTripBuilder] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [siteStats, setSiteStats] = useState({ places: Object.keys(places).length, users: 0, ratings: 0 });
 
   const t = translations[lang];
 
@@ -1890,6 +1918,14 @@ function App() {
           if (docSnap.exists()) newRatings[key] = docSnap.data();
         }
         setRatings(newRatings);
+        const totalRatings = Object.values(newRatings).reduce((sum, r) => sum + (r.count || 0), 0);
+        setSiteStats(prev => ({ ...prev, ratings: totalRatings }));
+      } catch (e) {}
+    };
+    const loadSiteUserCount = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, 'userProfiles'));
+        setSiteStats(prev => ({ ...prev, users: snapshot.size }));
       } catch (e) {}
     };
     const loadPhotos = async () => {
@@ -1914,6 +1950,7 @@ function App() {
         const snapshot = await getDocs(collection(db, 'userPlaces'));
         const loadedPlaces = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         setUserPlaces(loadedPlaces);
+        setSiteStats(prev => ({ ...prev, places: Object.keys(places).length + loadedPlaces.length }));
 
         const userPhotos = {};
         for (const p of loadedPlaces) {
@@ -1931,6 +1968,7 @@ function App() {
     loadRatings();
     loadPhotos();
     loadUserPlaces();
+    loadSiteUserCount();
    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
   setUser(currentUser);
 
@@ -2313,20 +2351,37 @@ return () => unsubscribe();
         <AboutPage lang={lang} onClose={() => setShowAbout(false)} />
       )}
 
-      <p>{t.subtitle}</p>
+      <div className="rl-stats-card">
+        <div className="rl-stat-item">
+          <strong className="rl-stat-value"><StatStarIcon /><span>{siteStats.ratings}</span></strong>
+          <span>{lang === 'ar' ? 'تقييم من الزوار' : 'Visitor ratings'}</span>
+        </div>
+        <div className="rl-stat-item">
+          <strong className="rl-stat-value"><StatBagIcon /><span>{siteStats.users}</span></strong>
+          <span>{lang === 'ar' ? 'رحّالة مسجلين' : 'Registered explorers'}</span>
+        </div>
+        <div className="rl-stat-item">
+          <strong className="rl-stat-value"><StatPinIcon /><span>{siteStats.places}+</span></strong>
+          <span>{lang === 'ar' ? 'منطقة سياحية' : 'Destinations'}</span>
+        </div>
+      </div>
+
+      <p className="rl-app-search-heading">{t.subtitle}</p>
       <input className="search-input" type="text" placeholder={`🔍 ${t.search}`} value={searchQuery} onChange={(e) => { setShowFavoritesPage(false); setSearchQuery(e.target.value); }} />
 
       {!debouncedSearchQuery && season === '' && !showFavoritesPage && <p className="welcome-msg">{t.welcome}</p>}
 
       {!debouncedSearchQuery && season === '' && !showFavoritesPage && (
-        <>
-          <button className="add-place-btn" onClick={() => setShowTripPlanner(true)} style={{ marginBottom: 10 }}>
-            {lang === 'ar' ? '🗺️ خطط رحلتي' : '🗺️ Plan My Trip'}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap', margin: '15px auto' }}>
+          <button className="add-place-btn rl-trip-btn" onClick={() => setShowTripPlanner(true)}>
+            <span>🗺️</span>
+            <span>{lang === 'ar' ? 'خطط رحلتي' : 'Plan My Trip'}</span>
           </button>
-          <button className="add-place-btn" onClick={() => setShowAiTripBuilder(true)} style={{ marginBottom: 10, marginRight: 8 }}>
-            {lang === 'ar' ? '🤖 ابنيلي رحلة بالـ AI' : '🤖 Build My Trip with AI'}
+          <button className="add-place-btn rl-trip-btn" onClick={() => setShowAiTripBuilder(true)}>
+            <span>🤖</span>
+            <span>{lang === 'ar' ? 'ابنيلي رحلة بالـ AI' : 'Build My Trip with AI'}</span>
           </button>
-        </>
+        </div>
       )}
 
       {!debouncedSearchQuery && season === '' && !showFavoritesPage && (
@@ -2353,12 +2408,16 @@ return () => unsubscribe();
                   </div>
                   <div style={{ padding: 16 }}>
                     <h3 style={{ color: '#8B6914', fontSize: '1.1rem', marginBottom: 6 }}>{placeName}</h3>
-                    <div style={{ fontSize: '1rem', marginBottom: 10 }}>
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <span key={star} style={{ color: star <= Math.round(ratingData.avg) ? '#ffb703' : '#ddd' }}>★</span>
-                      ))}
-                      {ratingData.count > 0 && (
-                        <span style={{ fontSize: '0.78rem', color: '#888' }}> ({ratingData.avg.toFixed(1)})</span>
+                    <div style={{ fontSize: '1rem', marginBottom: 10, minHeight: 22 }}>
+                      {ratingData.count > 0 ? (
+                        <>
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <span key={star} style={{ color: star <= Math.round(ratingData.avg) ? '#ffb703' : '#ddd' }}>★</span>
+                          ))}
+                          <span style={{ fontSize: '0.78rem', color: '#888' }}> ({ratingData.avg.toFixed(1)})</span>
+                        </>
+                      ) : (
+                        <span className="no-rating-msg" style={{ padding: 0 }}>كن أول من يقيم المكان ✨</span>
                       )}
                     </div>
                     <button
