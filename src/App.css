@@ -113,6 +113,15 @@ body {
   text-align: center;
 }
 
+/* ===== صف أزرار الموسم — تحت عنوان "اختر الموسم المناسب" مباشرة ===== */
+.rl-season-btn-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 8px auto 18px;
+}
+
 /* ===== كرت الإحصائيات — أبيض، بسيط، بدون اعتماد على صورة خلفية ===== */
 .rl-stats-card {
   display: flex;

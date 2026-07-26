@@ -2371,6 +2371,14 @@ return () => unsubscribe();
 
       {!debouncedSearchQuery && season === '' && !showFavoritesPage && <p className="welcome-msg">{t.welcome}</p>}
 
+      {!debouncedSearchQuery && (
+        <div className="rl-season-btn-row">
+          <button onClick={() => { setShowFavoritesPage(false); setSeason('spring'); }}>{t.spring}</button>
+          <button onClick={() => { setShowFavoritesPage(false); setSeason('winter'); }}>{t.winter}</button>
+          <button onClick={() => { setShowFavoritesPage(false); setSeason('summer'); }}>{t.summer}</button>
+        </div>
+      )}
+
       {!debouncedSearchQuery && season === '' && !showFavoritesPage && (
         <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap', margin: '15px auto' }}>
           <button className="add-place-btn rl-trip-btn" onClick={() => setShowTripPlanner(true)}>
@@ -2460,13 +2468,6 @@ return () => unsubscribe();
         </button>
       )}
 
-      {!debouncedSearchQuery && (
-        <>
-          <button onClick={() => { setShowFavoritesPage(false); setSeason('summer'); }}>{t.summer}</button>
-          <button onClick={() => { setShowFavoritesPage(false); setSeason('winter'); }}>{t.winter}</button>
-          <button onClick={() => { setShowFavoritesPage(false); setSeason('spring'); }}>{t.spring}</button>
-        </>
-      )}
 
       {user && season === '' && !debouncedSearchQuery && !showFavoritesPage && (
         <div style={{ margin: '15px auto', maxWidth: '600px' }}>
