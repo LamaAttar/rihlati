@@ -81,7 +81,12 @@ const placeMeta = {
   ummalnaml: { budget: 'free', companions: ['alone', 'family', 'friends', 'kids'], duration: 'half' },
 };
 
-function durationLabel(d) {
+function durationLabel(d, lang = 'ar') {
+  if (lang === 'en') {
+    if (d === '2h') return 'about 2 hours';
+    if (d === 'half') return 'half a day';
+    return 'a full day';
+  }
   if (d === '2h') return 'ساعتين تقريباً';
   if (d === 'half') return 'نص يوم';
   return 'يوم كامل';
@@ -94,7 +99,7 @@ function durationLabel(d) {
 // ============================================================
 
 function extractDaysCount(text) {
-  const match = text.match(/(\d+)\s*(يوم|أيام|ايام)/);
+  const match = text.match(/(\d+)\s*(يوم|أيام|ايام|days?)/i);
   if (match) {
     const n = parseInt(match[1], 10);
     if (n >= 1 && n <= 10) return n;
@@ -103,34 +108,34 @@ function extractDaysCount(text) {
 }
 
 function extractBudgetNumber(text) {
-  const match = text.match(/(\d+)\s*(دينار|دنانير)/);
+  const match = text.match(/(\d+)\s*(دينار|دنانير|jod|jd)/i);
   if (match) return parseInt(match[1], 10);
   return null;
 }
 
-// بيدور عن وقت بداية اليوم يلي حددتيه (مثلاً: "بدي أطلع الساعة 11")
+// بيدور عن وقت بداية اليوم يلي حددتيه (مثلاً: "بدي أطلع الساعة 11" أو "at 11 o'clock")
 function extractStartTime(text) {
-  const match = text.match(/الساعة\s*(\d{1,2})/);
+  const match = text.match(/الساعة\s*(\d{1,2})|(\d{1,2})\s*(?:o'?clock|am|pm)/i);
   if (match) {
-    const h = parseInt(match[1], 10);
+    const h = parseInt(match[1] || match[2], 10);
     if (h >= 1 && h <= 23) return h;
   }
   return null;
 }
 
 // بيحول رقم الساعة (ممكن يكون فيه نص ساعة) لصيغة عربية مقروءة
-function formatHour(hourDecimal) {
+function formatHour(hourDecimal, lang = 'ar') {
   const totalMinutes = Math.round(hourDecimal * 60);
   let h = Math.floor(totalMinutes / 60) % 24;
   const m = totalMinutes % 60;
-  const period = h < 12 ? 'صباحاً' : 'مساءً';
+  const period = lang === 'en' ? (h < 12 ? 'AM' : 'PM') : (h < 12 ? 'صباحاً' : 'مساءً');
   let displayHour = h % 12;
   if (displayHour === 0) displayHour = 12;
   return `${String(displayHour).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
 }
 
 // بيبني جدول الأوقات لليوم كامل حسب وقت البداية يلي حددته (أو 8 الصبح افتراضياً)
-function buildDaySchedule(startHour) {
+function buildDaySchedule(startHour, lang = 'ar') {
   const base = startHour !== null ? startHour : 8;
   // لو المستخدم بده يطلع الساعة 10 أو بعدها، منفترض إنه فطر قبل — نتخطى الفطور
   const skipBreakfast = startHour !== null && startHour >= 10;
@@ -140,10 +145,10 @@ function buildDaySchedule(startHour) {
   const afternoonHour = lunchHour + 1.5;
   return {
     skipBreakfast,
-    breakfastTime: formatHour(base),
-    morningTimes: [formatHour(firstHour), formatHour(secondHour)],
-    lunchTime: formatHour(lunchHour),
-    afternoonTime: formatHour(afternoonHour),
+    breakfastTime: formatHour(base, lang),
+    morningTimes: [formatHour(firstHour, lang), formatHour(secondHour, lang)],
+    lunchTime: formatHour(lunchHour, lang),
+    afternoonTime: formatHour(afternoonHour, lang),
   };
 }
 
@@ -158,7 +163,7 @@ function extractMentionedPlaces(text, userPlaces) {
   const normalizedText = normalizeArabic(text);
 
   const officialMatches = Object.keys(places)
-    .filter((key) => normalizedText.includes(normalizeArabic(places[key].name)))
+    .filter((key) => normalizedText.includes(normalizeArabic(places[key].name)) || normalizedText.toLowerCase().includes(places[key].nameEn.toLowerCase()))
     .map((key) => ({ key, place: places[key], isUserPlace: false }));
 
   const userMatches = (userPlaces || [])
@@ -168,7 +173,12 @@ function extractMentionedPlaces(text, userPlaces) {
   return [...officialMatches, ...userMatches];
 }
 
-function budgetRangeForCategory(category) {
+function budgetRangeForCategory(category, lang = 'ar') {
+  if (lang === 'en') {
+    if (category === 'free') return '5-10 JOD (food and small expenses only)';
+    if (category === 'under20') return '15-25 JOD';
+    return '30-50 JOD';
+  }
   if (category === 'free') return '5-10 دينار (أكل ومصاريف بسيطة فقط)';
   if (category === 'under20') return '15-25 دينار';
   return '30-50 دينار';
@@ -177,132 +187,143 @@ function budgetRangeForCategory(category) {
 // ===== أنشطة محددة وحقيقية لكل منطقة — مش وصف عام بس =====
 const PLACE_ACTIVITIES = {
   petra: [
-    { name: 'زيارة الخزنة (Treasury)', description: 'المعلم الأشهر بالبتراء، أول ما تشوفه بعد المشي بالسيق الضيق', durationHint: 'ساعة إلى ساعتين' },
-    { name: 'المشي لدير البتراء (900 درجة)', description: 'مسير يستاهل التعب، إطلالة رائعة من فوق', durationHint: 'ساعتين إلى ثلاثة' },
-    { name: 'استكشاف المدافن الملكية', description: 'نقوش وواجهات صخرية مذهلة بألوان طبيعية رائعة', durationHint: 'ساعة تقريباً' },
+    { name: 'زيارة الخزنة (Treasury)', nameEn: 'Visit the Treasury (Al-Khazneh)', description: 'المعلم الأشهر بالبتراء، أول ما تشوفه بعد المشي بالسيق الضيق', descriptionEn: "Petra's most iconic landmark, the first thing you see after walking through the narrow Siq", durationHint: 'ساعة إلى ساعتين', durationHintEn: '1 to 2 hours' },
+    { name: 'المشي لدير البتراء (900 درجة)', nameEn: 'Hike to the Monastery (900 steps)', description: 'مسير يستاهل التعب، إطلالة رائعة من فوق', descriptionEn: 'A tiring but rewarding hike with a stunning view from the top', durationHint: 'ساعتين إلى ثلاثة', durationHintEn: '2 to 3 hours' },
+    { name: 'استكشاف المدافن الملكية', nameEn: 'Explore the Royal Tombs', description: 'نقوش وواجهات صخرية مذهلة بألوان طبيعية رائعة', descriptionEn: 'Stunning rock-cut facades with beautiful natural colors', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
   ],
   wadirum: [
-    { name: 'جولة سفاري بسيارات الدفع الرباعي', description: 'استكشاف الوادي والكثبان الرملية والصخور الشهيرة', durationHint: 'ساعتين تقريباً' },
-    { name: 'تسلق الكثبان الرملية ومشاهدة الغروب', description: 'تجربة لا تُنسى وقت غروب الشمس بألوانها الذهبية', durationHint: 'ساعة تقريباً', idealTime: '05:30 مساءً' },
-    { name: 'ركوب الجمال بالصحراء', description: 'تجربة بدوية أصيلة وسط الرمال', durationHint: 'ساعة تقريباً', suitableFor: ['family', 'kids', 'alone'] },
+    { name: 'جولة سفاري بسيارات الدفع الرباعي', nameEn: '4x4 desert safari', description: 'استكشاف الوادي والكثبان الرملية والصخور الشهيرة', descriptionEn: 'Explore the valley, sand dunes, and famous rock formations', durationHint: 'ساعتين تقريباً', durationHintEn: 'about 2 hours' },
+    { name: 'تسلق الكثبان الرملية ومشاهدة الغروب', nameEn: 'Climb the dunes and watch the sunset', description: 'تجربة لا تُنسى وقت غروب الشمس بألوانها الذهبية', descriptionEn: 'An unforgettable experience as the sun sets in golden colors', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour', idealTime: '05:30 مساءً', idealTimeEn: '5:30 PM' },
+    { name: 'ركوب الجمال بالصحراء', nameEn: 'Camel ride in the desert', description: 'تجربة بدوية أصيلة وسط الرمال', descriptionEn: 'An authentic Bedouin experience among the sands', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour', suitableFor: ['family', 'kids', 'alone'] },
   ],
   aqaba: [
-    { name: 'الغطس أو السنوركل بالشعاب المرجانية', description: 'بحر أحمر بألوان وحياة بحرية خلابة', durationHint: 'ساعتين تقريباً', suitableFor: ['friends', 'alone'] },
-    { name: 'نزهة على كورنيش العقبة', description: 'إطلالة على البحر الأحمر وأجواء المدينة الساحلية', durationHint: 'ساعة تقريباً' },
-    { name: 'زيارة القلعة المملوكية', description: 'معلم تاريخي بوسط المدينة يستاهل زيارة سريعة', durationHint: 'نص ساعة' },
+    { name: 'الغطس أو السنوركل بالشعاب المرجانية', nameEn: 'Diving or snorkeling at the coral reefs', description: 'بحر أحمر بألوان وحياة بحرية خلابة', descriptionEn: 'The Red Sea with vibrant colors and stunning marine life', durationHint: 'ساعتين تقريباً', durationHintEn: 'about 2 hours', suitableFor: ['friends', 'alone'] },
+    { name: 'نزهة على كورنيش العقبة', nameEn: 'Stroll along the Aqaba corniche', description: 'إطلالة على البحر الأحمر وأجواء المدينة الساحلية', descriptionEn: 'A view of the Red Sea and the coastal city atmosphere', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
+    { name: 'زيارة القلعة المملوكية', nameEn: 'Visit the Mamluk Castle', description: 'معلم تاريخي بوسط المدينة يستاهل زيارة سريعة', descriptionEn: 'A historic landmark downtown worth a quick visit', durationHint: 'نص ساعة', durationHintEn: 'half an hour' },
   ],
   deadsea: [
-    { name: 'طفو بمياه البحر الميت', description: 'تجربة فريدة عالمياً — جسمك بيطفو لحاله', durationHint: 'ساعة تقريباً' },
-    { name: 'تجربة طمي البحر الميت العلاجي', description: 'طمي طبيعي مفيد للبشرة، مأخوذ من نفس المنطقة', durationHint: 'نص ساعة' },
-    { name: 'مشاهدة الغروب على البحر الميت', description: 'مناظر خلابة وقت الغروب فوق المياه', durationHint: 'نص ساعة', idealTime: '05:30 مساءً' },
+    { name: 'طفو بمياه البحر الميت', nameEn: 'Float in the Dead Sea', description: 'تجربة فريدة عالمياً — جسمك بيطفو لحاله', descriptionEn: 'A globally unique experience — your body floats on its own', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
+    { name: 'تجربة طمي البحر الميت العلاجي', nameEn: 'Try the therapeutic Dead Sea mud', description: 'طمي طبيعي مفيد للبشرة، مأخوذ من نفس المنطقة', descriptionEn: 'Natural mud that benefits the skin, sourced from the area', durationHint: 'نص ساعة', durationHintEn: 'half an hour' },
+    { name: 'مشاهدة الغروب على البحر الميت', nameEn: 'Watch the sunset over the Dead Sea', description: 'مناظر خلابة وقت الغروب فوق المياه', descriptionEn: 'Stunning views at sunset over the water', durationHint: 'نص ساعة', durationHintEn: 'half an hour', idealTime: '05:30 مساءً', idealTimeEn: '5:30 PM' },
   ],
   jerash: [
-    { name: 'جولة بالمدرج الروماني الجنوبي', description: 'آثار رومانية محفوظة بعناية كبيرة', durationHint: 'ساعة تقريباً' },
-    { name: 'المشي بشارع الأعمدة (Cardo)', description: 'قلب المدينة الأثرية القديمة', durationHint: 'ساعة تقريباً' },
-    { name: 'زيارة معبد أرتميس', description: 'من أهم وأعرق المعابد بالموقع الأثري', durationHint: 'نص ساعة' },
+    { name: 'جولة بالمدرج الروماني الجنوبي', nameEn: 'Tour the South Roman Theatre', description: 'آثار رومانية محفوظة بعناية كبيرة', descriptionEn: 'Beautifully preserved Roman ruins', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
+    { name: 'المشي بشارع الأعمدة (Cardo)', nameEn: 'Walk the Colonnaded Street (Cardo)', description: 'قلب المدينة الأثرية القديمة', descriptionEn: 'The heart of the ancient archaeological city', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
+    { name: 'زيارة معبد أرتميس', nameEn: 'Visit the Temple of Artemis', description: 'من أهم وأعرق المعابد بالموقع الأثري', descriptionEn: 'One of the most important and ancient temples at the site', durationHint: 'نص ساعة', durationHintEn: 'half an hour' },
   ],
   ajloun: [
-    { name: 'زيارة قلعة عجلون', description: 'قلعة تاريخية بإطلالة رائعة على المنطقة المحيطة', durationHint: 'ساعة تقريباً' },
-    { name: 'مسير بغابات عجلون', description: 'طبيعة خضراء وأجواء منعشة، خصوصاً بالربيع والصيف', durationHint: 'ساعتين تقريباً' },
+    { name: 'زيارة قلعة عجلون', nameEn: 'Visit Ajloun Castle', description: 'قلعة تاريخية بإطلالة رائعة على المنطقة المحيطة', descriptionEn: 'A historic castle with stunning views over the surrounding area', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
+    { name: 'مسير بغابات عجلون', nameEn: 'Hike through the Ajloun forests', description: 'طبيعة خضراء وأجواء منعشة، خصوصاً بالربيع والصيف', descriptionEn: 'Green nature and refreshing air, especially in spring and summer', durationHint: 'ساعتين تقريباً', durationHintEn: 'about 2 hours' },
   ],
   madaba: [
-    { name: 'زيارة كنيسة الخريطة الفسيفسائية', description: 'أشهر معلم بمادبا، خريطة فسيفساء تاريخية نادرة', durationHint: 'نص ساعة' },
-    { name: 'جولة بمتحف الفسيفساء الأردني', description: 'فن الفسيفساء التاريخي بتفاصيل رائعة', durationHint: 'ساعة تقريباً' },
+    { name: 'زيارة كنيسة الخريطة الفسيفسائية', nameEn: 'Visit the Map Mosaic Church', description: 'أشهر معلم بمادبا، خريطة فسيفساء تاريخية نادرة', descriptionEn: "Madaba's most famous landmark, a rare historic mosaic map", durationHint: 'نص ساعة', durationHintEn: 'half an hour' },
+    { name: 'جولة بمتحف الفسيفساء الأردني', nameEn: 'Tour the Jordan Mosaic Museum', description: 'فن الفسيفساء التاريخي بتفاصيل رائعة', descriptionEn: 'Historic mosaic art with stunning detail', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
   ],
   karak: [
-    { name: 'استكشاف قلعة الكرك الصليبية', description: 'قلعة ضخمة بإطلالة مذهلة على البحر الميت', durationHint: 'ساعتين تقريباً' },
+    { name: 'استكشاف قلعة الكرك الصليبية', nameEn: 'Explore the Karak Crusader Castle', description: 'قلعة ضخمة بإطلالة مذهلة على البحر الميت', descriptionEn: 'A massive castle with an amazing view of the Dead Sea', durationHint: 'ساعتين تقريباً', durationHintEn: 'about 2 hours' },
   ],
   dana: [
-    { name: 'مسير الوادي الكامل بمحمية ضانا', description: 'طبيعة جبلية خلابة وتنوع بيئي مميز', durationHint: 'نص يوم' },
-    { name: 'مراقبة الطيور والحياة البرية', description: 'فرصة لمشاهدة كائنات نادرة بموطنها الطبيعي', durationHint: 'ساعة تقريباً' },
+    { name: 'مسير الوادي الكامل بمحمية ضانا', nameEn: 'Hike the full valley trail in Dana Reserve', description: 'طبيعة جبلية خلابة وتنوع بيئي مميز', descriptionEn: 'Stunning mountain nature and remarkable biodiversity', durationHint: 'نص يوم', durationHintEn: 'half a day' },
+    { name: 'مراقبة الطيور والحياة البرية', nameEn: 'Birdwatching and wildlife spotting', description: 'فرصة لمشاهدة كائنات نادرة بموطنها الطبيعي', descriptionEn: 'A chance to see rare creatures in their natural habitat', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
   ],
   mainhot: [
-    { name: 'الاستحمام بالشلالات الساخنة', description: 'تجربة علاجية واسترخائية وسط الطبيعة', durationHint: 'ساعة تقريباً' },
+    { name: 'الاستحمام بالشلالات الساخنة', nameEn: 'Bathe in the hot waterfalls', description: 'تجربة علاجية واسترخائية وسط الطبيعة', descriptionEn: 'A therapeutic, relaxing experience amid nature', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
   ],
   azraqwetland: [
-    { name: 'مراقبة الطيور المهاجرة', description: 'محمية مائية فريدة وسط الصحراء الشرقية', durationHint: 'ساعة تقريباً' },
+    { name: 'مراقبة الطيور المهاجرة', nameEn: 'Watch migratory birds', description: 'محمية مائية فريدة وسط الصحراء الشرقية', descriptionEn: 'A unique wetland reserve in the eastern desert', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
   ],
   amman: [
-    { name: 'زيارة جبل القلعة والمدرج الروماني', description: 'قلب عمّان التاريخي بإطلالة بانورامية على المدينة', durationHint: 'ساعتين تقريباً' },
-    { name: 'التجول بوسط البلد', description: 'أسواق تقليدية وأجواء حيوية أصيلة', durationHint: 'ساعة تقريباً' },
+    { name: 'زيارة جبل القلعة والمدرج الروماني', nameEn: 'Visit the Citadel and Roman Theatre', description: 'قلب عمّان التاريخي بإطلالة بانورامية على المدينة', descriptionEn: 'The historic heart of Amman with a panoramic city view', durationHint: 'ساعتين تقريباً', durationHintEn: 'about 2 hours' },
+    { name: 'التجول بوسط البلد', nameEn: 'Walk around Downtown Amman', description: 'أسواق تقليدية وأجواء حيوية أصيلة', descriptionEn: 'Traditional markets and an authentic lively atmosphere', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
   ],
   irbid: [
-    { name: 'زيارة متحف الآثار بجامعة اليرموك', description: 'قطع أثرية نادرة من شمال الأردن بحرم جامعي جميل', durationHint: 'ساعة تقريباً' },
-    { name: 'التجول بحديقة الحسين العامة', description: 'مساحة خضراء واسعة بقلب المدينة للتنزه', durationHint: 'ساعة تقريباً', suitableFor: ['family', 'kids'] },
-    { name: 'استكشاف بيت عرار الثقافي', description: 'بيت الشاعر مصطفى وهبي التل، أجواء تراثية وثقافية', durationHint: 'نص ساعة' },
+    { name: 'زيارة متحف الآثار بجامعة اليرموك', nameEn: 'Visit the Yarmouk University Archaeology Museum', description: 'قطع أثرية نادرة من شمال الأردن بحرم جامعي جميل', descriptionEn: 'Rare artifacts from northern Jordan on a beautiful campus', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
+    { name: 'التجول بحديقة الحسين العامة', nameEn: 'Walk around Al-Hussein Public Park', description: 'مساحة خضراء واسعة بقلب المدينة للتنزه', descriptionEn: 'A large green space downtown, great for a walk', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour', suitableFor: ['family', 'kids'] },
+    { name: 'استكشاف بيت عرار الثقافي', nameEn: "Explore Arar's Cultural House", description: 'بيت الشاعر مصطفى وهبي التل، أجواء تراثية وثقافية', descriptionEn: "The home of poet Mustafa Wahbi al-Tal, with a heritage and cultural atmosphere", durationHint: 'نص ساعة', durationHintEn: 'half an hour' },
   ],
   umqais: [
-    { name: 'جولة بالآثار الرومانية (أم قيس القديمة)', description: 'أطلال رومانية بإطلالة على بحيرة طبريا والجولان', durationHint: 'ساعتين تقريباً' },
-    { name: 'مشاهدة الغروب من أم قيس', description: 'من أجمل نقاط مشاهدة الغروب بشمال الأردن', durationHint: 'نص ساعة', idealTime: '05:30 مساءً' },
+    { name: 'جولة بالآثار الرومانية (أم قيس القديمة)', nameEn: 'Tour the Roman ruins (ancient Umm Qais)', description: 'أطلال رومانية بإطلالة على بحيرة طبريا والجولان', descriptionEn: 'Roman ruins overlooking the Sea of Galilee and the Golan Heights', durationHint: 'ساعتين تقريباً', durationHintEn: 'about 2 hours' },
+    { name: 'مشاهدة الغروب من أم قيس', nameEn: 'Watch the sunset from Umm Qais', description: 'من أجمل نقاط مشاهدة الغروب بشمال الأردن', descriptionEn: 'One of the best sunset spots in northern Jordan', durationHint: 'نص ساعة', durationHintEn: 'half an hour', idealTime: '05:30 مساءً', idealTimeEn: '5:30 PM' },
   ],
   shouna: [
-    { name: 'جولة بالمزارع والبساتين المحلية', description: 'تجربة زراعية بمنطقة خصبة بالأغوار الشمالية', durationHint: 'ساعة تقريباً', suitableFor: ['family', 'kids'] },
-    { name: 'شراء خضار وفواكه طازجة من المزارعين', description: 'منتجات طازجة مباشرة من الأرض', durationHint: 'نص ساعة' },
+    { name: 'جولة بالمزارع والبساتين المحلية', nameEn: 'Tour the local farms and orchards', description: 'تجربة زراعية بمنطقة خصبة بالأغوار الشمالية', descriptionEn: 'An agricultural experience in a fertile Northern Jordan Valley area', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour', suitableFor: ['family', 'kids'] },
+    { name: 'شراء خضار وفواكه طازجة من المزارعين', nameEn: 'Buy fresh produce from local farmers', description: 'منتجات طازجة مباشرة من الأرض', descriptionEn: 'Fresh products straight from the land', durationHint: 'نص ساعة', durationHintEn: 'half an hour' },
   ],
   salt: [
-    { name: 'التجول بالبلدة القديمة والمباني التراثية', description: 'عمارة صفراء مميزة مدرجة على قائمة التراث العالمي', durationHint: 'ساعة تقريباً' },
-    { name: 'زيارة متحف السلط التاريخي', description: 'قصص وتاريخ المدينة العريقة', durationHint: 'نص ساعة' },
-    { name: 'تذوق الكعك السلطي من أفران البلدة', description: 'أكلة محلية شهيرة يستاهل تجربتها', durationHint: 'نص ساعة' },
+    { name: 'التجول بالبلدة القديمة والمباني التراثية', nameEn: 'Walk around the old town and heritage buildings', description: 'عمارة صفراء مميزة مدرجة على قائمة التراث العالمي', descriptionEn: 'Distinctive yellow architecture listed as a UNESCO World Heritage Site', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
+    { name: 'زيارة متحف السلط التاريخي', nameEn: 'Visit the Salt History Museum', description: 'قصص وتاريخ المدينة العريقة', descriptionEn: 'Stories and history of the ancient city', durationHint: 'نص ساعة', durationHintEn: 'half an hour' },
+    { name: 'تذوق الكعك السلطي من أفران البلدة', nameEn: "Try Salt-style Ka'ak from local bakeries", description: 'أكلة محلية شهيرة يستاهل تجربتها', descriptionEn: 'A famous local treat worth trying', durationHint: 'نص ساعة', durationHintEn: 'half an hour' },
   ],
   ummjimal: [
-    { name: 'استكشاف المدينة الأثرية البازلتية السوداء', description: 'طراز معماري نادر شمال شرق الأردن', durationHint: 'ساعة تقريباً' },
+    { name: 'استكشاف المدينة الأثرية البازلتية السوداء', nameEn: 'Explore the black basalt ancient city', description: 'طراز معماري نادر شمال شرق الأردن', descriptionEn: 'A rare architectural style in northeastern Jordan', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
   ],
   pella: [
-    { name: 'زيارة الموقع الأثري بطبقة فحل', description: 'مدينة أثرية تعود لآلاف السنين بالأغوار الشمالية', durationHint: 'ساعة تقريباً' },
-    { name: 'استكشاف الكنائس والمعابد القديمة', description: 'آثار تاريخية متنوعة بالموقع', durationHint: 'ساعة تقريباً' },
+    { name: 'زيارة الموقع الأثري بطبقة فحل', nameEn: 'Visit the Pella archaeological site', description: 'مدينة أثرية تعود لآلاف السنين بالأغوار الشمالية', descriptionEn: 'An ancient city thousands of years old in the Northern Jordan Valley', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
+    { name: 'استكشاف الكنائس والمعابد القديمة', nameEn: 'Explore the ancient churches and temples', description: 'آثار تاريخية متنوعة بالموقع', descriptionEn: 'A variety of historic ruins at the site', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
   ],
   mujib: [
-    { name: 'مسير المسار المائي بوادي الموجب', description: '"الجراند كانيون" الأردني — مغامرة وسط المياه والصخور', durationHint: 'ساعتين إلى ثلاثة', suitableFor: ['friends', 'alone'] },
+    { name: 'مسير المسار المائي بوادي الموجب', nameEn: 'Hike the Wadi Mujib water trail', description: '"الجراند كانيون" الأردني — مغامرة وسط المياه والصخور', descriptionEn: "Jordan's 'Grand Canyon' — an adventure through water and rocks", durationHint: 'ساعتين إلى ثلاثة', durationHintEn: '2 to 3 hours', suitableFor: ['friends', 'alone'] },
   ],
   tafilah: [
-    { name: 'التجول بالمدينة الجبلية', description: 'أجواء معتدلة وإطلالات جبلية جنوبية هادئة', durationHint: 'ساعة تقريباً' },
-    { name: 'زيارة بوابة محمية ضانا القريبة', description: 'نقطة انطلاق مثالية لاستكشاف الطبيعة المحيطة', durationHint: 'ساعة تقريباً' },
+    { name: 'التجول بالمدينة الجبلية', nameEn: 'Walk around the mountain city', description: 'أجواء معتدلة وإطلالات جبلية جنوبية هادئة', descriptionEn: 'Mild weather and calm southern mountain views', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
+    { name: 'زيارة بوابة محمية ضانا القريبة', nameEn: 'Visit the nearby Dana Reserve gateway', description: 'نقطة انطلاق مثالية لاستكشاف الطبيعة المحيطة', descriptionEn: 'A perfect starting point to explore the surrounding nature', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
   ],
   deisa: [
-    { name: 'مشي بالوادي بين الجبال الحمراء', description: 'طبيعة خلابة قريبة من العقبة', durationHint: 'ساعتين تقريباً' },
-    { name: 'تخييم ليلي بالطبيعة الجبلية', description: 'تجربة هادئة بعيدة عن صخب المدينة', durationHint: 'حسب رغبتك', suitableFor: ['friends', 'alone'] },
+    { name: 'مشي بالوادي بين الجبال الحمراء', nameEn: 'Walk the valley between the red mountains', description: 'طبيعة خلابة قريبة من العقبة', descriptionEn: 'Stunning nature close to Aqaba', durationHint: 'ساعتين تقريباً', durationHintEn: 'about 2 hours' },
+    { name: 'تخييم ليلي بالطبيعة الجبلية', nameEn: 'Overnight camping in the mountains', description: 'تجربة هادئة بعيدة عن صخب المدينة', descriptionEn: 'A calm experience away from city noise', durationHint: 'حسب رغبتك', durationHintEn: 'as long as you like', suitableFor: ['friends', 'alone'] },
   ],
   himma: [
-    { name: 'الاستحمام بالينابيع الكبريتية الساخنة', description: 'تجربة علاجية طبيعية شهيرة شتاءً', durationHint: 'ساعة تقريباً' },
+    { name: 'الاستحمام بالينابيع الكبريتية الساخنة', nameEn: 'Bathe in the hot sulfur springs', description: 'تجربة علاجية طبيعية شهيرة شتاءً', descriptionEn: 'A famous natural therapy experience in winter', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
   ],
   azraqcastle: [
-    { name: 'استكشاف قلعة الأزرق الأثرية', description: 'قلعة بازلتية سوداء وسط الصحراء الشرقية', durationHint: 'ساعة تقريباً' },
+    { name: 'استكشاف قلعة الأزرق الأثرية', nameEn: 'Explore the ancient Azraq Castle', description: 'قلعة بازلتية سوداء وسط الصحراء الشرقية', descriptionEn: 'A black basalt fortress in the eastern desert', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
   ],
   qasramra: [
-    { name: 'زيارة قصر عمرة الأموي', description: 'موقع مسجل على قائمة التراث العالمي لليونسكو', durationHint: 'ساعة تقريباً' },
-    { name: 'مشاهدة الرسومات الجدارية الأثرية', description: 'نقوش نادرة داخل القصر الصحراوي', durationHint: 'نص ساعة' },
+    { name: 'زيارة قصر عمرة الأموي', nameEn: 'Visit the Umayyad Qasr Amra', description: 'موقع مسجل على قائمة التراث العالمي لليونسكو', descriptionEn: 'A UNESCO World Heritage listed site', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
+    { name: 'مشاهدة الرسومات الجدارية الأثرية', nameEn: 'View the ancient wall paintings', description: 'نقوش نادرة داخل القصر الصحراوي', descriptionEn: 'Rare artwork inside the desert castle', durationHint: 'نص ساعة', durationHintEn: 'half an hour' },
   ],
   hallabat: [
-    { name: 'استكشاف قصر الحلابات الأموي', description: 'أعمدة وآثار وسط الصحراء الشرقية', durationHint: 'ساعة تقريباً' },
+    { name: 'استكشاف قصر الحلابات الأموي', nameEn: 'Explore the Umayyad Qasr Al-Hallabat', description: 'أعمدة وآثار وسط الصحراء الشرقية', descriptionEn: 'Columns and ruins in the eastern desert', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
   ],
   shobak: [
-    { name: 'تسلق قلعة الشوبك الصليبية', description: 'قلعة شامخة على قمة جبل بالجنوب الأردني', durationHint: 'ساعة إلى ساعتين' },
+    { name: 'تسلق قلعة الشوبك الصليبية', nameEn: 'Climb up to Shobak Crusader Castle', description: 'قلعة شامخة على قمة جبل بالجنوب الأردني', descriptionEn: 'A towering castle atop a mountain in southern Jordan', durationHint: 'ساعة إلى ساعتين', durationHintEn: '1 to 2 hours' },
   ],
   ummrasas: [
-    { name: 'زيارة موقع أم الرصاص الأثري', description: 'موقع مسجل باليونسكو يضم فسيفساء رائعة', durationHint: 'ساعة تقريباً' },
+    { name: 'زيارة موقع أم الرصاص الأثري', nameEn: 'Visit the Umm ar-Rasas archaeological site', description: 'موقع مسجل باليونسكو يضم فسيفساء رائعة', descriptionEn: 'A UNESCO-listed site featuring stunning mosaics', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
   ],
   birgish: [
-    { name: 'فرشة وتنزه بغابات برقش', description: 'غابات خضراء رائعة قرب إربد، مفضلة للربيع', durationHint: 'ساعتين تقريباً', suitableFor: ['family', 'friends', 'kids'] },
+    { name: 'فرشة وتنزه بغابات برقش', nameEn: 'Picnic and walk in the Birgish forests', description: 'غابات خضراء رائعة قرب إربد، مفضلة للربيع', descriptionEn: 'Beautiful green forests near Irbid, popular in spring', durationHint: 'ساعتين تقريباً', durationHintEn: 'about 2 hours', suitableFor: ['family', 'friends', 'kids'] },
   ],
   ummalnaml: [
-    { name: 'مشي بالوادي الأخضر ومشاهدة التلال', description: 'وادٍ طبيعي خلاب من أجمل وجهات الربيع', durationHint: 'ساعتين تقريباً', suitableFor: ['family', 'friends', 'kids'] },
+    { name: 'مشي بالوادي الأخضر ومشاهدة التلال', nameEn: 'Walk the green valley and view the hills', description: 'وادٍ طبيعي خلاب من أجمل وجهات الربيع', descriptionEn: 'A stunning natural valley, one of the best spring destinations', durationHint: 'ساعتين تقريباً', durationHintEn: 'about 2 hours', suitableFor: ['family', 'friends', 'kids'] },
   ],
 };
 
 // بيرجع أنشطة محددة للمكان لو موجودة، وإلا بيستخدم الوصف العام كـ fallback
-function getPlaceActivities(key, place) {
-  if (PLACE_ACTIVITIES[key]) return PLACE_ACTIVITIES[key];
-  return [{ name: place.name, description: place.desc, durationHint: 'حسب رغبتك' }];
+function getPlaceActivities(key, place, lang = 'ar') {
+  if (PLACE_ACTIVITIES[key]) {
+    return PLACE_ACTIVITIES[key].map((act) => ({
+      name: lang === 'en' ? (act.nameEn || act.name) : act.name,
+      description: lang === 'en' ? (act.descriptionEn || act.description) : act.description,
+      durationHint: lang === 'en' ? (act.durationHintEn || act.durationHint) : act.durationHint,
+      idealTime: lang === 'en' ? (act.idealTimeEn || act.idealTime) : act.idealTime,
+      suitableFor: act.suitableFor,
+    }));
+  }
+  const fallbackName = lang === 'en' ? (place.nameEn || place.name) : place.name;
+  const fallbackDesc = lang === 'en' ? (place.descEn || place.desc) : place.desc;
+  return [{ name: fallbackName, description: fallbackDesc, durationHint: lang === 'en' ? 'as long as you like' : 'حسب رغبتك' }];
 }
 
 // بيكتشف نوع الرفقة من نص المستخدم عشان نختار أنشطة مناسبة
 function detectCompanionType(text) {
-  const familyWords = ['عائلة', 'عائلتي', 'اهلي', 'أهلي', 'اطفال', 'أطفال', 'ولادي', 'اولادي'];
-  const friendsWords = ['اصحاب', 'أصحاب', 'شباب', 'شلة', 'صحابي', 'رفقة', 'رفاق'];
-  const aloneWords = ['لحالي', 'وحدي', 'لوحدي'];
-  if (familyWords.some((w) => text.includes(w))) return 'family';
-  if (friendsWords.some((w) => text.includes(w))) return 'friends';
-  if (aloneWords.some((w) => text.includes(w))) return 'alone';
+  const lower = text.toLowerCase();
+  const familyWords = ['عائلة', 'عائلتي', 'اهلي', 'أهلي', 'اطفال', 'أطفال', 'ولادي', 'اولادي', 'family', 'kids', 'children'];
+  const friendsWords = ['اصحاب', 'أصحاب', 'شباب', 'شلة', 'صحابي', 'رفقة', 'رفاق', 'friends', 'buddies'];
+  const aloneWords = ['لحالي', 'وحدي', 'لوحدي', 'alone', 'solo', 'myself'];
+  if (familyWords.some((w) => lower.includes(w))) return 'family';
+  if (friendsWords.some((w) => lower.includes(w))) return 'friends';
+  if (aloneWords.some((w) => lower.includes(w))) return 'alone';
   return null;
 }
 
@@ -354,13 +375,16 @@ const NEARBY_PLACES = {
   hallabat: ['azraqcastle', 'ummjimal', 'qasramra'],
 };
 
-function buildLocalTripPlan(userText, userPlaces) {
+function buildLocalTripPlan(userText, userPlaces, lang = 'ar') {
   const days = extractDaysCount(userText);
   const userBudget = extractBudgetNumber(userText);
   const mentioned = extractMentionedPlaces(userText, userPlaces);
   const companionType = detectCompanionType(userText);
   const startHour = extractStartTime(userText);
-  const schedule = buildDaySchedule(startHour);
+  const schedule = buildDaySchedule(startHour, lang);
+
+  const getName = (place, isUserPlace) => (isUserPlace ? place.name : (lang === 'en' ? (place.nameEn || place.name) : place.name));
+  const getFood = (place, isUserPlace) => (isUserPlace ? place.food : (lang === 'en' ? (place.foodEn || place.food) : place.food));
 
   // لو المستخدم ذكر أماكن معينة (رسمية أو أضافها زوار)، نستخدمها.
   // غير هيك، منختار مجموعة مميزة افتراضية من الأماكن الرسمية
@@ -386,22 +410,24 @@ function buildLocalTripPlan(userText, userPlaces) {
     const { key, place, isUserPlace } = entry;
     const meta = isUserPlace ? DEFAULT_PLACE_META : getPlaceMeta(key);
     const stops = [];
+    const placeName = getName(place, isUserPlace);
+    const placeFood = getFood(place, isUserPlace);
 
     if (!schedule.skipBreakfast) {
       stops.push({
         time: schedule.breakfastTime,
         type: 'فطور',
-        place: `مطعم محلي بالقرب من ${place.name}`,
-        description: 'فطور شعبي بسيط (فول، حمص، مناقيش) قبل بدء اليوم',
-        durationHint: 'نص ساعة تقريباً',
+        place: lang === 'en' ? `Local restaurant near ${placeName}` : `مطعم محلي بالقرب من ${placeName}`,
+        description: lang === 'en' ? 'A simple local breakfast (foul, hummus, manakeesh) before starting the day' : 'فطور شعبي بسيط (فول، حمص، مناقيش) قبل بدء اليوم',
+        durationHint: lang === 'en' ? 'about half an hour' : 'نص ساعة تقريباً',
       });
     }
 
     // عدد الأنشطة حسب مدة الزيارة المتوقعة للمكان
     const activityCount = meta.duration === 'full' ? 3 : meta.duration === 'half' ? 2 : 1;
     const rawActivities = isUserPlace
-      ? [{ name: place.name, description: place.desc, durationHint: durationLabel(meta.duration) }]
-      : filterActivitiesByCompanion(getPlaceActivities(key, place), companionType);
+      ? [{ name: place.name, description: place.desc, durationHint: durationLabel(meta.duration, lang) }]
+      : filterActivitiesByCompanion(getPlaceActivities(key, place, lang), companionType);
     const activities = rawActivities.slice(0, activityCount);
 
     // الأنشطة يلي إلها وقت مثالي محدد (زي الغروب) منحطها بمكانها الصح،
@@ -415,9 +441,9 @@ function buildLocalTripPlan(userText, userPlaces) {
 
     beforeLunch.forEach((act, i) => {
       stops.push({
-        time: morningTimes[i] || '10:30 صباحاً',
+        time: morningTimes[i] || (lang === 'en' ? '10:30 AM' : '10:30 صباحاً'),
         type: 'نشاط',
-        place: act.name + (isUserPlace ? ' 🌟 (اكتشفها زائر تاني)' : ''),
+        place: act.name + (isUserPlace ? (lang === 'en' ? ' 🌟 (discovered by another visitor)' : ' 🌟 (اكتشفها زائر تاني)') : ''),
         description: act.description,
         durationHint: act.durationHint,
       });
@@ -426,11 +452,13 @@ function buildLocalTripPlan(userText, userPlaces) {
     stops.push({
       time: schedule.lunchTime,
       type: 'غدا',
-      place: place.food ? `مطعم يقدم ${place.food}` : 'مطعم محلي قريب',
-      description: place.food
-        ? `تجربة أكلة ${place.food} المشهورة بمنطقة ${place.name}`
-        : `أكل محلي بمنطقة ${place.name}`,
-      durationHint: 'ساعة تقريباً',
+      place: placeFood
+        ? (lang === 'en' ? `A restaurant serving ${placeFood}` : `مطعم يقدم ${placeFood}`)
+        : (lang === 'en' ? 'A nearby local restaurant' : 'مطعم محلي قريب'),
+      description: placeFood
+        ? (lang === 'en' ? `Try the famous ${placeFood} in ${placeName}` : `تجربة أكلة ${placeFood} المشهورة بمنطقة ${placeName}`)
+        : (lang === 'en' ? `Local food in ${placeName}` : `أكل محلي بمنطقة ${placeName}`),
+      durationHint: lang === 'en' ? 'about an hour' : 'ساعة تقريباً',
     });
 
     afterLunch.forEach((act) => {
@@ -455,16 +483,22 @@ function buildLocalTripPlan(userText, userPlaces) {
 
     return {
       dayNumber: index + 1,
-      title: `يوم في ${place.name}`,
-      estimatedBudget: budgetRangeForCategory(meta.budget),
+      title: lang === 'en' ? `Day in ${placeName}` : `يوم في ${placeName}`,
+      estimatedBudget: budgetRangeForCategory(meta.budget, lang),
       stops,
     };
   });
 
-  const placeNames = [...new Set(dayEntries.map((e) => e.place.name))];
-  const title = `رحلة ${days} ${days === 1 ? 'يوم' : 'أيام'}: ${placeNames.join('، ')}`;
+  const placeNames = [...new Set(dayEntries.map((e) => getName(e.place, e.isUserPlace)))];
+  const title = lang === 'en'
+    ? `${days}-Day Trip: ${placeNames.join(', ')}`
+    : `رحلة ${days} ${days === 1 ? 'يوم' : 'أيام'}: ${placeNames.join('، ')}`;
 
-  const tips = [
+  const tips = lang === 'en' ? [
+    'Bring enough water, especially for desert areas or summer trips',
+    "Carry cash — not every small place accepts electronic payment",
+    'Book accommodation in advance if traveling during peak season (summer or holidays)',
+  ] : [
     'احملي معك ماء كافي، خصوصاً لو الرحلة بمناطق صحراوية أو بالصيف',
     'خذ كاش معك — مو كل الأماكن الصغيرة عندها إمكانية دفع إلكتروني',
     'احجزي أماكن الإقامة مسبقاً لو الرحلة بموسم الذروة (الصيف أو الأعياد)',
@@ -475,10 +509,16 @@ function buildLocalTripPlan(userText, userPlaces) {
     const totalEstimateHigh = days * 40;
     if (userBudget < totalEstimateLow) {
       tips.push(
-        `ميزانيتك (${userBudget} دينار) أقل من المتوقع لهاي الرحلة — ركزي على الأماكن المجانية والأكل البسيط`
+        lang === 'en'
+          ? `Your budget (${userBudget} JOD) is lower than expected for this trip — focus on free places and simple food`
+          : `ميزانيتك (${userBudget} دينار) أقل من المتوقع لهاي الرحلة — ركزي على الأماكن المجانية والأكل البسيط`
       );
     } else if (userBudget > totalEstimateHigh) {
-      tips.push(`ميزانيتك (${userBudget} دينار) مريحة جداً لهاي الرحلة، فيكي تضيفي أنشطة إضافية أو إقامة أفخم`);
+      tips.push(
+        lang === 'en'
+          ? `Your budget (${userBudget} JOD) is quite comfortable for this trip — you could add extra activities or fancier accommodation`
+          : `ميزانيتك (${userBudget} دينار) مريحة جداً لهاي الرحلة، فيكي تضيفي أنشطة إضافية أو إقامة أفخم`
+      );
     }
   }
 
@@ -516,7 +556,12 @@ function getDistance(lat1, lon1, lat2, lon2) {
   return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(0);
 }
 
-function getLevelInfo(points) {
+function getLevelInfo(points, lang = 'ar') {
+  if (lang === 'en') {
+    if (points > 300) return { label: 'Tourism Expert', icon: '🥇' };
+    if (points >= 101) return { label: 'Traveler', icon: '🥈' };
+    return { label: 'Beginner Explorer', icon: '🥉' };
+  }
   if (points > 300) return { label: 'خبير سياحة', icon: '🥇' };
   if (points >= 101) return { label: 'رحالة', icon: '🥈' };
   return { label: 'مستكشف مبتدئ', icon: '🥉' };
@@ -660,10 +705,12 @@ function getWeekStart() {
   return d;
 }
 
-function getArabicDateLabel(offsetDays) {
+function getArabicDateLabel(offsetDays, lang = 'ar') {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
-  const days = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+  const days = lang === 'en'
+    ? ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    : ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
   const dayName = days[d.getDay()];
   const dateStr = `${d.getDate()}/${d.getMonth() + 1}`;
   return `${dayName} ${dateStr}`;
@@ -684,8 +731,8 @@ async function getWeatherInfo(lat, lng, dayOffset) {
 }
 
 function isFriendsQuery(q) {
-  const friendWords = ['اصحاب', 'أصحاب', 'صاحب', 'صاحبي', 'صاحبتي', 'صديق', 'صديقتي', 'اصدقاء', 'أصدقاء', 'رفقة', 'رفاق', 'شلة', 'شلتي', 'جماعة', 'فريق', 'زملاء', 'جروب', 'شباب', 'شب', 'بنات', 'ولاد', 'friends'];
-  const funWords = ['اتسلى', 'أتسلى', 'نتسلى', 'تسلية', 'استمتاع', 'نتفسح', 'فسحة', 'خرجة', 'نطلع', 'طلعة'];
+  const friendWords = ['اصحاب', 'أصحاب', 'صاحب', 'صاحبي', 'صاحبتي', 'صديق', 'صديقتي', 'اصدقاء', 'أصدقاء', 'رفقة', 'رفاق', 'شلة', 'شلتي', 'جماعة', 'فريق', 'زملاء', 'جروب', 'شباب', 'شب', 'بنات', 'ولاد', 'friends', 'buddies', 'group', 'gang'];
+  const funWords = ['اتسلى', 'أتسلى', 'نتسلى', 'تسلية', 'استمتاع', 'نتفسح', 'فسحة', 'خرجة', 'نطلع', 'طلعة', 'fun', 'hangout', 'hang out'];
   return friendWords.some(w => q.includes(w)) || funWords.some(w => q.includes(w));
 }
 
@@ -754,179 +801,255 @@ function expandSynonyms(text) {
   });
   return text + extra;
 }
-async function getRahalResponse(question, userLocation, userPlaces) {
-  const q = expandSynonyms(question.trim());
+async function getRahalResponse(question, userLocation, userPlaces, lang = 'ar') {
+  const q = expandSynonyms(question.trim()).toLowerCase();
+  const isEn = lang === 'en';
 
-  const greetings = ['مرحبا', 'مرحباً', 'هاي', 'اهلا', 'أهلا', 'السلام عليكم'];
+  const greetings = ['مرحبا', 'مرحباً', 'هاي', 'اهلا', 'أهلا', 'السلام عليكم', 'hi', 'hello', 'hey'];
   if (greetings.some(g => q.includes(g)) && q.length < 30) {
-    return 'أهلاً فيكي! 👋 أنا رحال، دليلك السياحي بالأردن. اسأليني عن أي منطقة أو نشاط أو الطقس!';
+    return isEn
+      ? "Hey there! 👋 I'm Rahhal, your Jordan travel guide. Ask me about any place, activity, or the weather!"
+      : 'أهلاً فيكي! 👋 أنا رحال، دليلك السياحي بالأردن. اسأليني عن أي منطقة أو نشاط أو الطقس!';
   }
-  if (q.includes('شكرا') || q.includes('شكراً') || q.includes('تسلم')) {
-    return 'العفو! 😊 دايماً موجود لمساعدتك، رحلة سعيدة!';
+  if (q.includes('شكرا') || q.includes('شكراً') || q.includes('تسلم') || q.includes('thank')) {
+    return isEn ? "You're welcome! 😊 Always here to help, happy travels!" : 'العفو! 😊 دايماً موجود لمساعدتك، رحلة سعيدة!';
   }
-  if (q.includes('مين انت') || q.includes('من انت') || q.includes('شو بتعمل') || q.includes('شو تقدر تعمل')) {
-    return 'أنا رحال 🧭 دليلك السياحي الذكي بموقع رحلتي! بقدر أساعدك تلاقي أفضل الأماكن حسب الموسم، الطقس، نوع النشاط، أو حتى وين تروح بكرا 😊';
+  if (q.includes('مين انت') || q.includes('من انت') || q.includes('شو بتعمل') || q.includes('شو تقدر تعمل') || q.includes('who are you') || q.includes('what can you do')) {
+    return isEn
+      ? "I'm Rahhal 🧭 your smart travel guide on Rihlati! I can help you find the best places by season, weather, activity type, or even where to go tomorrow 😊"
+      : 'أنا رحال 🧭 دليلك السياحي الذكي بموقع رحلتي! بقدر أساعدك تلاقي أفضل الأماكن حسب الموسم، الطقس، نوع النشاط، أو حتى وين تروح بكرا 😊';
   }
 
-  if (q.includes('كم يبعد') || q.includes('كم بعد') || q.includes('قديش يبعد') || q.includes('المسافة')) {
-    const foundDistKey = Object.keys(places).find(k => q.includes(places[k].name));
+  if (q.includes('كم يبعد') || q.includes('كم بعد') || q.includes('قديش يبعد') || q.includes('المسافة') || q.includes('how far') || q.includes('distance')) {
+    const foundDistKey = Object.keys(places).find(k => q.includes(places[k].name) || q.includes(places[k].nameEn.toLowerCase()));
     if (foundDistKey) {
       const amman = places.amman;
       const km = getDistance(amman.lat, amman.lng, places[foundDistKey].lat, places[foundDistKey].lng);
-      return `${places[foundDistKey].name} تبعد حوالي ${km} كم عن عمّان 📏`;
+      const pName = isEn ? places[foundDistKey].nameEn : places[foundDistKey].name;
+      return isEn ? `${pName} is about ${km} km from Amman 📏` : `${places[foundDistKey].name} تبعد حوالي ${km} كم عن عمّان 📏`;
     }
   }
 
-  const foundKey = Object.keys(places).find(k => q.includes(places[k].name) || q.toLowerCase().includes(places[k].nameEn.toLowerCase()));
+  const foundKey = Object.keys(places).find(k => q.includes(places[k].name) || q.includes(places[k].nameEn.toLowerCase()));
   if (foundKey) {
     const p = places[foundKey];
-    return `${p.name}: ${p.desc}\n🍽️ يشتهر بـ: ${p.food}`;
+    return isEn
+      ? `${p.nameEn}: ${p.descEn}\n🍽️ Famous for: ${p.foodEn}`
+      : `${p.name}: ${p.desc}\n🍽️ يشتهر بـ: ${p.food}`;
   }
 
   if (userPlaces && userPlaces.length) {
-    const foundUserPlace = userPlaces.find(p => q.includes(p.name));
+    const foundUserPlace = userPlaces.find(p => q.includes((p.name || '').toLowerCase()));
     if (foundUserPlace) {
-      const foodLine = foundUserPlace.food ? `\n🍽️ يشتهر بـ: ${foundUserPlace.food}` : '';
-      return `${foundUserPlace.name} (أضافها أحد الزوار 👤): ${foundUserPlace.desc}${foodLine}`;
+      const foodLine = foundUserPlace.food ? (isEn ? `\n🍽️ Famous for: ${foundUserPlace.food}` : `\n🍽️ يشتهر بـ: ${foundUserPlace.food}`) : '';
+      return isEn
+        ? `${foundUserPlace.name} (added by a visitor 👤): ${foundUserPlace.desc}${foodLine}`
+        : `${foundUserPlace.name} (أضافها أحد الزوار 👤): ${foundUserPlace.desc}${foodLine}`;
     }
   }
 
-  const wantsTomorrow = q.includes('بكرا') || q.includes('غدا') || q.includes('غداً');
-  const wantsToday = q.includes('اليوم') || q.includes('هلق') || q.includes('هلأ');
-  const wantsWeekend = q.includes('ويكند') || q.includes('عطلة') || q.includes('نهاية الأسبوع') || q.includes('الجمعة') || q.includes('السبت');
-  const asksWhereToGo = q.includes('وين') || q.includes('روح') || q.includes('نصح') || q.includes('اقترح') || q.includes('مناسب') || q.includes('رحلة') || q.includes('خطط') || q.includes('خطة') || q.includes('مكان اذهب') || q.includes('مكان أذهب') || q.includes('مكان اتسلى') || q.includes('مكان أتسلى');
+  const wantsTomorrow = q.includes('بكرا') || q.includes('غدا') || q.includes('غداً') || q.includes('tomorrow');
+  const wantsToday = q.includes('اليوم') || q.includes('هلق') || q.includes('هلأ') || q.includes('today') || q.includes('now');
+  const wantsWeekend = q.includes('ويكند') || q.includes('عطلة') || q.includes('نهاية الأسبوع') || q.includes('الجمعة') || q.includes('السبت') || q.includes('weekend');
+  const asksWhereToGo = q.includes('وين') || q.includes('روح') || q.includes('نصح') || q.includes('اقترح') || q.includes('مناسب') || q.includes('رحلة') || q.includes('خطط') || q.includes('خطة') || q.includes('مكان اذهب') || q.includes('مكان أذهب') || q.includes('مكان اتسلى') || q.includes('مكان أتسلى') || q.includes('where') || q.includes('suggest') || q.includes('recommend') || q.includes('go to');
 
   if ((wantsTomorrow || wantsToday || wantsWeekend) && asksWhereToGo) {
     if (isFriendsQuery(q)) {
-      return 'للخروجات مع الشباب والأصدقاء 👥: وادي رم للتخييم الجماعي 🏜️، وادي الموجب للمغامرة 🏞️، غابات برقش للفرشة والشواء 🌳، أو البحر الميت ليوم مرح 🌊';
+      return isEn
+        ? "For hanging out with friends 👥: Wadi Rum for group camping 🏜️, Wadi Mujib for adventure 🏞️, Birgish Forest for a picnic and BBQ 🌳, or the Dead Sea for a fun day 🌊"
+        : 'للخروجات مع الشباب والأصدقاء 👥: وادي رم للتخييم الجماعي 🏜️، وادي الموجب للمغامرة 🏞️، غابات برقش للفرشة والشواء 🌳، أو البحر الميت ليوم مرح 🌊';
     }
-    const romantic = q.includes('خطيب') || q.includes('خطيبة') || q.includes('زوجي') || q.includes('زوجتي') || q.includes('رومانسي') || q.includes('حبيب');
+    const romantic = q.includes('خطيب') || q.includes('خطيبة') || q.includes('زوجي') || q.includes('زوجتي') || q.includes('رومانسي') || q.includes('حبيب') || q.includes('romantic') || q.includes('husband') || q.includes('wife') || q.includes('fiance');
     if (romantic) {
-      return 'لجو رومانسي 💑 جربوا غروب الشمس بوادي رم 🌅، أو ليلة استرخاء بحمامات ماعين ♨️، أو نزهة عالبحر الميت وقت الغروب 🌊';
+      return isEn
+        ? "For a romantic vibe 💑 try a sunset in Wadi Rum 🌅, a relaxing night at Ma'in Hot Springs ♨️, or a sunset walk by the Dead Sea 🌊"
+        : 'لجو رومانسي 💑 جربوا غروب الشمس بوادي رم 🌅، أو ليلة استرخاء بحمامات ماعين ♨️، أو نزهة عالبحر الميت وقت الغروب 🌊';
     }
     if (!userLocation) {
-      return 'لازم تسمحلي بالوصول لموقعك عشان أجيب حالة الطقس بالضبط 🌦️ (اضغط "السماح" لو المتصفح طلب الإذن). بس بشكل عام: لو الجو حر روح للبحر الميت أو العقبة للسباحة 🌊، ولو معتدل جرب وادي رم أو عجلون للتنزه والشواء 🍖، ولو بارد جرب حمامات ماعين أو الحمة ♨️';
+      return isEn
+        ? 'I need access to your location to check the exact weather 🌦️ (tap "Allow" if the browser asked). But in general: if it\'s hot go to the Dead Sea or Aqaba for swimming 🌊, if it\'s mild try Wadi Rum or Ajloun for a walk and BBQ 🍖, and if it\'s cold try Ma\'in Hot Springs or Al-Himma ♨️'
+        : 'لازم تسمحلي بالوصول لموقعك عشان أجيب حالة الطقس بالضبط 🌦️ (اضغط "السماح" لو المتصفح طلب الإذن). بس بشكل عام: لو الجو حر روح للبحر الميت أو العقبة للسباحة 🌊، ولو معتدل جرب وادي رم أو عجلون للتنزه والشواء 🍖، ولو بارد جرب حمامات ماعين أو الحمة ♨️';
     }
     const offset = (wantsTomorrow || wantsWeekend) ? 1 : 0;
     const weather = await getWeatherInfo(userLocation.lat, userLocation.lng, offset);
-    const dateLabel = getArabicDateLabel(offset);
+    const dateLabel = getArabicDateLabel(offset, lang);
     if (!weather || weather.temp === undefined) {
-      return `ما قدرت أجيب حالة الطقس ${dateLabel} حالياً 🌦️ حاولي مرة ثانية بعد شوي`;
+      return isEn ? `I couldn't fetch the weather for ${dateLabel} right now 🌦️ try again in a bit` : `ما قدرت أجيب حالة الطقس ${dateLabel} حالياً 🌦️ حاولي مرة ثانية بعد شوي`;
     }
     const { temp, rain } = weather;
     if (rain && rain > 2) {
-      return `الجو ${dateLabel} ممطر شوي ☔ بحسها فرصة حلوة للمناطق الأثرية أو حمامات ماعين ♨️ والحمة الأردنية`;
+      return isEn
+        ? `It's a bit rainy on ${dateLabel} ☔ good chance to visit historical sites or Ma'in Hot Springs ♨️ and Al-Himma`
+        : `الجو ${dateLabel} ممطر شوي ☔ بحسها فرصة حلوة للمناطق الأثرية أو حمامات ماعين ♨️ والحمة الأردنية`;
     }
     if (temp >= 30) {
-      return `الجو ${dateLabel} حر (${Math.round(temp)}°) ☀️ مناسب جداً للسباحة، جرب البحر الميت 🌊، العقبة، أو محمية وادي الموجب`;
+      return isEn
+        ? `It's hot on ${dateLabel} (${Math.round(temp)}°) ☀️ great for swimming, try the Dead Sea 🌊, Aqaba, or Wadi Mujib Reserve`
+        : `الجو ${dateLabel} حر (${Math.round(temp)}°) ☀️ مناسب جداً للسباحة، جرب البحر الميت 🌊، العقبة، أو محمية وادي الموجب`;
     }
     if (temp >= 20) {
-      return `الجو ${dateLabel} معتدل ورائع (${Math.round(temp)}°) 🌤️ مناسب للتنزه والشواء (الزرب)، جرب وادي رم 🏜️، عجلون 🌲، أو غابات برقش للفرشة 🌳`;
+      return isEn
+        ? `It's mild and lovely on ${dateLabel} (${Math.round(temp)}°) 🌤️ great for walking and BBQ, try Wadi Rum 🏜️, Ajloun 🌲, or a picnic at Birgish Forest 🌳`
+        : `الجو ${dateLabel} معتدل ورائع (${Math.round(temp)}°) 🌤️ مناسب للتنزه والشواء (الزرب)، جرب وادي رم 🏜️، عجلون 🌲، أو غابات برقش للفرشة 🌳`;
     }
-    return `الجو ${dateLabel} بارد شوي (${Math.round(temp)}°) ❄️ أنسب شي حمامات ماعين ♨️ أو الحمة الأردنية للدفا`;
+    return isEn
+      ? `It's a bit cold on ${dateLabel} (${Math.round(temp)}°) ❄️ best to go to Ma'in Hot Springs ♨️ or Al-Himma to warm up`
+      : `الجو ${dateLabel} بارد شوي (${Math.round(temp)}°) ❄️ أنسب شي حمامات ماعين ♨️ أو الحمة الأردنية للدفا`;
   }
 
   if (isFriendsQuery(q)) {
-    return 'للخروجات مع الشباب والأصدقاء 👥: وادي رم للتخييم الجماعي 🏜️، وادي الموجب للمغامرة 🏞️، غابات برقش للفرشة والشواء 🌳، أو البحر الميت ليوم مرح 🌊';
+    return isEn
+      ? "For hanging out with friends 👥: Wadi Rum for group camping 🏜️, Wadi Mujib for adventure 🏞️, Birgish Forest for a picnic and BBQ 🌳, or the Dead Sea for a fun day 🌊"
+      : 'للخروجات مع الشباب والأصدقاء 👥: وادي رم للتخييم الجماعي 🏜️، وادي الموجب للمغامرة 🏞️، غابات برقش للفرشة والشواء 🌳، أو البحر الميت ليوم مرح 🌊';
   }
-  if (q.includes('خطيب') || q.includes('خطيبة') || q.includes('زوجي') || q.includes('زوجتي') || q.includes('رومانسي') || q.includes('حبيب')) {
-    return 'لأجواء رومانسية 💑: غروب الشمس بوادي رم 🌅، ليلة هادئة بحمامات ماعين ♨️، أو نزهة على البحر الميت وقت الغروب 🌊';
+  if (q.includes('خطيب') || q.includes('خطيبة') || q.includes('زوجي') || q.includes('زوجتي') || q.includes('رومانسي') || q.includes('حبيب') || q.includes('romantic')) {
+    return isEn
+      ? "For a romantic vibe 💑: a sunset in Wadi Rum 🌅, a quiet night at Ma'in Hot Springs ♨️, or a sunset walk by the Dead Sea 🌊"
+      : 'لأجواء رومانسية 💑: غروب الشمس بوادي رم 🌅، ليلة هادئة بحمامات ماعين ♨️، أو نزهة على البحر الميت وقت الغروب 🌊';
   }
-  if (q.includes('لحالي') || q.includes('وحدي')) {
-    return 'للسفر لحالك بهدوء 🚶: محمية ضانا 🏔️، الطفيلة ⛰️، أو البتراء لتجربة تأملية';
+  if (q.includes('لحالي') || q.includes('وحدي') || q.includes('alone') || q.includes('solo')) {
+    return isEn
+      ? 'For a calm solo trip 🚶: Dana Reserve 🏔️, Tafilah ⛰️, or Petra for a reflective experience'
+      : 'للسفر لحالك بهدوء 🚶: محمية ضانا 🏔️، الطفيلة ⛰️، أو البتراء لتجربة تأملية';
   }
-  if (q.includes('تصوير') || q.includes('انستقرام') || q.includes('صور حلوة')) {
-    return 'أجمل أماكن للتصوير 📸: البتراء (الخزنة) 🏛️، وادي رم (غروب الشمس) 🌅، البحر الميت، وقلعة عجلون';
+  if (q.includes('تصوير') || q.includes('انستقرام') || q.includes('صور حلوة') || q.includes('photo') || q.includes('instagram')) {
+    return isEn
+      ? '📸 Best spots for photography: Petra (the Treasury) 🏛️, Wadi Rum (sunset) 🌅, the Dead Sea, and Ajloun Castle'
+      : 'أجمل أماكن للتصوير 📸: البتراء (الخزنة) 🏛️، وادي رم (غروب الشمس) 🌅، البحر الميت، وقلعة عجلون';
   }
-  if (q.includes('مشي') || q.includes('هايكنغ') || q.includes('مسار') || q.includes('مسارات')) {
-    return 'مسارات مشي رائعة 🥾: محمية ضانا (مسار الوادي الكامل)، وادي الموجب (المسار المائي)، والبتراء (المسير الطويل للدير)';
+  if (q.includes('مشي') || q.includes('هايكنغ') || q.includes('مسار') || q.includes('مسارات') || q.includes('hik') || q.includes('trail')) {
+    return isEn
+      ? '🥾 Great hiking trails: Dana Reserve (full valley trail), Wadi Mujib (water trail), and Petra (the long hike to the Monastery)'
+      : 'مسارات مشي رائعة 🥾: محمية ضانا (مسار الوادي الكامل)، وادي الموجب (المسار المائي)، والبتراء (المسير الطويل للدير)';
   }
-  if (q.includes('نجوم') || q.includes('تخييم ليلي') || q.includes('سماء')) {
-    return 'أفضل مكان لمشاهدة النجوم ⭐ ليلاً: وادي رم 🏜️، بعيد عن أضواء المدن وسماءه صافية جداً بالليل';
+  if (q.includes('نجوم') || q.includes('تخييم ليلي') || q.includes('سماء') || q.includes('star') || q.includes('night sky')) {
+    return isEn
+      ? '⭐ Best place for stargazing at night: Wadi Rum 🏜️, far from city lights with a very clear night sky'
+      : 'أفضل مكان لمشاهدة النجوم ⭐ ليلاً: وادي رم 🏜️، بعيد عن أضواء المدن وسماءه صافية جداً بالليل';
   }
-  if (q.includes('شلالات') || q.includes('شلال')) {
-    return 'شلالات جميلة: حمامات ماعين ♨️ (شلالات ساخنة)، ووادي الموجب 🏞️ (مسارات مائية وشلالات)';
+  if (q.includes('شلالات') || q.includes('شلال') || q.includes('waterfall')) {
+    return isEn
+      ? "Beautiful waterfalls: Ma'in Hot Springs ♨️ (hot waterfalls), and Wadi Mujib 🏞️ (water trails and waterfalls)"
+      : 'شلالات جميلة: حمامات ماعين ♨️ (شلالات ساخنة)، ووادي الموجب 🏞️ (مسارات مائية وشلالات)';
   }
-  if (q.includes('طيور') || q.includes('مراقبة الطيور')) {
-    return 'لمراقبة الطيور 🦅: محمية الأزرق المائية 🦆، وجهة مهمة للطيور المهاجرة';
+  if (q.includes('طيور') || q.includes('مراقبة الطيور') || q.includes('bird')) {
+    return isEn
+      ? '🦅 For birdwatching: Azraq Wetland Reserve 🦆, an important stop for migratory birds'
+      : 'لمراقبة الطيور 🦅: محمية الأزرق المائية 🦆، وجهة مهمة للطيور المهاجرة';
   }
-  if (q.includes('ثلج') || q.includes('تلج')) {
-    return 'عجلون من المناطق اللي ممكن يتساقط فيها الثلج شتاءً ❄️🌲 (حسب الموسم)';
+  if (q.includes('ثلج') || q.includes('تلج') || q.includes('snow')) {
+    return isEn
+      ? '❄️🌲 Ajloun is one of the areas where snow can fall in winter (depending on the season)'
+      : 'عجلون من المناطق اللي ممكن يتساقط فيها الثلج شتاءً ❄️🌲 (حسب الموسم)';
   }
-  if ((q.includes('قلاع') || q.includes('قلعة')) && !foundKey) {
-    return 'قلاع تاريخية رائعة 🏰: الكرك، عجلون، الشوبك، وقلعة الأزرق - كل وحدة بطراز وقصة مختلفة';
+  if ((q.includes('قلاع') || q.includes('قلعة') || q.includes('castle')) && !foundKey) {
+    return isEn
+      ? '🏰 Beautiful historic castles: Karak, Ajloun, Shobak, and Azraq Castle — each with its own style and story'
+      : 'قلاع تاريخية رائعة 🏰: الكرك، عجلون، الشوبك، وقلعة الأزرق - كل وحدة بطراز وقصة مختلفة';
   }
-  if (q.includes('يونسكو') || q.includes('تراث عالمي')) {
-    return 'مواقع مسجلة على قائمة اليونسكو 🏛️: البتراء، أم الرصاص، قصر عمرة، والسلط';
+  if (q.includes('يونسكو') || q.includes('تراث عالمي') || q.includes('unesco') || q.includes('heritage')) {
+    return isEn
+      ? '🏛️ UNESCO World Heritage sites: Petra, Umm ar-Rasas, Qasr Amra, and Salt'
+      : 'مواقع مسجلة على قائمة اليونسكو 🏛️: البتراء، أم الرصاص، قصر عمرة، والسلط';
   }
-  if (q.includes('ازدحام') || q.includes('مزدحم') || q.includes('بعيد عن الزحمة')) {
-    return 'أماكن هادئة بعيدة عن الزحمة 🌿: محمية ضانا، الطفيلة، أم النمل، وغابات برقش';
+  if (q.includes('ازدحام') || q.includes('مزدحم') || q.includes('بعيد عن الزحمة') || q.includes('crowd') || q.includes('quiet place')) {
+    return isEn
+      ? '🌿 Quiet places away from the crowds: Dana Reserve, Tafilah, Umm Al-Naml, and Birgish Forest'
+      : 'أماكن هادئة بعيدة عن الزحمة 🌿: محمية ضانا، الطفيلة، أم النمل، وغابات برقش';
   }
-  if (q.includes('افضل وقت') || q.includes('أفضل وقت')) {
-    return 'بشكل عام: الربيع 🌸 (آذار-أيار) والخريف أفضل وقت لمعظم المناطق (طقس معتدل)، الصيف مناسب للمناطق الجبلية الباردة، والشتاء مناسب للبتراء ووادي رم والعقبة (أدفأ) ☀️';
+  if (q.includes('افضل وقت') || q.includes('أفضل وقت') || q.includes('best time')) {
+    return isEn
+      ? '☀️ In general: spring (March-May) and autumn are the best time for most areas (mild weather), summer suits cooler mountain areas, and winter suits Petra, Wadi Rum, and Aqaba (warmer)'
+      : 'بشكل عام: الربيع 🌸 (آذار-أيار) والخريف أفضل وقت لمعظم المناطق (طقس معتدل)، الصيف مناسب للمناطق الجبلية الباردة، والشتاء مناسب للبتراء ووادي رم والعقبة (أدفأ) ☀️';
   }
-  if (q.includes('ربيع')) {
-    const names = springKeys.map(k => places[k].name).join('، ');
-    return `بالربيع بقترح تزوري: ${names} 🌸 (أحسن وقت للفرشة والتنزه بالطبيعة)`;
+  if (q.includes('ربيع') || q.includes('spring')) {
+    const names = springKeys.map(k => (isEn ? places[k].nameEn : places[k].name)).join(isEn ? ', ' : '، ');
+    return isEn ? `🌸 In spring, I'd suggest visiting: ${names} (the best time for a picnic and enjoying nature)` : `بالربيع بقترح تزوري: ${names} 🌸 (أحسن وقت للفرشة والتنزه بالطبيعة)`;
   }
-  if (q.includes('فرشة') || q.includes('فرش') || q.includes('عالارض') || q.includes('على الأرض') || q.includes('تنزه')) {
-    return 'لفرشة عالطبيعة أفضل مكانين عنا: غابات برقش 🌳 وأم النمل 🌸 (وادي أخضر خلاب قرب إربد)، وكمان محمية ضانا للطبيعة الجبلية 🏔️';
+  if (q.includes('فرشة') || q.includes('فرش') || q.includes('عالارض') || q.includes('على الأرض') || q.includes('تنزه') || q.includes('picnic')) {
+    return isEn
+      ? "🌳 Best spots for a picnic: Birgish Forest and Umm Al-Naml 🌸 (a stunning green valley near Irbid), and also Dana Reserve for mountain nature 🏔️"
+      : 'لفرشة عالطبيعة أفضل مكانين عنا: غابات برقش 🌳 وأم النمل 🌸 (وادي أخضر خلاب قرب إربد)، وكمان محمية ضانا للطبيعة الجبلية 🏔️';
   }
-  if (q.includes('شتاء') || q.includes('شتوي') || q.includes('برد')) {
-    const names = winterKeys.map(k => places[k].name).join('، ');
-    return `بالشتاء بقترح تزوري: ${names} ❄️`;
+  if (q.includes('شتاء') || q.includes('شتوي') || q.includes('برد') || q.includes('winter') || q.includes('cold')) {
+    const names = winterKeys.map(k => (isEn ? places[k].nameEn : places[k].name)).join(isEn ? ', ' : '، ');
+    return isEn ? `❄️ In winter, I'd suggest visiting: ${names}` : `بالشتاء بقترح تزوري: ${names} ❄️`;
   }
-  if (q.includes('صيف') || q.includes('صيفي') || q.includes('حر')) {
-    const names = summerKeys.map(k => places[k].name).join('، ');
-    return `بالصيف بقترح تزوري: ${names} ☀️`;
+  if (q.includes('صيف') || q.includes('صيفي') || q.includes('حر') || q.includes('summer') || q.includes('hot')) {
+    const names = summerKeys.map(k => (isEn ? places[k].nameEn : places[k].name)).join(isEn ? ', ' : '، ');
+    return isEn ? `☀️ In summer, I'd suggest visiting: ${names}` : `بالصيف بقترح تزوري: ${names} ☀️`;
   }
-  if (q.includes('طبيعة') || q.includes('جبال') || q.includes('مناظر') || q.includes('خضرة') || q.includes('خضار') || q.includes('اخضر') || q.includes('أخضر')) {
-    return 'أجمل مناطق الطبيعة والخضرة: محمية ضانا 🏔️، وادي الموجب 🏞️، غابات برقش وأم النمل 🌳، والديسة قرب العقبة';
+  if (q.includes('طبيعة') || q.includes('جبال') || q.includes('مناظر') || q.includes('خضرة') || q.includes('خضار') || q.includes('اخضر') || q.includes('أخضر') || q.includes('nature') || q.includes('mountain') || q.includes('green')) {
+    return isEn
+      ? '🏔️ Most beautiful nature and greenery: Dana Reserve, Wadi Mujib 🏞️, Birgish Forest and Umm Al-Naml 🌳, and Deisa near Aqaba'
+      : 'أجمل مناطق الطبيعة والخضرة: محمية ضانا 🏔️، وادي الموجب 🏞️، غابات برقش وأم النمل 🌳، والديسة قرب العقبة';
   }
-  if (q.includes('مغامرة') || q.includes('رياضة') || q.includes('سفاري')) {
-    return 'للمغامرة: وادي رم 🏜️ (سفاري وتخييم)، وادي الموجب 🏞️ (مسارات مائية)، والبتراء للمشي الطويل 🥾';
+  if (q.includes('مغامرة') || q.includes('رياضة') || q.includes('سفاري') || q.includes('adventure') || q.includes('safari')) {
+    return isEn
+      ? '🏜️ For adventure: Wadi Rum (safari and camping), Wadi Mujib 🏞️ (water trails), and Petra for a long hike 🥾'
+      : 'للمغامرة: وادي رم 🏜️ (سفاري وتخييم)، وادي الموجب 🏞️ (مسارات مائية)، والبتراء للمشي الطويل 🥾';
   }
-  if (q.includes('كنائس') || q.includes('دينية') || q.includes('فسيفساء') || q.includes('مقدسة')) {
-    return 'مواقع دينية وتراثية: مادبا ⛪ (كنائس وفسيفساء)، وأم الرصاص 🏛️ (موقع يونسكو بفسيفساء رائعة)';
+  if (q.includes('كنائس') || q.includes('دينية') || q.includes('فسيفساء') || q.includes('مقدسة') || q.includes('church') || q.includes('mosaic')) {
+    return isEn
+      ? '⛪ Religious and heritage sites: Madaba (churches and mosaics), and Umm ar-Rasas 🏛️ (a UNESCO site with stunning mosaics)'
+      : 'مواقع دينية وتراثية: مادبا ⛪ (كنائس وفسيفساء)، وأم الرصاص 🏛️ (موقع يونسكو بفسيفساء رائعة)';
   }
-  if (q.includes('تسوق') || q.includes('سوق') || q.includes('مولات')) {
-    return 'للتسوق أفضل مكان هو عمّان 🛍️ (فيها أسواق تقليدية ومولات حديثة)';
+  if (q.includes('تسوق') || q.includes('سوق') || q.includes('مولات') || q.includes('shop') || q.includes('mall')) {
+    return isEn ? '🛍️ Best place for shopping is Amman (traditional markets and modern malls)' : 'للتسوق أفضل مكان هو عمّان 🛍️ (فيها أسواق تقليدية ومولات حديثة)';
   }
-  if (q.includes('عائلة') || q.includes('اطفال') || q.includes('أطفال')) {
-    return 'مناسب للعائلات: البحر الميت 🌊، حمامات ماعين ♨️، وعمّان (فيها أماكن ترفيهية للأطفال) 👨‍👩‍👧';
+  if (q.includes('عائلة') || q.includes('اطفال') || q.includes('أطفال') || q.includes('family') || q.includes('kids')) {
+    return isEn
+      ? "👨‍👩‍👧 Great for families: the Dead Sea 🌊, Ma'in Hot Springs ♨️, and Amman (has entertainment spots for kids)"
+      : 'مناسب للعائلات: البحر الميت 🌊، حمامات ماعين ♨️، وعمّان (فيها أماكن ترفيهية للأطفال) 👨‍👩‍👧';
   }
-  if (q.includes('هدوء') || q.includes('استجمام') || q.includes('استرخاء عام')) {
-    return 'للهدوء والاستجمام: محمية ضانا 🏔️، الطفيلة ⛰️، أو الديسة 🏞️ - أماكن هادئة بعيدة عن الزحمة';
+  if (q.includes('هدوء') || q.includes('استجمام') || q.includes('استرخاء عام') || q.includes('relax') || q.includes('peace')) {
+    return isEn
+      ? '🏔️ For calm and relaxation: Dana Reserve, Tafilah ⛰️, or Deisa 🏞️ — quiet places away from the crowds'
+      : 'للهدوء والاستجمام: محمية ضانا 🏔️، الطفيلة ⛰️، أو الديسة 🏞️ - أماكن هادئة بعيدة عن الزحمة';
   }
-  if (q.includes('غروب') || q.includes('شروق')) {
-    return 'أجمل غروب تشوفه بوادي رم 🌅 أو العقبة على شاطئ البحر الأحمر 🌇';
+  if (q.includes('غروب') || q.includes('شروق') || q.includes('sunset') || q.includes('sunrise')) {
+    return isEn ? '🌅 The most beautiful sunset is in Wadi Rum 🌅 or Aqaba on the Red Sea shore 🌇' : 'أجمل غروب تشوفه بوادي رم 🌅 أو العقبة على شاطئ البحر الأحمر 🌇';
   }
-  if (q.includes('رخيص') || q.includes('مجاني') || q.includes('بدون فلوس') || q.includes('اقتصادي')) {
-    return 'أماكن كتير بدون رسوم دخول: غابات برقش 🌳، أم النمل 🌸، وأغلب المدن زي عمّان وإربد والسلط 🏘️';
+  if (q.includes('رخيص') || q.includes('مجاني') || q.includes('بدون فلوس') || q.includes('اقتصادي') || q.includes('free') || q.includes('cheap')) {
+    return isEn
+      ? '🏘️ Many places have no entry fees: Birgish Forest 🌳, Umm Al-Naml 🌸, and most cities like Amman, Irbid, and Salt'
+      : 'أماكن كتير بدون رسوم دخول: غابات برقش 🌳، أم النمل 🌸، وأغلب المدن زي عمّان وإربد والسلط 🏘️';
   }
-  if (q.includes('اكل') || q.includes('أكل') || q.includes('طعام') || q.includes('طبخ') || q.includes('مطاعم')) {
-    return 'كل منطقة بالموقع فيها معلومة عن أشهر أكلة فيها 🍽️ قوليلي اسم منطقة محددة وبقلك شو يشتهروا فيها';
+  if (q.includes('اكل') || q.includes('أكل') || q.includes('طعام') || q.includes('طبخ') || q.includes('مطاعم') || q.includes('food') || q.includes('eat')) {
+    return isEn
+      ? '🍽️ Every place on the site has info about its most famous dish — tell me a specific place and I\'ll tell you what it\'s known for'
+      : 'كل منطقة بالموقع فيها معلومة عن أشهر أكلة فيها 🍽️ قوليلي اسم منطقة محددة وبقلك شو يشتهروا فيها';
   }
-  if (q.includes('تخييم') || q.includes('خيمة')) {
-    return 'أفضل أماكن للتخييم: وادي رم 🏜️ (تجربة صحراوية لا تُنسى)، أو الديسة قرب العقبة 🏔️';
+  if (q.includes('تخييم') || q.includes('خيمة') || q.includes('camp')) {
+    return isEn ? '🏜️ Best places to camp: Wadi Rum (an unforgettable desert experience), or Deisa near Aqaba 🏔️' : 'أفضل أماكن للتخييم: وادي رم 🏜️ (تجربة صحراوية لا تُنسى)، أو الديسة قرب العقبة 🏔️';
   }
-  if (q.includes('بحر') || q.includes('سباحة') || q.includes('عوم')) {
-    return 'للسباحة أو الاسترخاء بالماء: البحر الميت 🌊 (يطفو الجسم لوحده)، أو العقبة والبحر الأحمر للغطس 🐠';
+  if (q.includes('بحر') || q.includes('سباحة') || q.includes('عوم') || q.includes('sea') || q.includes('swim')) {
+    return isEn
+      ? '🌊 For swimming or relaxing in the water: the Dead Sea (your body floats on its own), or Aqaba and the Red Sea for diving 🐠'
+      : 'للسباحة أو الاسترخاء بالماء: البحر الميت 🌊 (يطفو الجسم لوحده)، أو العقبة والبحر الأحمر للغطس 🐠';
   }
-  if (q.includes('اثري') || q.includes('أثري') || q.includes('تاريخ') || q.includes('روماني')) {
-    return 'مواقع أثرية رائعة: البتراء 🏛️ (عجائب الدنيا السبع)، جرش، أم قيس، بيلا، أم الرصاص، وقصر عمرة';
+  if (q.includes('اثري') || q.includes('أثري') || q.includes('تاريخ') || q.includes('روماني') || q.includes('ancient') || q.includes('roman') || q.includes('history')) {
+    return isEn
+      ? '🏛️ Amazing archaeological sites: Petra (one of the Seven Wonders of the World), Jerash, Umm Qais, Pella, Umm ar-Rasas, and Qasr Amra'
+      : 'مواقع أثرية رائعة: البتراء 🏛️ (عجائب الدنيا السبع)، جرش، أم قيس، بيلا، أم الرصاص، وقصر عمرة';
   }
-  if (q.includes('بدوي') || q.includes('صحراء')) {
-    return 'التجربة البدوية الأصيلة تلاقيها بوادي رم 🏜️ والديسة، مع الزرب والشاي البدوي';
+  if (q.includes('بدوي') || q.includes('صحراء') || q.includes('bedouin') || q.includes('desert')) {
+    return isEn ? 'The authentic Bedouin experience is found in Wadi Rum 🏜️ and Deisa, with Zarb and Bedouin tea' : 'التجربة البدوية الأصيلة تلاقيها بوادي رم 🏜️ والديسة، مع الزرب والشاي البدوي';
   }
-  if (q.includes('علاج') || q.includes('صحة')) {
-    return 'للعلاج والاسترخاء: حمامات ماعين ♨️، الحمة الأردنية ♨️، أو طمي البحر الميت العلاجي 🌊';
+  if (q.includes('علاج') || q.includes('صحة') || q.includes('therap') || q.includes('health')) {
+    return isEn
+      ? "♨️ For therapy and relaxation: Ma'in Hot Springs, Al-Himma, or therapeutic Dead Sea mud 🌊"
+      : 'للعلاج والاسترخاء: حمامات ماعين ♨️، الحمة الأردنية ♨️، أو طمي البحر الميت العلاجي 🌊';
   }
-  if (q.includes('عمان') || q.includes('عمّان')) {
-    return 'عمّان: عاصمة المملكة، فيها جبل القلعة والمدرج الروماني ووسط البلد النابض بالحياة 🏛️';
+  if (q.includes('عمان') || q.includes('عمّان') || q.includes('amman')) {
+    return isEn
+      ? "🏛️ Amman: the Kingdom's capital, home to the Citadel, the Roman Theatre, and a lively downtown"
+      : 'عمّان: عاصمة المملكة، فيها جبل القلعة والمدرج الروماني ووسط البلد النابض بالحياة 🏛️';
   }
 
-  return 'ما قدرت ألاقي جواب دقيق لسؤالك 🤔 جرب تسألني عن: اسم منطقة، الموسم، الأكل، الطبيعة، الآثار، السباحة، المغامرة، التصوير، القلاع، أو "وين أروح بكرا" وبجاوبك حسب الطقس 😊';
+  return isEn
+    ? "I couldn't find a precise answer to your question 🤔 try asking me about: a place name, the season, food, nature, ruins, swimming, adventure, photography, castles, or \"where should I go tomorrow\" and I'll answer based on the weather 😊"
+    : 'ما قدرت ألاقي جواب دقيق لسؤالك 🤔 جرب تسألني عن: اسم منطقة، الموسم، الأكل، الطبيعة، الآثار، السباحة، المغامرة، التصوير، القلاع، أو "وين أروح بكرا" وبجاوبك حسب الطقس 😊';
 }
 
 const ECO_MESSAGES = {
@@ -1354,23 +1477,23 @@ function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocatio
 
 {!gender && (
   <div className="gender-select">
-    <span>اختر صورة حسابك:</span>
+    <span>{lang === 'ar' ? 'اختر صورة حسابك:' : 'Choose your avatar:'}</span>
 
     <button onClick={() => onGenderChange('female')}>
-      👩 بنت
+      {lang === 'ar' ? '👩 بنت' : '👩 Female'}
     </button>
 
     <button onClick={() => onGenderChange('male')}>
-      👨 شاب
+      {lang === 'ar' ? '👨 شاب' : '👨 Male'}
     </button>
   </div>
 )}
 
       <div style={{ background: '#faf6ec', borderRadius: 12, padding: '12px 16px', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: '1.4rem' }}>{getLevelInfo(points).icon}</span>
+        <span style={{ fontSize: '1.4rem' }}>{getLevelInfo(points, lang).icon}</span>
         <div style={{ textAlign: 'center' }}>
-          <strong>{getLevelInfo(points).label}</strong>
-          <p style={{ margin: 0, fontSize: '0.8rem', color: '#777' }}>{points} نقطة</p>
+          <strong>{getLevelInfo(points, lang).label}</strong>
+          <p style={{ margin: 0, fontSize: '0.8rem', color: '#777' }}>{points} {lang === 'ar' ? 'نقطة' : 'points'}</p>
         </div>
       </div>
 
@@ -1378,28 +1501,28 @@ function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocatio
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', marginTop: 14 }}>
         <div style={{ background: '#faf6ec', borderRadius: 10, padding: '10px 16px' }}>
-          <strong>📍 {myPlaces.length}</strong> مناطق أضفتها
+          <strong>📍 {myPlaces.length}</strong> {lang === 'ar' ? 'مناطق أضفتها' : 'places you added'}
         </div>
         <div style={{ background: '#faf6ec', borderRadius: 10, padding: '10px 16px' }}>
-          <strong>❤️ {favoritePlacesList.length}</strong> أماكن مفضلة
+          <strong>❤️ {favoritePlacesList.length}</strong> {lang === 'ar' ? 'أماكن مفضلة' : 'favorite places'}
         </div>
         <div style={{ background: '#faf6ec', borderRadius: 10, padding: '10px 16px' }}>
-          <strong>📸 {myPhotos.length}</strong> صور رفعتها
+          <strong>📸 {myPhotos.length}</strong> {lang === 'ar' ? 'صور رفعتها' : 'photos uploaded'}
         </div>
       </div>
 
-      <h3>❤️ الأماكن المفضلة</h3>
+      <h3>{lang === 'ar' ? '❤️ الأماكن المفضلة' : '❤️ Favorite Places'}</h3>
       {favoritePlacesList.length === 0 ? (
-        <p style={{ color: '#999' }}>ما ضفت أي مكان للمفضلة بعد. اضغط القلب ❤️ على أي بطاقة منطقة!</p>
+        <p style={{ color: '#999' }}>{lang === 'ar' ? 'ما ضفت أي مكان للمفضلة بعد. اضغط القلب ❤️ على أي بطاقة منطقة!' : "You haven't added any favorites yet. Tap the ❤️ on any place card!"}</p>
       ) : (
         <ul style={{ paddingRight: 20 }}>
           {favoritePlacesList.map(p => <li key={p.name}>{p.name}</li>)}
         </ul>
       )}
 
-      <h3>📸 الصور التي رفعتها</h3>
+      <h3>{lang === 'ar' ? '📸 الصور التي رفعتها' : '📸 Photos You Uploaded'}</h3>
       {myPhotos.length === 0 ? (
-        <p style={{ color: '#999' }}>لسا ما رفعت أي صورة. ارفع صورة من أي بطاقة منطقة!</p>
+        <p style={{ color: '#999' }}>{lang === 'ar' ? 'لسا ما رفعت أي صورة. ارفع صورة من أي بطاقة منطقة!' : "You haven't uploaded any photos yet. Upload one from any place card!"}</p>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
           {myPhotos.map((p, i) => (
@@ -1413,7 +1536,7 @@ function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocatio
 
       {myPlaces.length > 0 && (
         <>
-          <h3>📍 مناطق أضفتها</h3>
+          <h3>{lang === 'ar' ? '📍 مناطق أضفتها' : '📍 Places You Added'}</h3>
           <ul style={{ paddingRight: 20 }}>
             {myPlaces.map((p, i) => <li key={i}>{p.name}</li>)}
           </ul>
@@ -1423,7 +1546,7 @@ function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocatio
   );
 }
 
-function Leaderboard({ onClose }) {
+function Leaderboard({ onClose, lang = 'ar' }) {
   const [topUsers, setTopUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -1442,11 +1565,11 @@ function Leaderboard({ onClose }) {
   return (
     <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', maxWidth: 500, margin: '15px auto', padding: 20, textAlign: 'right', position: 'relative' }}>
       <button onClick={onClose} style={{ position: 'absolute', top: 12, left: 12, border: 'none', background: 'none', fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
-      <h2 style={{ color: '#8B6914', marginBottom: 16 }}>🏆 أفضل الرحالة</h2>
+      <h2 style={{ color: '#8B6914', marginBottom: 16 }}>{lang === 'ar' ? '🏆 أفضل الرحالة' : '🏆 Top Explorers'}</h2>
       {loading ? (
-        <p>⏳ جاري التحميل...</p>
+        <p>{lang === 'ar' ? '⏳ جاري التحميل...' : '⏳ Loading...'}</p>
       ) : topUsers.length === 0 ? (
-        <p style={{ color: '#999' }}>لسا ما في نقاط مسجلة</p>
+        <p style={{ color: '#999' }}>{lang === 'ar' ? 'لسا ما في نقاط مسجلة' : 'No points recorded yet'}</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {topUsers.map((u, i) => (
@@ -1454,8 +1577,8 @@ function Leaderboard({ onClose }) {
               <strong style={{ width: 22 }}>{i + 1}</strong>
               <Avatar user={u} size={40} gender={u.gender} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 'bold' }}>{u.name || 'مستخدم'}</div>
-                <div style={{ fontSize: '0.8rem', color: '#777' }}>{getLevelInfo(u.points || 0).icon} {getLevelInfo(u.points || 0).label}</div>
+                <div style={{ fontWeight: 'bold' }}>{u.name || (lang === 'ar' ? 'مستخدم' : 'User')}</div>
+                <div style={{ fontSize: '0.8rem', color: '#777' }}>{getLevelInfo(u.points || 0, lang).icon} {getLevelInfo(u.points || 0, lang).label}</div>
               </div>
               <strong style={{ color: '#8B6914' }}>{u.points || 0}</strong>
             </div>
@@ -1465,33 +1588,50 @@ function Leaderboard({ onClose }) {
     </div>
   );
 }
-function TripPlanner({ onClose, onOpenMap, userPlaces }) {
+function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar' }) {
   const [season, setSeasonSel] = useState(null);
   const [companion, setCompanion] = useState(null);
   const [time, setTime] = useState(null);
   const [budget, setBudget] = useState(null);
   const [result, setResult] = useState(null);
 
-  const seasonOptions = [
+  const seasonOptions = lang === 'ar' ? [
     { key: 'summer', label: '☀️ صيف' },
     { key: 'winter', label: '❄️ شتاء' },
     { key: 'spring', label: '🌸 ربيع' },
+  ] : [
+    { key: 'summer', label: '☀️ Summer' },
+    { key: 'winter', label: '❄️ Winter' },
+    { key: 'spring', label: '🌸 Spring' },
   ];
-  const companionOptions = [
+  const companionOptions = lang === 'ar' ? [
     { key: 'alone', label: '🚶 لحالي' },
     { key: 'family', label: '👨‍👩‍👧 عائلة' },
     { key: 'friends', label: '👥 أصحاب' },
     { key: 'kids', label: '🧒 مع أطفال' },
+  ] : [
+    { key: 'alone', label: '🚶 Solo' },
+    { key: 'family', label: '👨‍👩‍👧 Family' },
+    { key: 'friends', label: '👥 Friends' },
+    { key: 'kids', label: '🧒 With kids' },
   ];
-  const timeOptions = [
+  const timeOptions = lang === 'ar' ? [
     { key: '2h', label: '⏱️ ساعتين' },
     { key: 'half', label: '🕐 نص يوم' },
     { key: 'full', label: '🕘 يوم كامل' },
+  ] : [
+    { key: '2h', label: '⏱️ 2 hours' },
+    { key: 'half', label: '🕐 Half a day' },
+    { key: 'full', label: '🕘 Full day' },
   ];
-  const budgetOptions = [
+  const budgetOptions = lang === 'ar' ? [
     { key: 'free', label: '🆓 مجاني' },
     { key: 'under20', label: '💵 أقل من 20 دينار' },
     { key: 'open', label: '💰 ميزانية مفتوحة' },
+  ] : [
+    { key: 'free', label: '🆓 Free' },
+    { key: 'under20', label: '💵 Under 20 JOD' },
+    { key: 'open', label: '💰 Open budget' },
   ];
 
   const OptionRow = ({ options, value, onSelect }) => (
@@ -1522,7 +1662,7 @@ function TripPlanner({ onClose, onOpenMap, userPlaces }) {
 
   const generateTrip = () => {
     if (!season || !companion || !time || !budget) {
-      alert('لازم تختاري كل الخيارات الأربعة الأول 🙏');
+      alert(lang === 'ar' ? 'لازم تختاري كل الخيارات الأربعة الأول 🙏' : 'Please choose all four options first 🙏');
       return;
     }
     let best = null;
@@ -1548,12 +1688,21 @@ function TripPlanner({ onClose, onOpenMap, userPlaces }) {
     if (best) {
       const meta = getPlaceMeta(best.key);
       const reasons = [];
-      if (best.place.season === season) reasons.push('بيناسب الموسم يلي اخترتيه');
-      if (meta.companions && meta.companions.includes(companion)) reasons.push('مناسب لنوع الرفقة يلي حددتيها');
-      if (meta.budget === 'free') reasons.push('دخول مجاني بالكامل');
-      else if (meta.budget === 'under20' && budget !== 'open') reasons.push('يناسب ميزانيتك');
-      if (meta.duration) reasons.push(`بياخذ تقريباً ${durationLabel(meta.duration)}، وهاد بيناسب الوقت يلي عندك`);
-      if (best.place.addedBy) reasons.push(`مكان اكتشفه زائر تاني (${best.place.addedBy}) وضافه للتطبيق 🌟`);
+      if (lang === 'ar') {
+        if (best.place.season === season) reasons.push('بيناسب الموسم يلي اخترتيه');
+        if (meta.companions && meta.companions.includes(companion)) reasons.push('مناسب لنوع الرفقة يلي حددتيها');
+        if (meta.budget === 'free') reasons.push('دخول مجاني بالكامل');
+        else if (meta.budget === 'under20' && budget !== 'open') reasons.push('يناسب ميزانيتك');
+        if (meta.duration) reasons.push(`بياخذ تقريباً ${durationLabel(meta.duration, lang)}، وهاد بيناسب الوقت يلي عندك`);
+        if (best.place.addedBy) reasons.push(`مكان اكتشفه زائر تاني (${best.place.addedBy}) وضافه للتطبيق 🌟`);
+      } else {
+        if (best.place.season === season) reasons.push('Matches the season you picked');
+        if (meta.companions && meta.companions.includes(companion)) reasons.push('A good fit for your travel companions');
+        if (meta.budget === 'free') reasons.push('Completely free entry');
+        else if (meta.budget === 'under20' && budget !== 'open') reasons.push('Fits your budget');
+        if (meta.duration) reasons.push(`Takes about ${durationLabel(meta.duration, lang)}, which suits the time you have`);
+        if (best.place.addedBy) reasons.push(`A place discovered by another visitor (${best.place.addedBy}) 🌟`);
+      }
       setResult({ ...best, reasons, duration: meta.duration });
     }
   };
@@ -1566,58 +1715,63 @@ function TripPlanner({ onClose, onOpenMap, userPlaces }) {
     setResult(null);
   };
 
+  const resultName = result ? (result.place.addedBy ? result.place.name : (lang === 'ar' ? result.place.name : (result.place.nameEn || result.place.name))) : '';
+  const resultDesc = result ? (result.place.addedBy ? result.place.desc : (lang === 'ar' ? result.place.desc : (result.place.descEn || result.place.desc))) : '';
+
   return (
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
       onClick={onClose}
     >
       <div
-        style={{ background: '#fff', borderRadius: 20, padding: 24, maxWidth: 480, width: '100%', maxHeight: '85vh', overflowY: 'auto', textAlign: 'right', position: 'relative', boxShadow: '0 15px 40px rgba(0,0,0,0.3)' }}
+        style={{ background: '#fff', borderRadius: 20, padding: 24, maxWidth: 480, width: '100%', maxHeight: '85vh', overflowY: 'auto', textAlign: lang === 'ar' ? 'right' : 'left', position: 'relative', boxShadow: '0 15px 40px rgba(0,0,0,0.3)' }}
         onClick={(e) => e.stopPropagation()}
       >
         <button onClick={onClose} style={{ position: 'absolute', top: 12, left: 12, border: 'none', background: 'none', fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
 
         {!result ? (
           <>
-            <h2 style={{ color: '#8B6914', marginBottom: 4 }}>🗺️ خطط رحلتك</h2>
-            <p style={{ color: '#777', fontSize: '0.9rem', marginBottom: 18 }}>جاوبي على 4 أسئلة بسيطة ورح نقترحلك أفضل مكان</p>
+            <h2 style={{ color: '#8B6914', marginBottom: 4 }}>{lang === 'ar' ? '🗺️ خطط رحلتك' : '🗺️ Plan Your Trip'}</h2>
+            <p style={{ color: '#777', fontSize: '0.9rem', marginBottom: 18 }}>
+              {lang === 'ar' ? 'جاوبي على 4 أسئلة بسيطة ورح نقترحلك أفضل مكان' : "Answer 4 quick questions and we'll suggest the best place for you"}
+            </p>
 
-            <h4 style={{ color: '#5a3e1b', marginBottom: 8 }}>🗓️ أي موسم؟</h4>
+            <h4 style={{ color: '#5a3e1b', marginBottom: 8 }}>{lang === 'ar' ? '🗓️ أي موسم؟' : '🗓️ Which season?'}</h4>
             <OptionRow options={seasonOptions} value={season} onSelect={setSeasonSel} />
 
-            <h4 style={{ color: '#5a3e1b', marginBottom: 8 }}>👥 مع مين رايح؟</h4>
+            <h4 style={{ color: '#5a3e1b', marginBottom: 8 }}>{lang === 'ar' ? '👥 مع مين رايح؟' : '👥 Who are you going with?'}</h4>
             <OptionRow options={companionOptions} value={companion} onSelect={setCompanion} />
 
-            <h4 style={{ color: '#5a3e1b', marginBottom: 8 }}>⏱️ قديش عندك وقت؟</h4>
+            <h4 style={{ color: '#5a3e1b', marginBottom: 8 }}>{lang === 'ar' ? '⏱️ قديش عندك وقت؟' : '⏱️ How much time do you have?'}</h4>
             <OptionRow options={timeOptions} value={time} onSelect={setTime} />
 
-            <h4 style={{ color: '#5a3e1b', marginBottom: 8 }}>💰 الميزانية؟</h4>
+            <h4 style={{ color: '#5a3e1b', marginBottom: 8 }}>{lang === 'ar' ? '💰 الميزانية؟' : '💰 What\'s your budget?'}</h4>
             <OptionRow options={budgetOptions} value={budget} onSelect={setBudget} />
 
             <button
               onClick={generateTrip}
               style={{ background: 'linear-gradient(135deg, #C4952A, #8B6914)', color: '#fff', width: '100%', padding: 12, borderRadius: 14, fontSize: '1rem', marginTop: 6 }}
             >
-              ✨ اقترح رحلتي
+              {lang === 'ar' ? '✨ اقترح رحلتي' : '✨ Suggest My Trip'}
             </button>
           </>
         ) : (
           <>
-            <h2 style={{ color: '#8B6914', marginBottom: 14 }}>🎉 خططنالك رحلة!</h2>
+            <h2 style={{ color: '#8B6914', marginBottom: 14 }}>{lang === 'ar' ? '🎉 خططنالك رحلة!' : '🎉 Your trip is ready!'}</h2>
             <div style={{ borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', border: '1px solid #f0e0b0' }}>
-              <img src={result.place.img} alt={result.place.name} style={{ width: '100%', height: 180, objectFit: 'cover' }} />
+              <img src={result.place.img} alt={resultName} style={{ width: '100%', height: 180, objectFit: 'cover' }} />
               <div style={{ padding: 16 }}>
-                <h3 style={{ color: '#8B6914', marginBottom: 6 }}>{result.place.name}</h3>
-                <p style={{ color: '#555', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: 10 }}>{result.place.desc}</p>
+                <h3 style={{ color: '#8B6914', marginBottom: 6 }}>{resultName}</h3>
+                <p style={{ color: '#555', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: 10 }}>{resultDesc}</p>
                 <div style={{ background: '#faf6ec', borderRadius: 10, padding: 12, marginBottom: 10 }}>
-                  <strong style={{ fontSize: '0.85rem', color: '#8B6914' }}>ليش اخترنالك هاد المكان؟</strong>
-                  <ul style={{ margin: '6px 0 0', paddingRight: 18, fontSize: '0.8rem', color: '#555' }}>
+                  <strong style={{ fontSize: '0.85rem', color: '#8B6914' }}>{lang === 'ar' ? 'ليش اخترنالك هاد المكان؟' : 'Why we picked this place for you'}</strong>
+                  <ul style={{ margin: '6px 0 0', paddingRight: lang === 'ar' ? 18 : 0, paddingLeft: lang === 'ar' ? 0 : 18, fontSize: '0.8rem', color: '#555' }}>
                     {result.reasons.map((r, i) => <li key={i}>{r}</li>)}
                   </ul>
                 </div>
                 {result.duration && (
                   <p style={{ fontSize: '0.85rem', color: '#777', marginBottom: 12 }}>
-                    ⏱️ مدة الزيارة المتوقعة: {durationLabel(result.duration)}
+                    {lang === 'ar' ? `⏱️ مدة الزيارة المتوقعة: ${durationLabel(result.duration, lang)}` : `⏱️ Expected visit duration: ${durationLabel(result.duration, lang)}`}
                   </p>
                 )}
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -1625,13 +1779,13 @@ function TripPlanner({ onClose, onOpenMap, userPlaces }) {
                     onClick={() => { onOpenMap(result.place); onClose(); }}
                     style={{ flex: 1, background: '#5a3e1b', color: '#fff', padding: 10, borderRadius: 10 }}
                   >
-                    📍 افتح على الخريطة
+                    {lang === 'ar' ? '📍 افتح على الخريطة' : '📍 Open on Map'}
                   </button>
                   <button
                     onClick={resetPlanner}
                     style={{ flex: 1, background: '#faf6ec', color: '#8B6914', padding: 10, borderRadius: 10, border: '1px solid #e8d5a3' }}
                   >
-                    🔄 جرب رحلة تانية
+                    {lang === 'ar' ? '🔄 جرب رحلة تانية' : '🔄 Try Another Trip'}
                   </button>
                 </div>
               </div>
@@ -1643,7 +1797,7 @@ function TripPlanner({ onClose, onOpenMap, userPlaces }) {
   );
 }
 
-function AITripBuilder({ onClose, userPlaces }) {
+function AITripBuilder({ onClose, userPlaces, lang = 'ar' }) {
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -1651,7 +1805,7 @@ function AITripBuilder({ onClose, userPlaces }) {
 
   const handleGenerate = () => {
     if (!prompt.trim() || prompt.trim().length < 5) {
-      setError('اكتب وصف واضح لرحلتك (مثلاً: معي 3 أيام وبدي أطلع عالعقبة)');
+      setError(lang === 'ar' ? 'اكتب وصف واضح لرحلتك (مثلاً: معي 3 أيام وبدي أطلع عالعقبة)' : 'Write a clear description of your trip (e.g., "I have 3 days and want to visit Aqaba")');
       return;
     }
 
@@ -1662,10 +1816,10 @@ function AITripBuilder({ onClose, userPlaces }) {
     // نظام محلي بالكامل — فوري وبدون أي اتصال خارجي أو مفتاح API
     setTimeout(() => {
       try {
-        const result = buildLocalTripPlan(prompt.trim(), userPlaces);
+        const result = buildLocalTripPlan(prompt.trim(), userPlaces, lang);
         setTrip(result);
       } catch (err) {
-        setError('صار خطأ أثناء بناء الرحلة، جرب مرة ثانية 🙏');
+        setError(lang === 'ar' ? 'صار خطأ أثناء بناء الرحلة، جرب مرة ثانية 🙏' : 'Something went wrong while building the trip, please try again 🙏');
       } finally {
         setLoading(false);
       }
@@ -1691,22 +1845,22 @@ function AITripBuilder({ onClose, userPlaces }) {
       onClick={onClose}
     >
       <div
-        style={{ background: '#fff', borderRadius: 20, padding: 24, maxWidth: 520, width: '100%', maxHeight: '85vh', overflowY: 'auto', textAlign: 'right', position: 'relative', boxShadow: '0 15px 40px rgba(0,0,0,0.3)' }}
+        style={{ background: '#fff', borderRadius: 20, padding: 24, maxWidth: 520, width: '100%', maxHeight: '85vh', overflowY: 'auto', textAlign: lang === 'ar' ? 'right' : 'left', position: 'relative', boxShadow: '0 15px 40px rgba(0,0,0,0.3)' }}
         onClick={(e) => e.stopPropagation()}
       >
         <button onClick={onClose} style={{ position: 'absolute', top: 12, left: 12, border: 'none', background: 'none', fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
 
         {!trip ? (
           <>
-            <h2 style={{ color: '#8B6914', marginBottom: 4 }}>🤖 ابنيلي رحلة بالـ AI</h2>
+            <h2 style={{ color: '#8B6914', marginBottom: 4 }}>{lang === 'ar' ? '🤖 ابنيلي رحلة بالـ AI' : '🤖 Build My Trip with AI'}</h2>
             <p style={{ color: '#777', fontSize: '0.9rem', marginBottom: 18 }}>
-              احكيلي عن رحلتك بأي أسلوب، وأنا بجهزلك جدول كامل بالأماكن والفطور والغدا والميزانية
+              {lang === 'ar' ? 'احكيلي عن رحلتك بأي أسلوب، وأنا بجهزلك جدول كامل بالأماكن والفطور والغدا والميزانية' : "Tell me about your trip in your own words, and I'll prepare a full schedule with places, breakfast, lunch, and budget"}
             </p>
 
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="مثال: معي 3 أيام وبدي أطلع عالعقبة، بحب الأكل البحري والسباحة"
+              placeholder={lang === 'ar' ? 'مثال: معي 3 أيام وبدي أطلع عالعقبة، بحب الأكل البحري والسباحة' : 'Example: I have 3 days and want to visit Aqaba, I love seafood and swimming'}
               rows={4}
               style={{
                 width: '100%',
@@ -1740,18 +1894,20 @@ function AITripBuilder({ onClose, userPlaces }) {
                 opacity: loading ? 0.7 : 1,
               }}
             >
-              {loading ? '⏳ جاري بناء رحلتك...' : '✨ ابنِ الرحلة'}
+              {loading ? (lang === 'ar' ? '⏳ جاري بناء رحلتك...' : '⏳ Building your trip...') : (lang === 'ar' ? '✨ ابنِ الرحلة' : '✨ Build the Trip')}
             </button>
           </>
         ) : (
           <>
             <h2 style={{ color: '#8B6914', marginBottom: 4 }}>🤖 {trip.title}</h2>
-            <p style={{ color: '#777', fontSize: '0.85rem', marginBottom: 16 }}>رحلة {trip.totalDays} يوم مبنية خصيصاً إلك</p>
+            <p style={{ color: '#777', fontSize: '0.85rem', marginBottom: 16 }}>
+              {lang === 'ar' ? `رحلة ${trip.totalDays} يوم مبنية خصيصاً إلك` : `A ${trip.totalDays}-day trip built just for you`}
+            </p>
 
             {trip.days?.map((day, i) => (
               <div key={i} style={{ background: '#faf6ec', borderRadius: 14, padding: 16, marginBottom: 12, border: '1px solid #e8d5a3' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <h4 style={{ color: '#8B6914', margin: 0 }}>اليوم {day.dayNumber}: {day.title}</h4>
+                  <h4 style={{ color: '#8B6914', margin: 0 }}>{lang === 'ar' ? `اليوم ${day.dayNumber}: ${day.title}` : `Day ${day.dayNumber}: ${day.title}`}</h4>
                   {day.estimatedBudget && (
                     <span style={{ fontSize: '0.75rem', color: '#8B6914', background: '#fff', padding: '4px 10px', borderRadius: 999, border: '1px solid #e8d5a3' }}>
                       💰 {day.estimatedBudget}
@@ -1777,8 +1933,8 @@ function AITripBuilder({ onClose, userPlaces }) {
 
             {trip.tips?.length > 0 && (
               <div style={{ background: '#fff8e6', borderRadius: 12, padding: 14, marginBottom: 14 }}>
-                <strong style={{ fontSize: '0.85rem', color: '#8B6914' }}>💡 نصائح لرحلتك</strong>
-                <ul style={{ margin: '8px 0 0', paddingRight: 18, fontSize: '0.8rem', color: '#555' }}>
+                <strong style={{ fontSize: '0.85rem', color: '#8B6914' }}>{lang === 'ar' ? '💡 نصائح لرحلتك' : '💡 Tips for your trip'}</strong>
+                <ul style={{ margin: '8px 0 0', paddingRight: lang === 'ar' ? 18 : 0, paddingLeft: lang === 'ar' ? 0 : 18, fontSize: '0.8rem', color: '#555' }}>
                   {trip.tips.map((tip, i) => <li key={i}>{tip}</li>)}
                 </ul>
               </div>
@@ -1788,7 +1944,7 @@ function AITripBuilder({ onClose, userPlaces }) {
               onClick={resetBuilder}
               style={{ width: '100%', background: '#faf6ec', color: '#8B6914', padding: 10, borderRadius: 10, border: '1px solid #e8d5a3' }}
             >
-              🔄 ابنِ رحلة تانية
+              {lang === 'ar' ? '🔄 ابنِ رحلة تانية' : '🔄 Build Another Trip'}
             </button>
           </>
         )}
@@ -1797,12 +1953,19 @@ function AITripBuilder({ onClose, userPlaces }) {
   );
 }
 
-function RahalChatbot({ userLocation, userPlaces }) {
+function RahalChatbot({ userLocation, userPlaces, lang = 'ar' }) {
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState([{ from: 'bot', text: 'مرحباً! 👋 كيف يمكنني مساعدتك اليوم؟' }]);
+  const [chatMessages, setChatMessages] = useState([{ from: 'bot', text: lang === 'ar' ? 'مرحباً! 👋 كيف يمكنني مساعدتك اليوم؟' : 'Hi! 👋 How can I help you today?' }]);
   const [chatInput, setChatInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
+
+  // لو المستخدم بدّل اللغة، منحدّث رسالة الترحيب الأولى بس (لو ما بلّش محادثة فعلية بعد)
+  useEffect(() => {
+    setChatMessages(prev => (prev.length === 1 && prev[0].from === 'bot'
+      ? [{ from: 'bot', text: lang === 'ar' ? 'مرحباً! 👋 كيف يمكنني مساعدتك اليوم؟' : 'Hi! 👋 How can I help you today?' }]
+      : prev));
+  }, [lang]);
 
   const sendChatMessage = async () => {
     if (!chatInput.trim() || loading) return;
@@ -1810,33 +1973,35 @@ function RahalChatbot({ userLocation, userPlaces }) {
     setChatInput('');
     setChatMessages(prev => [...prev, { from: 'user', text: question }]);
     setLoading(true);
-    const replyText = await getRahalResponse(question, userLocation, userPlaces);
+    const replyText = await getRahalResponse(question, userLocation, userPlaces, lang);
     setChatMessages(prev => [...prev, { from: 'bot', text: replyText }]);
     setLoading(false);
   };
 
   return (
-    <div style={{ position: 'fixed', bottom: 20, insetInlineEnd: 20, zIndex: 1000, direction: 'rtl' }}>
+    <div style={{ position: 'fixed', bottom: 20, insetInlineEnd: 20, zIndex: 1000, direction: lang === 'ar' ? 'rtl' : 'ltr' }}>
       {chatOpen && (
         <div style={{ width: 'min(380px, 90vw)', height: 'min(560px, 75vh)', background: '#fff', borderRadius: 16, boxShadow: '0 8px 30px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', marginBottom: 12, overflow: 'hidden' }}>
           <div style={{ background: '#b8860b', color: '#fff', padding: '14px 16px', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {!avatarError && (
-                <img src="/rahal.png" alt="رحال" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', objectPosition: 'top center', border: '2px solid #fff' }} onError={() => setAvatarError(true)} />
+                <img src="/rahal.png" alt="Rahhal" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', objectPosition: 'top center', border: '2px solid #fff' }} onError={() => setAvatarError(true)} />
               )}
-              رحال
+              {lang === 'ar' ? 'رحال' : 'Rahhal'}
             </span>
             <span style={{ cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => setChatOpen(false)}>✕</span>
           </div>
           <div style={{ flex: 1, overflowY: 'auto', padding: 14, background: '#faf6ec' }}>
             {chatMessages.map((m, i) => (
-              <div key={i} style={{ textAlign: m.from === 'bot' ? 'right' : 'left', margin: '10px 0' }}>
+              <div key={i} style={{ textAlign: m.from === 'bot' ? (lang === 'ar' ? 'right' : 'left') : (lang === 'ar' ? 'left' : 'right'), margin: '10px 0' }}>
                 <span style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 12, background: m.from === 'bot' ? '#f1e2b3' : '#e0e0e0', fontSize: '0.9rem', whiteSpace: 'pre-line', maxWidth: '85%' }}>{m.text}</span>
               </div>
             ))}
             {loading && (
-              <div style={{ textAlign: 'right', margin: '10px 0' }}>
-                <span style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 12, background: '#f1e2b3', fontSize: '0.9rem' }}>⏳ جاري التفكير...</span>
+              <div style={{ textAlign: lang === 'ar' ? 'right' : 'left', margin: '10px 0' }}>
+                <span style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 12, background: '#f1e2b3', fontSize: '0.9rem' }}>
+                  {lang === 'ar' ? '⏳ جاري التفكير...' : '⏳ Thinking...'}
+                </span>
               </div>
             )}
           </div>
@@ -1845,7 +2010,7 @@ function RahalChatbot({ userLocation, userPlaces }) {
               value={chatInput}
               onChange={e => setChatInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') sendChatMessage(); }}
-              placeholder="اسأل رحال..."
+              placeholder={lang === 'ar' ? 'اسأل رحال...' : 'Ask Rahhal...'}
               style={{ flex: 1, border: 'none', padding: 12, fontSize: '0.9rem', outline: 'none' }}
             />
             <button onClick={sendChatMessage} style={{ border: 'none', background: '#b8860b', color: '#fff', padding: '0 18px', cursor: 'pointer', fontSize: '1.1rem' }}>➤</button>
@@ -1855,10 +2020,10 @@ function RahalChatbot({ userLocation, userPlaces }) {
       <button
         onClick={() => setChatOpen(!chatOpen)}
         style={{ width: 66, height: 66, borderRadius: '50%', background: avatarError ? '#b8860b' : 'transparent', border: '3px solid #b8860b', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.35)', padding: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', color: '#fff' }}
-        aria-label="رحال"
+        aria-label={lang === 'ar' ? 'رحال' : 'Rahhal'}
       >
         {avatarError ? '🧭' : (
-          <img src="/rahal.png" alt="رحال" width="66" height="66" style={{ display: 'block', width: '66px', height: '66px', objectFit: 'cover', objectPosition: 'top center', borderRadius: '50%' }} onError={() => setAvatarError(true)} />
+          <img src="/rahal.png" alt="Rahhal" width="66" height="66" style={{ display: 'block', width: '66px', height: '66px', objectFit: 'cover', objectPosition: 'top center', borderRadius: '50%' }} onError={() => setAvatarError(true)} />
         )}
       </button>
     </div>
@@ -2278,20 +2443,20 @@ return () => unsubscribe();
     <div className="App" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       {showGenderModal && (
   <div className="gender-modal">
-    <h3>اختار صورة حسابك</h3>
+    <h3>{lang === 'ar' ? 'اختار صورة حسابك' : 'Choose your avatar'}</h3>
 
     <button onClick={() => {
       updateGender('female');
       setShowGenderModal(false);
     }}>
-      👩 بنت
+      {lang === 'ar' ? '👩 بنت' : '👩 Female'}
     </button>
 
     <button onClick={() => {
       updateGender('male');
       setShowGenderModal(false);
     }}>
-      👨 شب
+      {lang === 'ar' ? '👨 شب' : '👨 Male'}
     </button>
   </div>
 )}
@@ -2302,14 +2467,14 @@ return () => unsubscribe();
             {lang === 'ar' ? '🌐 English' : '🌐 العربية'}
           </button>
           <button className="lang-btn" onClick={() => setShowLeaderboard(prev => !prev)}>
-            🏆 أفضل الرحالة
+            {lang === 'ar' ? '🏆 أفضل الرحالة' : '🏆 Top Explorers'}
           </button>
           <button className="lang-btn" onClick={() => setShowAbout(true)}>
             {lang === 'ar' ? 'عن رحلتي' : 'About'}
           </button>
           {user && (
             <button className="lang-btn" onClick={openFavoritesPage}>
-              ❤️ المفضلة
+              {lang === 'ar' ? '❤️ المفضلة' : '❤️ Favorites'}
             </button>
           )}
           {user ? (
@@ -2344,7 +2509,7 @@ return () => unsubscribe();
       )}
 
       {showLeaderboard && (
-        <Leaderboard onClose={() => setShowLeaderboard(false)} />
+        <Leaderboard onClose={() => setShowLeaderboard(false)} lang={lang} />
       )}
 
       {showAbout && (
@@ -2443,11 +2608,11 @@ return () => unsubscribe();
       )}
 
       {showTripPlanner && (
-        <TripPlanner onClose={() => setShowTripPlanner(false)} onOpenMap={openMap} userPlaces={userPlaces} />
+        <TripPlanner onClose={() => setShowTripPlanner(false)} onOpenMap={openMap} userPlaces={userPlaces} lang={lang} />
       )}
 
       {showAiTripBuilder && (
-        <AITripBuilder onClose={() => setShowAiTripBuilder(false)} userPlaces={userPlaces} />
+        <AITripBuilder onClose={() => setShowAiTripBuilder(false)} userPlaces={userPlaces} lang={lang} />
       )}
 
       {weeklyTopPhoto && (
@@ -2482,9 +2647,11 @@ return () => unsubscribe();
 
       {showFavoritesPage && !selectedPlace && !debouncedSearchQuery && (
         <div>
-          <h2>❤️ الأماكن المفضلة</h2>
+          <h2>{lang === 'ar' ? '❤️ الأماكن المفضلة' : '❤️ Favorite Places'}</h2>
           {favoriteKeys.length === 0 ? (
-            <p className="login-hint" style={{ textAlign: 'center' }}>ما ضفت أي مكان للمفضلة بعد، دوس ❤️ على أي بطاقة منطقة!</p>
+            <p className="login-hint" style={{ textAlign: 'center' }}>
+              {lang === 'ar' ? 'ما ضفت أي مكان للمفضلة بعد، دوس ❤️ على أي بطاقة منطقة!' : "You haven't added any favorites yet — tap ❤️ on any place card!"}
+            </p>
           ) : (
             <div className="places-grid">
               {favoriteKeys.map(key => places[key] ? renderPlace(key, places[key]) : null)}
@@ -2532,7 +2699,7 @@ return () => unsubscribe();
           <div className="places-grid">{summerKeys.map(key => renderPlace(key, places[key]))}</div>
           {userSummerPlaces.length > 0 && (
             <div>
-              <h2>🌟 مناطق أضافها الزوار</h2>
+              <h2>{lang === 'ar' ? '🌟 مناطق أضافها الزوار' : '🌟 Places Added by Visitors'}</h2>
               <div className="places-grid">{userSummerPlaces.map((p) => renderPlace(p.id, p, true))}</div>
             </div>
           )}
@@ -2545,7 +2712,7 @@ return () => unsubscribe();
           <div className="places-grid">{winterKeys.map(key => renderPlace(key, places[key]))}</div>
           {userWinterPlaces.length > 0 && (
             <div>
-              <h2>🌟 مناطق أضافها الزوار</h2>
+              <h2>{lang === 'ar' ? '🌟 مناطق أضافها الزوار' : '🌟 Places Added by Visitors'}</h2>
               <div className="places-grid">{userWinterPlaces.map((p) => renderPlace(p.id, p, true))}</div>
             </div>
           )}
@@ -2558,7 +2725,7 @@ return () => unsubscribe();
           <div className="places-grid">{springKeys.map(key => renderPlace(key, places[key]))}</div>
           {userSpringPlaces.length > 0 && (
             <div>
-              <h2>🌟 مناطق أضافها الزوار</h2>
+              <h2>{lang === 'ar' ? '🌟 مناطق أضافها الزوار' : '🌟 Places Added by Visitors'}</h2>
               <div className="places-grid">{userSpringPlaces.map((p) => renderPlace(p.id, p, true))}</div>
             </div>
           )}
@@ -2575,8 +2742,10 @@ return () => unsubscribe();
             onClick={(e) => e.stopPropagation()}
           >
             <button onClick={closeGalleryModal} style={{ position: 'absolute', top: 12, left: 12, border: 'none', background: 'none', fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
-            <h3 style={{ color: '#8B6914', marginBottom: 4 }}>🖼️ معرض صور {galleryModalData.placeName}</h3>
-            <p style={{ color: '#777', fontSize: '0.85rem', marginBottom: 14 }}>{galleryModalData.photos.length} صورة — دوس على أي وحدة لتكبيرها</p>
+            <h3 style={{ color: '#8B6914', marginBottom: 4 }}>{lang === 'ar' ? `🖼️ معرض صور ${galleryModalData.placeName}` : `🖼️ ${galleryModalData.placeName} Photo Gallery`}</h3>
+            <p style={{ color: '#777', fontSize: '0.85rem', marginBottom: 14 }}>
+              {lang === 'ar' ? `${galleryModalData.photos.length} صورة — دوس على أي وحدة لتكبيرها` : `${galleryModalData.photos.length} photos — tap any one to enlarge`}
+            </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
               {galleryModalData.photos.map((photoObj, i) => (
                 <img
@@ -2644,7 +2813,7 @@ return () => unsubscribe();
         </div>
       )}
 
-      <RahalChatbot userLocation={userLocation} userPlaces={userPlaces} />
+      <RahalChatbot userLocation={userLocation} userPlaces={userPlaces} lang={lang} />
     </div>
   );
 }
