@@ -2543,7 +2543,18 @@ return () => unsubscribe();
               <button className="logout-btn" onClick={logOut}>{t.logout}</button>
             </div>
           ) : (
-            <button className="login-btn" onClick={signInWithGoogle}>{t.login}</button>
+            <button
+              className="login-btn"
+              onClick={() => {
+                signInWithGoogle().catch((err) => {
+                  // نعرض كود الخطأ الحقيقي بدل ما يختفي بصمت — هاد بالضبط
+                  // اللي محتاجينه نشخص مشكلة سفاري
+                  showToast(`⚠️ ${err.code || err.message || (lang === 'ar' ? 'صار خطأ غير متوقع' : 'An unexpected error occurred')}`);
+                });
+              }}
+            >
+              {t.login}
+            </button>
           )}
         </div>
       </div>
