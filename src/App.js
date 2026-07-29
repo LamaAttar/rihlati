@@ -2,7 +2,7 @@ import './App.css';
 import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import { db } from './firebase';
-import { auth, signInWithGoogle, logOut } from './Auth';
+import { auth, signInWithGoogle, logOut, checkRedirectResult } from './Auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, setDoc, getDoc, arrayUnion, arrayRemove, collection, addDoc, getDocs, increment, query, orderBy, limit, deleteDoc } from 'firebase/firestore';
 import L from 'leaflet';
@@ -2116,6 +2116,13 @@ function App() {
   }, [searchQuery]);
 
   useEffect(() => {
+    // لو المستخدم رجع لتوه من صفحة تسجيل الدخول بجوجل (طريقة الـ redirect
+    // المستخدمة بالموبايل)، منمسك النتيجة هون. لو صار خطأ، منعرضه فوراً
+    // بدل ما يختفي بصمت (نفس مشكلة auth/popup-blocked يلي كانت بالسابق)
+    checkRedirectResult().catch((err) => {
+      showToast(`⚠️ ${err.code || err.message || 'خطأ أثناء تسجيل الدخول'}`);
+    });
+
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
