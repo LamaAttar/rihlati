@@ -1087,13 +1087,13 @@ function EcoBanner({ lang = 'ar' }) {
   );
 }
 
-function StarRating({ placeKey, ratings, setRatings, user, onRated }) {
+function StarRating({ placeKey, ratings, setRatings, user, onRated, lang = 'ar' }) {
   const ratingData = ratings[placeKey] || { avg: 0, count: 0 };
   const avg = ratingData.avg || 0;
   const count = ratingData.count || 0;
 
   const handleRate = async (star) => {
-    if (!user) return alert('سجل دخول أولاً لتقييم المنطقة');
+    if (!user) return showToast(lang === 'ar' ? 'سجل دخول أولاً لتقييم المنطقة' : 'Please log in first to rate this place');
     try {
       const ref = doc(db, 'ratings', placeKey);
       const snap = await getDoc(ref);
@@ -1228,14 +1228,14 @@ function AddPlaceForm({ user, onAdd, onPointsEarned, lang = 'ar' }) {
       const data = await res.json();
       setImgUrl(data.secure_url);
     } catch (e) {
-      alert(t.imgError);
+      showToast(t.imgError);
     }
     setUploading(false);
   };
 
   const handleSubmit = async () => {
-    if (!name || !desc || !imgUrl) return alert(t.fillAllError);
-    if (!placeLat || !placeLng) return alert(t.locationError);
+    if (!name || !desc || !imgUrl) return showToast(t.fillAllError);
+    if (!placeLat || !placeLng) return showToast(t.locationError);
     const newPlace = {
       name, desc, season, img: imgUrl,
       food: food || null,
@@ -1317,6 +1317,43 @@ function StatPinIcon() {
   );
 }
 
+// ============================================================
+// نظام إشعارات Toast — بديل أنيق لنافذة alert() الرمادية المتطفلة
+// من المتصفح. أي مكان بالكود بيقدر يستدعي showToast(...) مباشرة
+// (حتى لو مكوّن بعيد عن App)، وبينبعث حدث عام يلتقطه ToastContainer
+// ============================================================
+function showToast(message, type = 'error') {
+  window.dispatchEvent(new CustomEvent('rl-toast', { detail: { message, type } }));
+}
+
+function ToastContainer() {
+  const [toasts, setToasts] = useState([]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      const id = Date.now() + Math.random();
+      setToasts((prev) => [...prev, { id, ...e.detail }]);
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 3200);
+    };
+    window.addEventListener('rl-toast', handler);
+    return () => window.removeEventListener('rl-toast', handler);
+  }, []);
+
+  if (toasts.length === 0) return null;
+
+  return (
+    <div className="rl-toast-stack">
+      {toasts.map((t) => (
+        <div key={t.id} className={`rl-toast rl-toast--${t.type}`}>
+          {t.message}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Avatar({ user, size, gender }) {
 
   if (gender === "female") {
@@ -1395,8 +1432,8 @@ function WeatherCard({ latitude, longitude, placeName, lang = 'ar' }) {
   }
   if (loading) {
     return (
-      <div className="weather-card-mini weather-card-static">
-        {lang === 'ar' ? '⏳ جاري جلب حالة الطقس...' : '⏳ Fetching weather...'}
+      <div className="weather-card-mini weather-card-static" style={{ justifyContent: 'flex-start' }}>
+        <div className="rl-skeleton-line" style={{ width: '55%', height: 14 }} />
       </div>
     );
   }
@@ -1567,7 +1604,17 @@ function Leaderboard({ onClose, lang = 'ar' }) {
       <button onClick={onClose} style={{ position: 'absolute', top: 12, left: 12, border: 'none', background: 'none', fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
       <h2 style={{ color: '#8B6914', marginBottom: 16 }}>{lang === 'ar' ? '🏆 أفضل الرحالة' : '🏆 Top Explorers'}</h2>
       {loading ? (
-        <p>{lang === 'ar' ? '⏳ جاري التحميل...' : '⏳ Loading...'}</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {[1, 2, 3].map((i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#faf6ec', borderRadius: 12, padding: '10px 14px' }}>
+              <div className="rl-skeleton-line" style={{ width: 30, height: 30, borderRadius: '50%', marginBottom: 0 }} />
+              <div style={{ flex: 1 }}>
+                <div className="rl-skeleton-line" style={{ width: '50%', marginBottom: 6 }} />
+                <div className="rl-skeleton-line" style={{ width: '30%', height: 8, marginBottom: 0 }} />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : topUsers.length === 0 ? (
         <p style={{ color: '#999' }}>{lang === 'ar' ? 'لسا ما في نقاط مسجلة' : 'No points recorded yet'}</p>
       ) : (
@@ -1662,7 +1709,7 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar' }) {
 
   const generateTrip = () => {
     if (!season || !companion || !time || !budget) {
-      alert(lang === 'ar' ? 'لازم تختاري كل الخيارات الأربعة الأول 🙏' : 'Please choose all four options first 🙏');
+      showToast(lang === 'ar' ? 'لازم تختاري كل الخيارات الأربعة الأول 🙏' : 'Please choose all four options first 🙏');
       return;
     }
     let best = null;
@@ -2191,7 +2238,7 @@ return () => unsubscribe();
   };
 
   const toggleFavorite = async (key) => {
-    if (!user) return alert('سجل دخول أولاً لإضافة للمفضلة');
+    if (!user) return showToast(lang === 'ar' ? 'سجل دخول أولاً لإضافة للمفضلة' : 'Please log in first to add favorites');
     const isFav = favoriteKeys.includes(key);
     try {
       const ref = doc(db, 'favorites', user.uid);
@@ -2229,7 +2276,7 @@ return () => unsubscribe();
       });
       awardPoints(-20);
     } catch (e) {
-      alert('صار خطأ أثناء الحذف، جرب مرة ثانية');
+      showToast(lang === 'ar' ? 'صار خطأ أثناء الحذف، جرب مرة ثانية' : 'Something went wrong while deleting, please try again');
     }
   };
 
@@ -2248,12 +2295,12 @@ return () => unsubscribe();
       closeLightbox();
       closeGalleryModal();
     } catch (e) {
-      alert('صار خطأ أثناء حذف الصورة، جرب مرة ثانية');
+      showToast(lang === 'ar' ? 'صار خطأ أثناء حذف الصورة، جرب مرة ثانية' : 'Something went wrong while deleting the photo, please try again');
     }
   };
 
   const handleToggleLike = async (placeKey, photoObj) => {
-    if (!user) return alert('سجل دخول أولاً عشان تحط لايك');
+    if (!user) return showToast(lang === 'ar' ? 'سجل دخول أولاً عشان تحط لايك' : 'Please log in first to like this');
     try {
       const currentPhotos = placePhotos[placeKey] || [];
       const updatedPhotos = currentPhotos.map((p) => {
@@ -2370,7 +2417,7 @@ return () => unsubscribe();
         {place.lat && <WeatherCard latitude={place.lat} longitude={place.lng} placeName={placeName} lang={lang} />}
         <p>{placeDesc}</p>
         {placeFood && <p className="food-line">🍽️ {lang === 'ar' ? 'يشتهر بـ:' : 'Famous for:'} {placeFood}</p>}
-        {!isUserPlace && <StarRating placeKey={key} ratings={ratings} setRatings={setRatings} user={user} onRated={() => awardPoints(3)} />}
+        {!isUserPlace && <StarRating placeKey={key} ratings={ratings} setRatings={setRatings} user={user} onRated={() => awardPoints(3)} lang={lang} />}
         {place.lat && (
           <>
             <button onClick={() => openMap(place)}>{t.map}</button>
@@ -2382,7 +2429,16 @@ return () => unsubscribe();
             <button onClick={() => toggleDetails(key, place)}>{t.services}</button>
             {openPlace === key && (
               <div className="services">
-                {loadingServices ? <p>{t.loading}</p> : (
+                {loadingServices ? (
+                  <div className="rl-skeleton-group">
+                    <div className="rl-skeleton-line" style={{ width: '40%', height: 14, marginBottom: 10 }} />
+                    <div className="rl-skeleton-line" style={{ width: '85%' }} />
+                    <div className="rl-skeleton-line" style={{ width: '70%' }} />
+                    <div className="rl-skeleton-line" style={{ width: '40%', height: 14, margin: '14px 0 10px' }} />
+                    <div className="rl-skeleton-line" style={{ width: '90%' }} />
+                    <div className="rl-skeleton-line" style={{ width: '60%' }} />
+                  </div>
+                ) : (
                   <>
                     <h4>🍽️ {lang === 'ar' ? 'مطاعم قريبة' : 'Nearby Restaurants'}</h4>
                     {restaurants.length > 0 ? restaurants.map((s, i) => <p key={i}>🍽️ {s.tags.name}</p>) : <p>{t.noServices}</p>}
@@ -2441,6 +2497,7 @@ return () => unsubscribe();
 
   return (
     <div className="App" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+      <ToastContainer />
       {showGenderModal && (
   <div className="gender-modal">
     <h3>{lang === 'ar' ? 'اختار صورة حسابك' : 'Choose your avatar'}</h3>
