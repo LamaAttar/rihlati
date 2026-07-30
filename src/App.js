@@ -622,6 +622,8 @@ const OVERPASS_SERVERS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass.openstreetmap.ru/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+  'https://overpass.osm.ch/api/interpreter',
 ];
 
 async function runOverpassQuery(query) {
@@ -651,8 +653,12 @@ async function fetchNearbyRestaurants(lat, lng) {
     if (result.length > 0) setCachedServices(cacheKey, result);
     return result;
   } catch (e) {
-    // كل السيرفرات فشلت — نرجع الكاش القديم لو موجود (حتى لو قديم شوي) بدل ما نرجع فاضي
-    return getCachedServices(cacheKey) || [];
+    // كل السيرفرات فشلت — نرجع الكاش القديم لو موجود (حتى لو قديم شوي)، ومنعلّم
+    // النتيجة كـ "فشل اتصال مؤقت" عشان الواجهة تفرّق بينه وبين "فعلاً ما في خدمات"
+    const cached = getCachedServices(cacheKey);
+    const result = cached || [];
+    result.failed = !cached;
+    return result;
   }
 }
 
@@ -666,7 +672,10 @@ async function fetchNearbySupportServices(lat, lng) {
     if (result.length > 0) setCachedServices(cacheKey, result);
     return result;
   } catch (e) {
-    return getCachedServices(cacheKey) || [];
+    const cached = getCachedServices(cacheKey);
+    const result = cached || [];
+    result.failed = !cached;
+    return result;
   }
 }
 
@@ -2084,6 +2093,7 @@ function App() {
   const [services, setServices] = useState([]);
   const [restaurants, setRestaurants] = useState([]);
   const [loadingServices, setLoadingServices] = useState(false);
+  const [servicesFetchFailed, setServicesFetchFailed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [ratings, setRatings] = useState({});
@@ -2331,6 +2341,7 @@ return () => unsubscribe();
   const toggleDetails = async (key, place) => {
     if (openPlace === key) { setOpenPlace(''); setServices([]); setRestaurants([]); return; }
     setOpenPlace(key);
+    setServicesFetchFailed(false);
 
     // نعرض النتائج المخزّنة (من زيارة سابقة) فوراً بدون أي انتظار، لو موجودة
     const cachedSupport = getCachedServices(getServicesCacheKey('support', place.lat, place.lng));
@@ -2357,6 +2368,25 @@ return () => unsubscribe();
         setServices(supportResult.slice(0, 10));
         setRestaurants(restaurantResult.slice(0, 6));
         setLoadingServices(false);
+        setServicesFetchFailed(Boolean(supportResult.failed || restaurantResult.failed));
+      }
+      return current;
+    });
+  };
+
+  const retryServices = async (key, place) => {
+    setLoadingServices(true);
+    setServicesFetchFailed(false);
+    const [supportResult, restaurantResult] = await Promise.all([
+      fetchNearbySupportServices(place.lat, place.lng),
+      fetchNearbyRestaurants(place.lat, place.lng),
+    ]);
+    setOpenPlace((current) => {
+      if (current === key) {
+        setServices(supportResult.slice(0, 10));
+        setRestaurants(restaurantResult.slice(0, 6));
+        setLoadingServices(false);
+        setServicesFetchFailed(Boolean(supportResult.failed || restaurantResult.failed));
       }
       return current;
     });
@@ -2444,6 +2474,18 @@ return () => unsubscribe();
                     <div className="rl-skeleton-line" style={{ width: '40%', height: 14, margin: '14px 0 10px' }} />
                     <div className="rl-skeleton-line" style={{ width: '90%' }} />
                     <div className="rl-skeleton-line" style={{ width: '60%' }} />
+                  </div>
+                ) : servicesFetchFailed ? (
+                  <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                    <p style={{ color: '#c0392b', marginBottom: 8 }}>
+                      {lang === 'ar' ? '⚠️ تعذر الاتصال بالخدمة مؤقتاً — مش معناها إنه ما في خدمات، بس السيرفر مشغول هلق' : '⚠️ Temporarily unable to connect — this doesn\'t mean there are no services, the server is just busy right now'}
+                    </p>
+                    <button
+                      onClick={() => retryServices(key, place)}
+                      style={{ background: '#faf6ec', color: '#8B6914', padding: '8px 18px', borderRadius: 10, border: '1px solid #e8d5a3', fontSize: '0.85rem' }}
+                    >
+                      {lang === 'ar' ? '🔄 حاول مرة ثانية' : '🔄 Try Again'}
+                    </button>
                   </div>
                 ) : (
                   <>
