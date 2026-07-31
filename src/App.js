@@ -567,6 +567,32 @@ function getLevelInfo(points, lang = 'ar') {
   return { label: 'مستكشف مبتدئ', icon: '🥉' };
 }
 
+// المناطق الطبيعية — تستخدم لتحديد وسام "عاشق الطبيعة"
+const NATURE_PLACE_KEYS = ['dana', 'wadirum', 'mujib', 'ajloun', 'mainhot', 'azraqwetland', 'deisa', 'birgish', 'ummalnaml', 'himma'];
+
+// ============================================================
+// أوسمة محددة بالاسم — بديل/إضافة لنظام المستويات العام
+// كل وسام مبني على سلوك فعلي: مناطق قيّمها، مناطق طبيعية زارها، رحلات بناها
+// ============================================================
+function getBadges(ratedPlaceKeys = [], tripsBuilt = 0, addedPlaceKeys = [], lang = 'ar') {
+  const badges = [];
+  const rated = ratedPlaceKeys || [];
+  if (rated.length >= 5) {
+    badges.push({ icon: '🏅', label: lang === 'ar' ? 'مكتشف الأردن' : 'Jordan Discoverer', desc: lang === 'ar' ? 'قيّم أو راجع أو ضاف 5 مناطق أو أكتر' : 'Rated, reviewed, or added 5+ places' });
+  }
+  const natureCount = rated.filter((k) => NATURE_PLACE_KEYS.includes(k)).length;
+  if (natureCount >= 3) {
+    badges.push({ icon: '🌿', label: lang === 'ar' ? 'عاشق الطبيعة' : 'Nature Lover', desc: lang === 'ar' ? 'قيّم 3 مناطق طبيعية أو أكتر' : 'Rated 3+ nature places' });
+  }
+  if (tripsBuilt >= 10) {
+    badges.push({ icon: '🧭', label: lang === 'ar' ? 'رحّالة محترف' : 'Pro Traveler', desc: lang === 'ar' ? 'بنى 10 رحلات أو أكتر' : 'Built 10+ trips' });
+  }
+  if ((addedPlaceKeys || []).length >= 3) {
+    badges.push({ icon: '🗺️', label: lang === 'ar' ? 'باني الأردن' : 'Jordan Builder', desc: lang === 'ar' ? 'أضاف 3 مناطق جديدة أو أكتر بنفسه' : 'Personally added 3+ new places' });
+  }
+  return badges;
+}
+
 // ============================================================
 // كاش الخدمات القريبة — نخزّن النتيجة 6 ساعات بالمتصفح، عشان
 // لما نرجع نفتح نفس المكان ما نستنى الـ API من الصفر كل مرة
@@ -1115,6 +1141,10 @@ function StarRating({ placeKey, ratings, setRatings, user, onRated, lang = 'ar' 
       }
       await setDoc(ref, { avg: newAvg, count: newCount });
       setRatings({ ...ratings, [placeKey]: { avg: newAvg, count: newCount } });
+      // نتتبع المناطق يلي قيّمها المستخدم — أساس وسامي "مكتشف الأردن" و"عاشق الطبيعة"
+      try {
+        await setDoc(doc(db, 'userProfiles', user.uid), { ratedPlaceKeys: arrayUnion(placeKey) }, { merge: true });
+      } catch (e) {}
       if (onRated) onRated();
     } catch (e) {}
   };
@@ -1126,7 +1156,131 @@ function StarRating({ placeKey, ratings, setRatings, user, onRated, lang = 'ar' 
       ))}
       {count > 0
         ? <span style={{ fontSize:'0.9rem', color:'#555' }}> ({avg.toFixed(1)}/5 | {count} تقييم)</span>
-        : <span className="no-rating-msg">كن أول من يقيم المكان ✨</span>}
+        : <span className="no-rating-msg">ولسا محدا قيّم هالمكان ✨</span>}
+    </div>
+  );
+}
+
+// ============================================================
+// مراجعات نصية كاملة لكل منطقة — أبعد من النجوم بس، بتعرض تجارب
+// حقيقية مكتوبة من زوار، وبتسمح لأي مستخدم مسجّل يكتب تجربته
+// ============================================================
+function PlaceReviews({ placeKey, user, lang = 'ar', onReviewed }) {
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [draftStars, setDraftStars] = useState(5);
+  const [draftText, setDraftText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'reviews', placeKey));
+        if (!cancelled && snap.exists()) {
+          setReviews((snap.data().items || []).slice().reverse());
+        }
+      } catch (e) {}
+      if (!cancelled) setLoading(false);
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [placeKey]);
+
+  const submitReview = async () => {
+    if (!user) return showToast(lang === 'ar' ? 'سجل دخول أولاً عشان تكتب مراجعة' : 'Please log in first to write a review');
+    if (draftText.trim().length < 5) {
+      return showToast(lang === 'ar' ? 'اكتبي كم كلمة عن تجربتك على الأقل' : 'Please write at least a few words about your experience');
+    }
+    setSubmitting(true);
+    const newReview = {
+      text: draftText.trim(),
+      rating: draftStars,
+      authorName: user.displayName,
+      authorUid: user.uid,
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      await setDoc(doc(db, 'reviews', placeKey), { items: arrayUnion(newReview) }, { merge: true });
+      setReviews((prev) => [newReview, ...prev]);
+      setDraftText('');
+      setShowForm(false);
+      // نفس منطق تتبع الأوسمة — كتابة مراجعة تعتبر كمان تفاعل حقيقي مع المكان
+      await setDoc(doc(db, 'userProfiles', user.uid), { ratedPlaceKeys: arrayUnion(placeKey) }, { merge: true }).catch(() => {});
+      if (onReviewed) onReviewed();
+    } catch (e) {
+      showToast(lang === 'ar' ? 'صار خطأ أثناء نشر المراجعة، جرب مرة ثانية' : 'Something went wrong while posting your review, please try again');
+    }
+    setSubmitting(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="rl-reviews">
+        <div className="rl-skeleton-line" style={{ width: '60%' }} />
+        <div className="rl-skeleton-line" style={{ width: '40%' }} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="rl-reviews">
+      <div className="rl-reviews-head">
+        <h4>{lang === 'ar' ? '📝 تجارب الزوار' : '📝 Visitor Reviews'} {reviews.length > 0 && `(${reviews.length})`}</h4>
+        {user && !showForm && (
+          <button type="button" className="rl-review-btn" onClick={() => setShowForm(true)}>
+            {lang === 'ar' ? '✍️ شارك تجربتك' : '✍️ Share your experience'}
+          </button>
+        )}
+      </div>
+
+      {showForm && (
+        <div className="rl-review-form">
+          <div style={{ marginBottom: 8 }}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <span
+                key={star}
+                onClick={() => setDraftStars(star)}
+                style={{ cursor: 'pointer', fontSize: '1.3rem', color: star <= draftStars ? '#ffb703' : '#ccc' }}
+              >★</span>
+            ))}
+          </div>
+          <textarea
+            value={draftText}
+            onChange={(e) => setDraftText(e.target.value)}
+            placeholder={lang === 'ar' ? 'أفضل شي أعجبني كان...' : 'The best thing I loved was...'}
+            rows={3}
+            className="rl-review-textarea"
+          />
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button type="button" onClick={submitReview} disabled={submitting} className="rl-review-submit">
+              {submitting ? (lang === 'ar' ? '⏳ جاري النشر...' : '⏳ Posting...') : (lang === 'ar' ? 'نشر' : 'Post')}
+            </button>
+            <button type="button" onClick={() => setShowForm(false)} className="rl-review-cancel">
+              {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {reviews.length === 0 ? (
+        <p className="no-rating-msg" style={{ padding: '4px 0' }}>
+          {lang === 'ar' ? 'لسا ما في مراجعات مكتوبة لهالمكان ✨' : 'No written reviews yet — be the first to share your experience ✨'}
+        </p>
+      ) : (
+        <div className="rl-review-list">
+          {reviews.slice(0, 4).map((r, i) => (
+            <div className="rl-review-item" key={i}>
+              <div className="rl-review-item-head">
+                <strong>{r.authorName || (lang === 'ar' ? 'زائر' : 'Visitor')}</strong>
+                <span className="rl-review-stars">{'★'.repeat(r.rating || 0)}</span>
+              </div>
+              <p>{r.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1256,6 +1410,14 @@ function AddPlaceForm({ user, onAdd, onPointsEarned, lang = 'ar' }) {
     const docRef = await addDoc(collection(db, 'userPlaces'), newPlace);
     onAdd({ id: docRef.id, ...newPlace });
     if (onPointsEarned) onPointsEarned();
+    // إضافة منطقة جديدة كمان بتحسب كمساهمة حقيقية — بتدخل بحساب وسام "مكتشف الأردن"
+    // ومنخزنها كمان بحقل منفصل addedPlaceKeys عشان وسام "باني الأردن" المخصص للإضافات فقط
+    try {
+      await setDoc(doc(db, 'userProfiles', user.uid), {
+        ratedPlaceKeys: arrayUnion(docRef.id),
+        addedPlaceKeys: arrayUnion(docRef.id),
+      }, { merge: true });
+    } catch (e) {}
     setName(''); setDesc(''); setImgUrl(''); setFood(''); setPlaceLat(null); setPlaceLng(null); setShow(false);
   };
 
@@ -1497,7 +1659,7 @@ function WeatherCard({ latitude, longitude, placeName, lang = 'ar' }) {
   );
 }
 
-function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocation, gender, onGenderChange, points, onClose, lang }) {
+function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocation, gender, onGenderChange, points, ratedPlaceKeys, tripsBuilt, addedPlaceKeys, onClose, lang }) {
   const myPlaces = userPlaces.filter(p => p.addedBy === user.displayName);
   const favoritePlacesList = favoriteKeys.map(k => places[k]).filter(Boolean);
 
@@ -1542,6 +1704,23 @@ function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocatio
           <p style={{ margin: 0, fontSize: '0.8rem', color: '#777' }}>{points} {lang === 'ar' ? 'نقطة' : 'points'}</p>
         </div>
       </div>
+
+      {(() => {
+        const badges = getBadges(ratedPlaceKeys, tripsBuilt, addedPlaceKeys, lang);
+        return badges.length > 0 ? (
+          <div style={{ marginBottom: 14 }}>
+            <h3 style={{ fontSize: '1rem', marginBottom: 8 }}>{lang === 'ar' ? '🏆 الأوسمة' : '🏆 Badges'}</h3>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {badges.map((b, i) => (
+                <div key={i} title={b.desc} style={{ background: 'linear-gradient(135deg, #C4952A, #8B6914)', color: '#fff', borderRadius: 12, padding: '8px 14px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: '1.1rem' }}>{b.icon}</span>
+                  <span>{b.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null;
+      })()}
 
       <WeatherCard latitude={userLocation?.lat} longitude={userLocation?.lng} lang={lang} />
 
@@ -1635,6 +1814,13 @@ function Leaderboard({ onClose, lang = 'ar' }) {
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 'bold' }}>{u.name || (lang === 'ar' ? 'مستخدم' : 'User')}</div>
                 <div style={{ fontSize: '0.8rem', color: '#777' }}>{getLevelInfo(u.points || 0, lang).icon} {getLevelInfo(u.points || 0, lang).label}</div>
+                {getBadges(u.ratedPlaceKeys, u.tripsBuilt, u.addedPlaceKeys, lang).length > 0 && (
+                  <div style={{ marginTop: 3 }}>
+                    {getBadges(u.ratedPlaceKeys, u.tripsBuilt, u.addedPlaceKeys, lang).map((b, bi) => (
+                      <span key={bi} title={b.label} style={{ fontSize: '0.95rem', marginInlineEnd: 4 }}>{b.icon}</span>
+                    ))}
+                  </div>
+                )}
               </div>
               <strong style={{ color: '#8B6914' }}>{u.points || 0}</strong>
             </div>
@@ -1760,6 +1946,9 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar' }) {
         if (best.place.addedBy) reasons.push(`A place discovered by another visitor (${best.place.addedBy}) 🌟`);
       }
       setResult({ ...best, reasons, duration: meta.duration });
+      if (auth.currentUser) {
+        setDoc(doc(db, 'userProfiles', auth.currentUser.uid), { tripsBuilt: increment(1) }, { merge: true }).catch(() => {});
+      }
     }
   };
 
@@ -1874,6 +2063,9 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar' }) {
       try {
         const result = buildLocalTripPlan(prompt.trim(), userPlaces, lang);
         setTrip(result);
+        if (auth.currentUser) {
+          setDoc(doc(db, 'userProfiles', auth.currentUser.uid), { tripsBuilt: increment(1) }, { merge: true }).catch(() => {});
+        }
       } catch (err) {
         setError(lang === 'ar' ? 'صار خطأ أثناء بناء الرحلة، جرب مرة ثانية 🙏' : 'Something went wrong while building the trip, please try again 🙏');
       } finally {
@@ -2102,6 +2294,8 @@ function App() {
   const [placePhotos, setPlacePhotos] = useState({});
   const [lang, setLang] = useState('ar');
   const [lightboxData, setLightboxData] = useState(null);
+  const [showLightboxComments, setShowLightboxComments] = useState(false);
+  const [lightboxCommentDraft, setLightboxCommentDraft] = useState('');
   const [galleryModalData, setGalleryModalData] = useState(null);
   const [userPlaces, setUserPlaces] = useState([]);
   const [favoriteKeys, setFavoriteKeys] = useState([]);
@@ -2109,6 +2303,9 @@ function App() {
   const [gender, setGender] = useState(null);
   const [showGenderModal, setShowGenderModal] = useState(false);
   const [points, setPoints] = useState(0);
+  const [userRatedPlaces, setUserRatedPlaces] = useState([]);
+  const [userTripsBuilt, setUserTripsBuilt] = useState(0);
+  const [userAddedPlaces, setUserAddedPlaces] = useState([]);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showFavoritesPage, setShowFavoritesPage] = useState(false);
   const [showTripPlanner, setShowTripPlanner] = useState(false);
@@ -2224,6 +2421,9 @@ function App() {
         setShowGenderModal(true);
       }
       setPoints(profileData.points || 0);
+      setUserRatedPlaces(profileData.ratedPlaceKeys || []);
+      setUserTripsBuilt(profileData.tripsBuilt || 0);
+      setUserAddedPlaces(profileData.addedPlaceKeys || []);
     } catch (e) {}
 
   } else {
@@ -2231,6 +2431,9 @@ function App() {
     setGender(null);
     setShowGenderModal(false);
     setPoints(0);
+    setUserRatedPlaces([]);
+    setUserTripsBuilt(0);
+    setUserAddedPlaces([]);
   }
 });
 
@@ -2338,6 +2541,28 @@ return () => unsubscribe();
     } catch (e) {}
   };
 
+  const handleAddComment = async (placeKey, photoObj, text) => {
+    if (!user) return showToast(lang === 'ar' ? 'سجل دخول أولاً عشان تكتب تعليق' : 'Please log in first to comment');
+    if (!text || !text.trim()) return;
+    try {
+      const currentPhotos = placePhotos[placeKey] || [];
+      const newComment = { text: text.trim(), authorName: user.displayName, authorUid: user.uid, createdAt: new Date().toISOString() };
+      const updatedPhotos = currentPhotos.map((p) => {
+        if (p.url === photoObj.url && p.uploadedAt === photoObj.uploadedAt) {
+          const comments = p.comments || [];
+          return { ...p, comments: [...comments, newComment] };
+        }
+        return p;
+      });
+      await setDoc(doc(db, 'photos', placeKey), { items: updatedPhotos }, { merge: true });
+      setPlacePhotos((prev) => ({ ...prev, [placeKey]: updatedPhotos }));
+      setLightboxData((prev) => (prev && prev.placeKey === placeKey ? { ...prev, photos: updatedPhotos } : prev));
+      setGalleryModalData((prev) => (prev && prev.placeKey === placeKey ? { ...prev, photos: updatedPhotos } : prev));
+    } catch (e) {
+      showToast(lang === 'ar' ? 'صار خطأ أثناء إضافة التعليق' : 'Something went wrong while adding the comment');
+    }
+  };
+
   const toggleDetails = async (key, place) => {
     if (openPlace === key) { setOpenPlace(''); setServices([]); setRestaurants([]); return; }
     setOpenPlace(key);
@@ -2412,9 +2637,9 @@ return () => unsubscribe();
 
   const goHome = () => { setSeason(''); setOpenPlace(''); setSelectedPlace(null); setServices([]); setRestaurants([]); setSearchQuery(''); setMapServices([]); setShowFavoritesPage(false); };
   const openLightbox = (photos, index, placeNameForLightbox, placeKeyForLightbox) => setLightboxData({ photos, index, placeName: placeNameForLightbox, placeKey: placeKeyForLightbox });
-  const closeLightbox = () => setLightboxData(null);
-  const lightboxPrev = () => setLightboxData(prev => prev ? { ...prev, index: (prev.index - 1 + prev.photos.length) % prev.photos.length } : null);
-  const lightboxNext = () => setLightboxData(prev => prev ? { ...prev, index: (prev.index + 1) % prev.photos.length } : null);
+  const closeLightbox = () => { setLightboxData(null); setShowLightboxComments(false); setLightboxCommentDraft(''); };
+  const lightboxPrev = () => { setShowLightboxComments(false); setLightboxCommentDraft(''); setLightboxData(prev => prev ? { ...prev, index: (prev.index - 1 + prev.photos.length) % prev.photos.length } : null); };
+  const lightboxNext = () => { setShowLightboxComments(false); setLightboxCommentDraft(''); setLightboxData(prev => prev ? { ...prev, index: (prev.index + 1) % prev.photos.length } : null); };
   const openGalleryModal = (photos, placeNameForGallery, placeKeyForGallery) => setGalleryModalData({ photos, placeName: placeNameForGallery, placeKey: placeKeyForGallery });
   const closeGalleryModal = () => setGalleryModalData(null);
   const openFavoritesPage = () => { setSeason(''); setSelectedPlace(null); setSearchQuery(''); setShowFavoritesPage(true); };
@@ -2455,6 +2680,7 @@ return () => unsubscribe();
         <p>{placeDesc}</p>
         {placeFood && <p className="food-line">🍽️ {lang === 'ar' ? 'يشتهر بـ:' : 'Famous for:'} {placeFood}</p>}
         {!isUserPlace && <StarRating placeKey={key} ratings={ratings} setRatings={setRatings} user={user} onRated={() => awardPoints(3)} lang={lang} />}
+        {!isUserPlace && <PlaceReviews placeKey={key} user={user} lang={lang} onReviewed={() => awardPoints(5)} />}
         {place.lat && (
           <>
             <button onClick={() => openMap(place)}>{t.map}</button>
@@ -2620,6 +2846,9 @@ return () => unsubscribe();
           gender={gender}
           onGenderChange={updateGender}
           points={points}
+          ratedPlaceKeys={userRatedPlaces}
+          tripsBuilt={userTripsBuilt}
+          addedPlaceKeys={userAddedPlaces}
           onClose={() => setShowProfile(false)}
           lang={lang}
         />
@@ -2707,7 +2936,7 @@ return () => unsubscribe();
                           <span style={{ fontSize: '0.78rem', color: '#888' }}> ({ratingData.avg.toFixed(1)})</span>
                         </>
                       ) : (
-                        <span className="no-rating-msg" style={{ padding: 0 }}>كن أول من يقيم المكان ✨</span>
+                        <span className="no-rating-msg" style={{ padding: 0 }}>ولسا محدا قيّم هالمكان ✨</span>
                       )}
                     </div>
                     <button
@@ -2909,10 +3138,68 @@ return () => unsubscribe();
 
           <button
             onClick={(e) => { e.stopPropagation(); handleToggleLike(lightboxData.placeKey, lightboxData.photos[lightboxData.index]); }}
-            style={{ position: 'absolute', bottom: 66, left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 20, padding: '6px 16px', color: '#fff', cursor: 'pointer', fontSize: '0.9rem' }}
+            style={{ position: 'absolute', bottom: 66, left: 'calc(50% - 55px)', transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 20, padding: '6px 16px', color: '#fff', cursor: 'pointer', fontSize: '0.9rem' }}
           >
             {(lightboxData.photos[lightboxData.index].likes || []).some((l) => (l && l.uid) === user?.uid) ? '❤️' : '🤍'} {(lightboxData.photos[lightboxData.index].likes || []).length}
           </button>
+
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowLightboxComments((v) => !v); }}
+            style={{ position: 'absolute', bottom: 66, left: 'calc(50% + 55px)', transform: 'translateX(-50%)', background: showLightboxComments ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 20, padding: '6px 16px', color: '#fff', cursor: 'pointer', fontSize: '0.9rem' }}
+          >
+            💬 {(lightboxData.photos[lightboxData.index].comments || []).length}
+          </button>
+
+          {showLightboxComments && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ position: 'absolute', bottom: 100, insetInlineEnd: 16, width: 'min(320px, 85vw)', maxHeight: '55vh', background: '#fff', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', boxShadow: '0 8px 30px rgba(0,0,0,0.4)' }}
+            >
+              <div style={{ overflowY: 'auto', flex: 1, marginBottom: 10, maxHeight: '32vh' }}>
+                {(lightboxData.photos[lightboxData.index].comments || []).length === 0 ? (
+                  <p style={{ color: '#999', fontSize: '0.85rem', textAlign: 'center' }}>
+                    {lang === 'ar' ? 'لسا ما في تعليقات، كوني أول وحدة! 💬' : 'No comments yet, be the first! 💬'}
+                  </p>
+                ) : (
+                  (lightboxData.photos[lightboxData.index].comments || []).map((c, i) => (
+                    <div key={i} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid #f0e0b0' }}>
+                      <strong style={{ fontSize: '0.8rem', color: '#8B6914' }}>{c.authorName || (lang === 'ar' ? 'زائر' : 'Visitor')}</strong>
+                      <p style={{ fontSize: '0.85rem', color: '#444', margin: '2px 0 0' }}>{c.text}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+              {user ? (
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input
+                    value={lightboxCommentDraft}
+                    onChange={(e) => setLightboxCommentDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && lightboxCommentDraft.trim()) {
+                        handleAddComment(lightboxData.placeKey, lightboxData.photos[lightboxData.index], lightboxCommentDraft);
+                        setLightboxCommentDraft('');
+                      }
+                    }}
+                    placeholder={lang === 'ar' ? 'اكتب تعليق...' : 'Write a comment...'}
+                    style={{ flex: 1, border: '1px solid #e8d5a3', borderRadius: 10, padding: '6px 10px', fontSize: '0.85rem', outline: 'none' }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (lightboxCommentDraft.trim()) {
+                        handleAddComment(lightboxData.placeKey, lightboxData.photos[lightboxData.index], lightboxCommentDraft);
+                        setLightboxCommentDraft('');
+                      }
+                    }}
+                    style={{ background: '#b8860b', color: '#fff', border: 'none', borderRadius: 10, padding: '0 14px', cursor: 'pointer' }}
+                  >➤</button>
+                </div>
+              ) : (
+                <p style={{ color: '#999', fontSize: '0.78rem', textAlign: 'center' }}>
+                  {lang === 'ar' ? 'سجل دخول عشان تكتب تعليق' : 'Log in to write a comment'}
+                </p>
+              )}
+            </div>
+          )}
 
           <div style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', color: '#fff', fontSize: '0.9rem', background: 'rgba(0,0,0,0.5)', padding: '6px 16px', borderRadius: 20 }}>
             {lightboxData.index + 1} من {lightboxData.photos.length}

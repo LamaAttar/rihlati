@@ -140,6 +140,98 @@ body {
 }
 
 
+/* ===== المراجعات النصية ===== */
+.rl-reviews {
+  margin: 10px 15px 4px;
+  padding: 12px;
+  background: #fdf8f0;
+  border-radius: 12px;
+  border: 1px solid #f0e0b0;
+}
+.rl-reviews-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.rl-reviews-head h4 {
+  color: #8B6914;
+  font-size: 0.9rem;
+  margin: 0;
+}
+.rl-review-btn {
+  background: #faf6ec !important;
+  color: #8B6914 !important;
+  border: 1px solid #e8d5a3 !important;
+  padding: 5px 12px !important;
+  border-radius: 14px !important;
+  font-size: 0.78rem !important;
+  margin: 0 !important;
+}
+.rl-review-form {
+  margin-top: 8px;
+}
+.rl-review-textarea {
+  width: 100%;
+  border: 1.5px solid #e8d5a3;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  background: #fff;
+}
+.rl-review-submit {
+  background: linear-gradient(135deg, #C4952A, #8B6914) !important;
+  color: #fff !important;
+  padding: 6px 16px !important;
+  border-radius: 10px !important;
+  font-size: 0.8rem !important;
+  margin: 0 !important;
+}
+.rl-review-cancel {
+  background: #eee !important;
+  color: #666 !important;
+  padding: 6px 16px !important;
+  border-radius: 10px !important;
+  font-size: 0.8rem !important;
+  margin: 0 !important;
+}
+.rl-review-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rl-review-item {
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.rl-review-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3px;
+}
+.rl-review-item-head strong {
+  font-size: 0.82rem;
+  color: #5a3e1b;
+}
+.rl-review-stars {
+  color: #ffb703;
+  font-size: 0.78rem;
+}
+.rl-review-item p {
+  font-size: 0.82rem;
+  color: #555;
+  margin: 0;
+  line-height: 1.5;
+}
+
 .rl-toast-stack {
   position: fixed;
   bottom: 24px;
