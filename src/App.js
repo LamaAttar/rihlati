@@ -1191,7 +1191,7 @@ function PlaceReviews({ placeKey, user, lang = 'ar', onReviewed }) {
   const submitReview = async () => {
     if (!user) return showToast(lang === 'ar' ? 'سجل دخول أولاً عشان تكتب مراجعة' : 'Please log in first to write a review');
     if (draftText.trim().length < 5) {
-      return showToast(lang === 'ar' ? 'اكتبي كم كلمة عن تجربتك على الأقل' : 'Please write at least a few words about your experience');
+      return showToast(lang === 'ar' ? 'لازم كم كلمة عن التجربة على الأقل' : 'Please write at least a few words about your experience');
     }
     setSubmitting(true);
     const newReview = {
@@ -1213,6 +1213,18 @@ function PlaceReviews({ placeKey, user, lang = 'ar', onReviewed }) {
       showToast(lang === 'ar' ? 'صار خطأ أثناء نشر المراجعة، جرب مرة ثانية' : 'Something went wrong while posting your review, please try again');
     }
     setSubmitting(false);
+  };
+
+  const deleteReview = async (reviewToDelete) => {
+    try {
+      const remaining = reviews.filter(
+        (r) => !(r.createdAt === reviewToDelete.createdAt && r.authorUid === reviewToDelete.authorUid)
+      );
+      await setDoc(doc(db, 'reviews', placeKey), { items: remaining.slice().reverse() }, { merge: false });
+      setReviews(remaining);
+    } catch (e) {
+      showToast(lang === 'ar' ? 'صار خطأ أثناء حذف المراجعة' : 'Something went wrong while deleting the review');
+    }
   };
 
   if (loading) {
@@ -1274,7 +1286,16 @@ function PlaceReviews({ placeKey, user, lang = 'ar', onReviewed }) {
             <div className="rl-review-item" key={i}>
               <div className="rl-review-item-head">
                 <strong>{r.authorName || (lang === 'ar' ? 'زائر' : 'Visitor')}</strong>
-                <span className="rl-review-stars">{'★'.repeat(r.rating || 0)}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="rl-review-stars">{'★'.repeat(r.rating || 0)}</span>
+                  {user && r.authorUid === user.uid && (
+                    <button
+                      onClick={() => deleteReview(r)}
+                      style={{ background: 'none', border: 'none', color: '#c0392b', fontSize: '0.85rem', cursor: 'pointer', padding: 0 }}
+                      title={lang === 'ar' ? 'احذف مراجعتي' : 'Delete my review'}
+                    >🗑️</button>
+                  )}
+                </span>
               </div>
               <p>{r.text}</p>
             </div>
@@ -2563,6 +2584,28 @@ return () => unsubscribe();
     }
   };
 
+  const handleDeleteComment = async (placeKey, photoObj, commentToDelete) => {
+    if (!user) return;
+    try {
+      const currentPhotos = placePhotos[placeKey] || [];
+      const updatedPhotos = currentPhotos.map((p) => {
+        if (p.url === photoObj.url && p.uploadedAt === photoObj.uploadedAt) {
+          const comments = (p.comments || []).filter(
+            (c) => !(c.createdAt === commentToDelete.createdAt && c.authorUid === commentToDelete.authorUid)
+          );
+          return { ...p, comments };
+        }
+        return p;
+      });
+      await setDoc(doc(db, 'photos', placeKey), { items: updatedPhotos }, { merge: true });
+      setPlacePhotos((prev) => ({ ...prev, [placeKey]: updatedPhotos }));
+      setLightboxData((prev) => (prev && prev.placeKey === placeKey ? { ...prev, photos: updatedPhotos } : prev));
+      setGalleryModalData((prev) => (prev && prev.placeKey === placeKey ? { ...prev, photos: updatedPhotos } : prev));
+    } catch (e) {
+      showToast(lang === 'ar' ? 'صار خطأ أثناء حذف التعليق' : 'Something went wrong while deleting the comment');
+    }
+  };
+
   const toggleDetails = async (key, place) => {
     if (openPlace === key) { setOpenPlace(''); setServices([]); setRestaurants([]); return; }
     setOpenPlace(key);
@@ -3158,13 +3201,22 @@ return () => unsubscribe();
               <div style={{ overflowY: 'auto', flex: 1, marginBottom: 10, maxHeight: '32vh' }}>
                 {(lightboxData.photos[lightboxData.index].comments || []).length === 0 ? (
                   <p style={{ color: '#999', fontSize: '0.85rem', textAlign: 'center' }}>
-                    {lang === 'ar' ? 'لسا ما في تعليقات، كوني أول وحدة! 💬' : 'No comments yet, be the first! 💬'}
+                    {lang === 'ar' ? 'ولسا محدا علّق 💬' : 'No comments yet, be the first! 💬'}
                   </p>
                 ) : (
                   (lightboxData.photos[lightboxData.index].comments || []).map((c, i) => (
-                    <div key={i} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid #f0e0b0' }}>
-                      <strong style={{ fontSize: '0.8rem', color: '#8B6914' }}>{c.authorName || (lang === 'ar' ? 'زائر' : 'Visitor')}</strong>
-                      <p style={{ fontSize: '0.85rem', color: '#444', margin: '2px 0 0' }}>{c.text}</p>
+                    <div key={i} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid #f0e0b0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <strong style={{ fontSize: '0.8rem', color: '#8B6914' }}>{c.authorName || (lang === 'ar' ? 'زائر' : 'Visitor')}</strong>
+                        <p style={{ fontSize: '0.85rem', color: '#444', margin: '2px 0 0' }}>{c.text}</p>
+                      </div>
+                      {user && c.authorUid === user.uid && (
+                        <button
+                          onClick={() => handleDeleteComment(lightboxData.placeKey, lightboxData.photos[lightboxData.index], c)}
+                          style={{ background: 'none', border: 'none', color: '#c0392b', fontSize: '0.9rem', cursor: 'pointer', padding: 0, margin: 0 }}
+                          title={lang === 'ar' ? 'احذف تعليقي' : 'Delete my comment'}
+                        >🗑️</button>
+                      )}
                     </div>
                   ))
                 )}
