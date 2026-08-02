@@ -11,35 +11,35 @@ import translations from './translations';
 import AboutPage from './AboutPage';
 
 const places = {
-  ajloun: { name: 'عجلون', nameEn: 'Ajloun', lat: 32.33, lng: 35.75, img: '/ajloun.png', desc: 'قلعة تاريخية وسط غابات خضراء، أجواء معتدلة بالصيف 🌲', descEn: 'A historic castle amid green forests with moderate summer weather 🌲', food: 'المقلوبة والمنسف', foodEn: 'Maqluba and Mansaf', season: 'summer' },
-  irbid: { name: 'إربد', nameEn: 'Irbid', lat: 32.56, lng: 35.85, img: '/irbid.png', desc: 'مدينة العلم والثقافة بشمال الأردن، أجواء معتدلة ومعالم تاريخية عريقة 🎓', descEn: 'The city of knowledge and culture in northern Jordan, with a moderate climate and rich historical landmarks 🎓', food: 'المكمورة', foodEn: 'Makmoura (traditional northern Jordanian dish)', season: 'summer' },
-  amman: { name: 'عمّان', nameEn: 'Amman', lat: 31.95, lng: 35.93, img: '/amman.png', desc: 'عاصمة المملكة النابضة بالحياة، تجمع بين التاريخ الروماني وحيوية المدينة الحديثة 🏛️', descEn: 'The vibrant capital of the Kingdom, blending Roman history with modern city life 🏛️', food: 'المنسف والكنافة', foodEn: 'Mansaf and Knafeh', season: 'summer' },
-  jerash: { name: 'جرش', nameEn: 'Jerash', lat: 32.28, lng: 35.89, img: '/jerash.png', desc: 'مدينة رومانية أثرية من أهم المواقع التاريخية بالأردن 🏛️', descEn: 'An ancient Roman city, one of the most important historical sites in Jordan 🏛️', food: 'المسخن والمنسف', foodEn: 'Musakhan and Mansaf', season: 'summer' },
-  umqais: { name: 'أم قيس', nameEn: 'Um Qais', lat: 32.66, lng: 35.68, img: '/umqais.png', desc: 'أطلال رومانية تطل على بحيرة طبريا والجولان 🏛️', descEn: 'Roman ruins overlooking the Sea of Galilee and the Golan Heights 🏛️', food: 'المسخن وزيت الزيتون البلدي', foodEn: 'Musakhan and local olive oil', season: 'summer' },
-  deadsea: { name: 'البحر الميت', nameEn: 'Dead Sea', lat: 31.70, lng: 35.60, img: '/dead-sea.png', desc: 'أخفض نقطة على سطح الأرض، مياه مالحة وطمي علاجي 🌊', descEn: 'The lowest point on Earth with healing salt water and therapeutic mud 🌊', food: 'التمر ومنتجات الطمي الطبيعية', foodEn: 'Dates and natural Dead Sea mud products', season: 'summer' },
-  shouna: { name: 'الشونة', nameEn: 'Shouna', lat: 32.34, lng: 35.58, img: '/shouna.png', desc: 'منطقة زراعية خضراء جميلة في الأغوار الشمالية 🌿', descEn: 'A beautiful green agricultural area in the Northern Jordan Valley 🌿', food: 'الخضار والفواكه الطازجة', foodEn: 'Fresh fruits and vegetables', season: 'summer' },
-  salt: { name: 'السلط', nameEn: 'Salt', lat: 32.03, lng: 35.72, img: '/salt.png', desc: 'مدينة تراثية عريقة مدرجة على قائمة التراث العالمي 🏘️', descEn: 'An ancient heritage city listed as a UNESCO World Heritage Site 🏘️', food: 'الكعك السلطي والعصبان', foodEn: "Salt-style Ka'ak and Osban", season: 'summer' },
-  ummjimal: { name: 'أم الجمال', nameEn: 'Umm el-Jimal', lat: 32.32, lng: 36.34, img: '/ummjimal.png', desc: 'مدينة أثرية بازلتية سوداء نادرة الطراز شمال شرق الأردن 🏛️', descEn: 'A rare black basalt ancient city in northeastern Jordan 🏛️', food: 'الفريكة ولبن الماعز', foodEn: 'Freekeh and goat yogurt', season: 'summer' },
-  pella: { name: 'بيلا (طبقة فحل)', nameEn: 'Pella', lat: 32.45, lng: 35.61, img: '/pella.png', desc: 'مدينة أثرية بالأغوار الشمالية تعود لآلاف السنين 🏛️', descEn: 'An ancient city in the Northern Jordan Valley dating back thousands of years 🏛️', food: 'المسخن وزيت الزيتون', foodEn: 'Musakhan and olive oil', season: 'summer' },
-  mujib: { name: 'محمية وادي الموجب', nameEn: 'Wadi Mujib Reserve', lat: 31.48, lng: 35.58, img: '/mujib.png', desc: '"الجراند كانيون" الأردني، مسارات مياه ومغامرة وسط الطبيعة 🏞️', descEn: "Jordan's 'Grand Canyon', water trails and adventure amid stunning nature 🏞️", food: 'المنسف والمقلوبة', foodEn: 'Mansaf and Maqluba', season: 'summer' },
-  tafilah: { name: 'الطفيلة', nameEn: 'Tafilah', lat: 30.84, lng: 35.60, img: '/tafilah.png', desc: 'مدينة جبلية جنوبية، بوابة محمية ضانا وأجواء معتدلة صيفاً ⛰️', descEn: "A southern mountain city, gateway to Dana Reserve with mild summer weather ⛰️", food: 'زيت الزيتون والمقلوبة', foodEn: 'Olive oil and Maqluba', season: 'summer' },
-  petra: { name: 'البتراء', nameEn: 'Petra', lat: 30.33, lng: 35.44, img: '/petra.png', desc: 'إحدى عجائب الدنيا السبع، أجواء دافئة بالشتاء ☀️', descEn: 'One of the Seven Wonders of the World with warm winter weather ☀️', food: 'الزرب البدوي والمنسف', foodEn: 'Bedouin Zarb and Mansaf', season: 'winter' },
-  wadirum: { name: 'وادي رم', nameEn: 'Wadi Rum', lat: 29.58, lng: 35.42, img: '/wadirum.png', desc: 'صحراء ساحرة بألوانها الذهبية، تجربة تخييم لا تُنسى 🏜️', descEn: 'A magical desert with golden colors and unforgettable camping experience 🏜️', food: 'الزرب (الطبخ تحت الرمل) والشاي البدوي', foodEn: 'Zarb (sand-buried BBQ) and Bedouin tea', season: 'winter' },
-  aqaba: { name: 'العقبة', nameEn: 'Aqaba', lat: 29.53, lng: 35.01, img: '/aqaba.png', desc: 'مدينة ساحلية دافئة بالشتاء، بحر أحمر ومرجان رائع 🌊', descEn: 'A warm coastal city in winter with the Red Sea and amazing coral reefs 🌊', food: 'السياديّة والمأكولات البحرية', foodEn: 'Sayadieh and fresh seafood', season: 'winter' },
-  madaba: { name: 'مادبا', nameEn: 'Madaba', lat: 31.71, lng: 35.79, img: '/madaba.png', desc: 'مدينة الفسيفساء والكنائس التاريخية الرائعة ⛪', descEn: 'The city of mosaics and amazing historic churches ⛪', food: 'المنسف والمقلوبة', foodEn: 'Mansaf and Maqluba', season: 'winter' },
-  karak: { name: 'الكرك', nameEn: 'Karak', lat: 31.18, lng: 35.70, img: '/karak.png', desc: 'قلعة صليبية شامخة تطل على البحر الميت 🏰', descEn: 'A towering Crusader castle overlooking the Dead Sea 🏰', food: 'المنسف الكركي الأصيل', foodEn: 'Authentic Karak-style Mansaf', season: 'winter' },
-  deisa: { name: 'الديسة', nameEn: 'Deisa', lat: 29.69, lng: 35.47, img: '/deisa.png', desc: 'وادي ساحر بين الجبال الحمراء، مشي وطبيعة خلابة 🏔️', descEn: 'An enchanting valley between red mountains with stunning nature 🏔️', food: 'الزرب البدوي', foodEn: 'Bedouin Zarb', season: 'winter' },
-  dana: { name: 'محمية ضانا', nameEn: 'Dana Reserve', lat: 30.67, lng: 35.60, img: '/dana.png', desc: 'أكبر محمية طبيعية بالأردن، تنوع حيوي مذهل وسط جبال ووديان خلابة 🏔️', descEn: 'The largest nature reserve in Jordan, with amazing biodiversity amid stunning mountains and valleys 🏔️', food: 'أعشاب برية ومنتجات محلية عضوية', foodEn: 'Wild herbs and local organic products', season: 'winter' },
-  mainhot: { name: 'حمامات ماعين', nameEn: "Ma'in Hot Springs", lat: 31.58, lng: 35.68, img: '/mainhot.png', desc: 'شلالات ساخنة علاجية تنبع من الجبال، تجربة استرخاء فريدة وسط الطبيعة ♨️', descEn: 'Therapeutic hot waterfalls flowing from the mountains, a unique relaxation experience amid nature ♨️', food: 'الشاي بالميرمية والمأكولات الشعبية', foodEn: 'Sage tea and traditional dishes', season: 'winter' },
-  himma: { name: 'الحمة الأردنية', nameEn: 'Al-Himma (Jordanian Himma)', lat: 32.66, lng: 35.63, img: '/himma.png', desc: 'ينابيع كبريتية ساخنة قرب أم قيس، شهيرة بالعلاج الطبيعي شتاءً ♨️', descEn: 'Hot sulfur springs near Umm Qais, famous for natural therapy in winter ♨️', food: 'المشاوي والشاي البلدي', foodEn: 'Grilled meats and local tea', season: 'winter' },
-  azraqcastle: { name: 'قلعة الأزرق', nameEn: 'Azraq Castle', lat: 31.83, lng: 36.82, img: '/azraqcastle.png', desc: 'قلعة أثرية من الحجر البازلتي الأسود وسط الصحراء الشرقية 🏰', descEn: 'An ancient black basalt fortress in the eastern desert 🏰', food: 'الفريكة والمنسف البدوي', foodEn: 'Freekeh and Bedouin Mansaf', season: 'winter' },
-  azraqwetland: { name: 'محمية الأزرق', nameEn: 'Azraq Wetland Reserve', lat: 31.85, lng: 36.82, img: '/azraqwetland.png', desc: 'واحة صحراوية فريدة تجمع الماء والطيور المهاجرة وسط الجفاف 🦆', descEn: 'A unique desert oasis with water and migratory birds amid the arid landscape 🦆', food: 'الأسماك المحلية والتمر', foodEn: 'Local fish and dates', season: 'winter' },
-  qasramra: { name: 'قصر عمرة', nameEn: 'Qasr Amra', lat: 31.80, lng: 36.59, img: '/qasramra.png', desc: 'قصر صحراوي أموي مدرج على قائمة التراث العالمي لليونسكو 🏜️', descEn: 'An Umayyad desert castle listed as a UNESCO World Heritage Site 🏜️', food: 'القهوة العربية والتمر', foodEn: 'Arabic coffee and dates', season: 'winter' },
-  hallabat: { name: 'قصر الحلابات', nameEn: 'Qasr Al-Hallabat', lat: 32.09, lng: 36.33, img: '/hallabat.png', desc: 'قصر صحراوي أموي بأعمدة أثرية وسط الصحراء الشرقية 🏛️', descEn: 'An Umayyad desert castle with ancient columns in the eastern desert 🏛️', food: 'القهوة العربية والتمر', foodEn: 'Arabic coffee and dates', season: 'winter' },
-  shobak: { name: 'قلعة الشوبك', nameEn: 'Shobak Castle', lat: 30.53, lng: 35.56, img: '/shobak.png', desc: 'قلعة صليبية شامخة على قمة جبل بالجنوب الأردني 🏰', descEn: 'A towering Crusader castle atop a mountain in southern Jordan 🏰', food: 'المنسف الجبلي', foodEn: 'Mountain-style Mansaf', season: 'winter' },
-  ummrasas: { name: 'أم الرصاص', nameEn: 'Umm ar-Rasas', lat: 31.50, lng: 35.92, img: '/ummrasas.png', desc: 'موقع أثري مدرج على قائمة اليونسكو يضم فسيفساء رائعة 🏛️', descEn: 'A UNESCO-listed archaeological site featuring stunning mosaics 🏛️', food: 'الفريكة والمنسف البدوي', foodEn: 'Freekeh and Bedouin Mansaf', season: 'winter' },
-  birgish: { name: 'غابات برقش', nameEn: 'Birgish Forest', lat: 32.41, lng: 35.71, img: '/birgish.png', desc: 'غابات خضراء رائعة قرب إربد، وجهة مفضلة للتنزه والفرشة بالربيع 🌳', descEn: 'A beautiful green forest near Irbid, a favorite spring picnic destination 🌳', food: 'الفول والشاي بالنعناع', foodEn: 'Fava beans and mint tea', season: 'spring' },
-  ummalnaml: { name: 'أم النمل', nameEn: 'Um Al-Naml', lat: 32.45, lng: 35.69, img: '/ummalnaml.png', desc: 'وادٍ طبيعي خلاب بتلاله الخضراء وتنوعه البيئي، من أجمل وجهات الربيع بشمال الأردن 🌸', descEn: "A stunning natural valley with green hills and rich biodiversity, one of northern Jordan's most beautiful spring spots 🌸", food: 'المقلوبة والعكوب', foodEn: 'Maqluba and Akkoub', season: 'spring' },
+  ajloun: { type: 'historical', name: 'عجلون', nameEn: 'Ajloun', lat: 32.33, lng: 35.75, img: '/ajloun.png', desc: 'قلعة تاريخية وسط غابات خضراء، أجواء معتدلة بالصيف 🌲', descEn: 'A historic castle amid green forests with moderate summer weather 🌲', food: 'المقلوبة والمنسف', foodEn: 'Maqluba and Mansaf', season: 'summer' },
+  irbid: { type: 'urban', name: 'إربد', nameEn: 'Irbid', lat: 32.56, lng: 35.85, img: '/irbid.png', desc: 'مدينة العلم والثقافة بشمال الأردن، أجواء معتدلة ومعالم تاريخية عريقة 🎓', descEn: 'The city of knowledge and culture in northern Jordan, with a moderate climate and rich historical landmarks 🎓', food: 'المكمورة', foodEn: 'Makmoura (traditional northern Jordanian dish)', season: 'summer' },
+  amman: { type: 'urban', name: 'عمّان', nameEn: 'Amman', lat: 31.95, lng: 35.93, img: '/amman.png', desc: 'عاصمة المملكة النابضة بالحياة، تجمع بين التاريخ الروماني وحيوية المدينة الحديثة 🏛️', descEn: 'The vibrant capital of the Kingdom, blending Roman history with modern city life 🏛️', food: 'المنسف والكنافة', foodEn: 'Mansaf and Knafeh', season: 'summer' },
+  jerash: { type: 'historical', name: 'جرش', nameEn: 'Jerash', lat: 32.28, lng: 35.89, img: '/jerash.png', desc: 'مدينة رومانية أثرية من أهم المواقع التاريخية بالأردن 🏛️', descEn: 'An ancient Roman city, one of the most important historical sites in Jordan 🏛️', food: 'المسخن والمنسف', foodEn: 'Musakhan and Mansaf', season: 'summer' },
+  umqais: { type: 'historical', name: 'أم قيس', nameEn: 'Um Qais', lat: 32.66, lng: 35.68, img: '/umqais.png', desc: 'أطلال رومانية تطل على بحيرة طبريا والجولان 🏛️', descEn: 'Roman ruins overlooking the Sea of Galilee and the Golan Heights 🏛️', food: 'المسخن وزيت الزيتون البلدي', foodEn: 'Musakhan and local olive oil', season: 'summer' },
+  deadsea: { type: 'relaxation', name: 'البحر الميت', nameEn: 'Dead Sea', lat: 31.70, lng: 35.60, img: '/dead-sea.png', desc: 'أخفض نقطة على سطح الأرض، مياه مالحة وطمي علاجي 🌊', descEn: 'The lowest point on Earth with healing salt water and therapeutic mud 🌊', food: 'التمر ومنتجات الطمي الطبيعية', foodEn: 'Dates and natural Dead Sea mud products', season: 'summer' },
+  shouna: { type: 'nature', name: 'الشونة', nameEn: 'Shouna', lat: 32.34, lng: 35.58, img: '/shouna.png', desc: 'منطقة زراعية خضراء جميلة في الأغوار الشمالية 🌿', descEn: 'A beautiful green agricultural area in the Northern Jordan Valley 🌿', food: 'الخضار والفواكه الطازجة', foodEn: 'Fresh fruits and vegetables', season: 'summer' },
+  salt: { type: 'historical', name: 'السلط', nameEn: 'Salt', lat: 32.03, lng: 35.72, img: '/salt.png', desc: 'مدينة تراثية عريقة مدرجة على قائمة التراث العالمي 🏘️', descEn: 'An ancient heritage city listed as a UNESCO World Heritage Site 🏘️', food: 'الكعك السلطي والعصبان', foodEn: "Salt-style Ka'ak and Osban", season: 'summer' },
+  ummjimal: { type: 'historical', name: 'أم الجمال', nameEn: 'Umm el-Jimal', lat: 32.32, lng: 36.34, img: '/ummjimal.png', desc: 'مدينة أثرية بازلتية سوداء نادرة الطراز شمال شرق الأردن 🏛️', descEn: 'A rare black basalt ancient city in northeastern Jordan 🏛️', food: 'الفريكة ولبن الماعز', foodEn: 'Freekeh and goat yogurt', season: 'summer' },
+  pella: { type: 'historical', name: 'بيلا (طبقة فحل)', nameEn: 'Pella', lat: 32.45, lng: 35.61, img: '/pella.png', desc: 'مدينة أثرية بالأغوار الشمالية تعود لآلاف السنين 🏛️', descEn: 'An ancient city in the Northern Jordan Valley dating back thousands of years 🏛️', food: 'المسخن وزيت الزيتون', foodEn: 'Musakhan and olive oil', season: 'summer' },
+  mujib: { type: 'adventure', name: 'محمية وادي الموجب', nameEn: 'Wadi Mujib Reserve', lat: 31.48, lng: 35.58, img: '/mujib.png', desc: '"الجراند كانيون" الأردني، مسارات مياه ومغامرة وسط الطبيعة 🏞️', descEn: "Jordan's 'Grand Canyon', water trails and adventure amid stunning nature 🏞️", food: 'المنسف والمقلوبة', foodEn: 'Mansaf and Maqluba', season: 'summer' },
+  tafilah: { type: 'nature', name: 'الطفيلة', nameEn: 'Tafilah', lat: 30.84, lng: 35.60, img: '/tafilah.png', desc: 'مدينة جبلية جنوبية، بوابة محمية ضانا وأجواء معتدلة صيفاً ⛰️', descEn: "A southern mountain city, gateway to Dana Reserve with mild summer weather ⛰️", food: 'زيت الزيتون والمقلوبة', foodEn: 'Olive oil and Maqluba', season: 'summer' },
+  petra: { type: 'historical', name: 'البتراء', nameEn: 'Petra', lat: 30.33, lng: 35.44, img: '/petra.png', desc: 'إحدى عجائب الدنيا السبع، أجواء دافئة بالشتاء ☀️', descEn: 'One of the Seven Wonders of the World with warm winter weather ☀️', food: 'الزرب البدوي والمنسف', foodEn: 'Bedouin Zarb and Mansaf', season: 'winter' },
+  wadirum: { type: 'adventure', name: 'وادي رم', nameEn: 'Wadi Rum', lat: 29.58, lng: 35.42, img: '/wadirum.png', desc: 'صحراء ساحرة بألوانها الذهبية، تجربة تخييم لا تُنسى 🏜️', descEn: 'A magical desert with golden colors and unforgettable camping experience 🏜️', food: 'الزرب (الطبخ تحت الرمل) والشاي البدوي', foodEn: 'Zarb (sand-buried BBQ) and Bedouin tea', season: 'winter' },
+  aqaba: { type: 'relaxation', name: 'العقبة', nameEn: 'Aqaba', lat: 29.53, lng: 35.01, img: '/aqaba.png', desc: 'مدينة ساحلية دافئة بالشتاء، بحر أحمر ومرجان رائع 🌊', descEn: 'A warm coastal city in winter with the Red Sea and amazing coral reefs 🌊', food: 'السياديّة والمأكولات البحرية', foodEn: 'Sayadieh and fresh seafood', season: 'winter' },
+  madaba: { type: 'religious', name: 'مادبا', nameEn: 'Madaba', lat: 31.71, lng: 35.79, img: '/madaba.png', desc: 'مدينة الفسيفساء والكنائس التاريخية الرائعة ⛪', descEn: 'The city of mosaics and amazing historic churches ⛪', food: 'المنسف والمقلوبة', foodEn: 'Mansaf and Maqluba', season: 'winter' },
+  karak: { type: 'historical', name: 'الكرك', nameEn: 'Karak', lat: 31.18, lng: 35.70, img: '/karak.png', desc: 'قلعة صليبية شامخة تطل على البحر الميت 🏰', descEn: 'A towering Crusader castle overlooking the Dead Sea 🏰', food: 'المنسف الكركي الأصيل', foodEn: 'Authentic Karak-style Mansaf', season: 'winter' },
+  deisa: { type: 'adventure', name: 'الديسة', nameEn: 'Deisa', lat: 29.69, lng: 35.47, img: '/deisa.png', desc: 'وادي ساحر بين الجبال الحمراء، مشي وطبيعة خلابة 🏔️', descEn: 'An enchanting valley between red mountains with stunning nature 🏔️', food: 'الزرب البدوي', foodEn: 'Bedouin Zarb', season: 'winter' },
+  dana: { type: 'nature', name: 'محمية ضانا', nameEn: 'Dana Reserve', lat: 30.67, lng: 35.60, img: '/dana.png', desc: 'أكبر محمية طبيعية بالأردن، تنوع حيوي مذهل وسط جبال ووديان خلابة 🏔️', descEn: 'The largest nature reserve in Jordan, with amazing biodiversity amid stunning mountains and valleys 🏔️', food: 'أعشاب برية ومنتجات محلية عضوية', foodEn: 'Wild herbs and local organic products', season: 'winter' },
+  mainhot: { type: 'relaxation', name: 'حمامات ماعين', nameEn: "Ma'in Hot Springs", lat: 31.58, lng: 35.68, img: '/mainhot.png', desc: 'شلالات ساخنة علاجية تنبع من الجبال، تجربة استرخاء فريدة وسط الطبيعة ♨️', descEn: 'Therapeutic hot waterfalls flowing from the mountains, a unique relaxation experience amid nature ♨️', food: 'الشاي بالميرمية والمأكولات الشعبية', foodEn: 'Sage tea and traditional dishes', season: 'winter' },
+  himma: { type: 'relaxation', name: 'الحمة الأردنية', nameEn: 'Al-Himma (Jordanian Himma)', lat: 32.66, lng: 35.63, img: '/himma.png', desc: 'ينابيع كبريتية ساخنة قرب أم قيس، شهيرة بالعلاج الطبيعي شتاءً ♨️', descEn: 'Hot sulfur springs near Umm Qais, famous for natural therapy in winter ♨️', food: 'المشاوي والشاي البلدي', foodEn: 'Grilled meats and local tea', season: 'winter' },
+  azraqcastle: { type: 'historical', name: 'قلعة الأزرق', nameEn: 'Azraq Castle', lat: 31.83, lng: 36.82, img: '/azraqcastle.png', desc: 'قلعة أثرية من الحجر البازلتي الأسود وسط الصحراء الشرقية 🏰', descEn: 'An ancient black basalt fortress in the eastern desert 🏰', food: 'الفريكة والمنسف البدوي', foodEn: 'Freekeh and Bedouin Mansaf', season: 'winter' },
+  azraqwetland: { type: 'nature', name: 'محمية الأزرق', nameEn: 'Azraq Wetland Reserve', lat: 31.85, lng: 36.82, img: '/azraqwetland.png', desc: 'واحة صحراوية فريدة تجمع الماء والطيور المهاجرة وسط الجفاف 🦆', descEn: 'A unique desert oasis with water and migratory birds amid the arid landscape 🦆', food: 'الأسماك المحلية والتمر', foodEn: 'Local fish and dates', season: 'winter' },
+  qasramra: { type: 'historical', name: 'قصر عمرة', nameEn: 'Qasr Amra', lat: 31.80, lng: 36.59, img: '/qasramra.png', desc: 'قصر صحراوي أموي مدرج على قائمة التراث العالمي لليونسكو 🏜️', descEn: 'An Umayyad desert castle listed as a UNESCO World Heritage Site 🏜️', food: 'القهوة العربية والتمر', foodEn: 'Arabic coffee and dates', season: 'winter' },
+  hallabat: { type: 'historical', name: 'قصر الحلابات', nameEn: 'Qasr Al-Hallabat', lat: 32.09, lng: 36.33, img: '/hallabat.png', desc: 'قصر صحراوي أموي بأعمدة أثرية وسط الصحراء الشرقية 🏛️', descEn: 'An Umayyad desert castle with ancient columns in the eastern desert 🏛️', food: 'القهوة العربية والتمر', foodEn: 'Arabic coffee and dates', season: 'winter' },
+  shobak: { type: 'historical', name: 'قلعة الشوبك', nameEn: 'Shobak Castle', lat: 30.53, lng: 35.56, img: '/shobak.png', desc: 'قلعة صليبية شامخة على قمة جبل بالجنوب الأردني 🏰', descEn: 'A towering Crusader castle atop a mountain in southern Jordan 🏰', food: 'المنسف الجبلي', foodEn: 'Mountain-style Mansaf', season: 'winter' },
+  ummrasas: { type: 'religious', name: 'أم الرصاص', nameEn: 'Umm ar-Rasas', lat: 31.50, lng: 35.92, img: '/ummrasas.png', desc: 'موقع أثري مدرج على قائمة اليونسكو يضم فسيفساء رائعة 🏛️', descEn: 'A UNESCO-listed archaeological site featuring stunning mosaics 🏛️', food: 'الفريكة والمنسف البدوي', foodEn: 'Freekeh and Bedouin Mansaf', season: 'winter' },
+  birgish: { type: 'nature', name: 'غابات برقش', nameEn: 'Birgish Forest', lat: 32.41, lng: 35.71, img: '/birgish.png', desc: 'غابات خضراء رائعة قرب إربد، وجهة مفضلة للتنزه والفرشة بالربيع 🌳', descEn: 'A beautiful green forest near Irbid, a favorite spring picnic destination 🌳', food: 'الفول والشاي بالنعناع', foodEn: 'Fava beans and mint tea', season: 'spring' },
+  ummalnaml: { type: 'nature', name: 'أم النمل', nameEn: 'Um Al-Naml', lat: 32.45, lng: 35.69, img: '/ummalnaml.png', desc: 'وادٍ طبيعي خلاب بتلاله الخضراء وتنوعه البيئي، من أجمل وجهات الربيع بشمال الأردن 🌸', descEn: "A stunning natural valley with green hills and rich biodiversity, one of northern Jordan's most beautiful spring spots 🌸", food: 'المقلوبة والعكوب', foodEn: 'Maqluba and Akkoub', season: 'spring' },
 };
 
 const summerKeys = ['ajloun', 'irbid', 'jerash', 'umqais', 'deadsea', 'shouna', 'salt', 'amman', 'ummjimal', 'pella', 'mujib', 'tafilah'];
@@ -569,6 +569,20 @@ function getLevelInfo(points, lang = 'ar') {
 
 // المناطق الطبيعية — تستخدم لتحديد وسام "عاشق الطبيعة"
 const NATURE_PLACE_KEYS = ['dana', 'wadirum', 'mujib', 'ajloun', 'mainhot', 'azraqwetland', 'deisa', 'birgish', 'ummalnaml', 'himma'];
+
+// أنواع الأماكن — تستخدم بفلترة الصفحة الرئيسية وبفورم إضافة منطقة
+// ⚠️ عدّلي هاد الإيميل ليصير إيميل حسابك أنتِ (نفس إيميل تسجيل الدخول بجوجل)
+// عشان زر "لوحة الإدارة" يظهر إلك بس، مش لأي مستخدم تاني
+const ADMIN_EMAILS = ['lolonazem5@gmail.com'];
+
+const PLACE_TYPES = [
+  { key: 'nature', labelAr: '🌿 طبيعة', labelEn: '🌿 Nature' },
+  { key: 'adventure', labelAr: '🧗 مغامرة', labelEn: '🧗 Adventure' },
+  { key: 'historical', labelAr: '🏛️ تاريخي', labelEn: '🏛️ Historical' },
+  { key: 'religious', labelAr: '🕌 ديني/تراثي', labelEn: '🕌 Religious/Heritage' },
+  { key: 'relaxation', labelAr: '♨️ استجمام', labelEn: '♨️ Relaxation' },
+  { key: 'urban', labelAr: '🏙️ مدينة', labelEn: '🏙️ City' },
+];
 
 // ============================================================
 // أوسمة محددة بالاسم — بديل/إضافة لنظام المستويات العام
@@ -1356,6 +1370,8 @@ const ADD_PLACE_TEXT = {
     descPlaceholder: 'وصف المنطقة',
     foodPlaceholder: 'الأكلة المشهورة (اختياري)',
     summer: '☀️ صيف', winter: '❄️ شتاء', spring: '🌸 ربيع',
+    typeLabel: '🏷️ نوع المكان',
+    typeNature: '🌿 طبيعة', typeAdventure: '🧗 مغامرة', typeHistorical: '🏛️ تاريخي', typeReligious: '🕌 ديني/تراثي', typeRelaxation: '♨️ استجمام', typeUrban: '🏙️ مدينة',
     mapHint: '📍 دوس على الخريطة لتحديد موقع المنطقة بالضبط',
     locationSet: (lat, lng) => `✅ الموقع المحدد: ${lat}, ${lng}`,
     uploadPhoto: '📸 ارفع صورة',
@@ -1366,6 +1382,7 @@ const ADD_PLACE_TEXT = {
     imgError: 'صار خطأ أثناء معالجة الصورة، جرب صورة تانية',
     fillAllError: 'يرجى ملء كل الحقول وتحميل صورة',
     locationError: 'يرجى تحديد موقع المنطقة على الخريطة 📍',
+    pendingNotice: '📋 المنطقة رح تنضاف بعد مراجعة سريعة منّا (عادة بأقل من يوم)',
   },
   en: {
     addButton: '➕ Add New Place',
@@ -1374,6 +1391,8 @@ const ADD_PLACE_TEXT = {
     descPlaceholder: 'Place description',
     foodPlaceholder: 'Famous dish (optional)',
     summer: '☀️ Summer', winter: '❄️ Winter', spring: '🌸 Spring',
+    typeLabel: '🏷️ Place Type',
+    typeNature: '🌿 Nature', typeAdventure: '🧗 Adventure', typeHistorical: '🏛️ Historical', typeReligious: '🕌 Religious/Heritage', typeRelaxation: '♨️ Relaxation', typeUrban: '🏙️ City',
     mapHint: '📍 Tap the map to set the exact location',
     locationSet: (lat, lng) => `✅ Selected location: ${lat}, ${lng}`,
     uploadPhoto: '📸 Upload Photo',
@@ -1384,6 +1403,7 @@ const ADD_PLACE_TEXT = {
     imgError: 'An error occurred while processing the photo, try another one',
     fillAllError: 'Please fill in all fields and upload a photo',
     locationError: 'Please select the location on the map 📍',
+    pendingNotice: '📋 The place will appear after a quick review from us (usually under a day)',
   },
 };
 
@@ -1391,6 +1411,7 @@ function AddPlaceForm({ user, onAdd, onPointsEarned, lang = 'ar' }) {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [season, setSeason] = useState('summer');
+  const [placeType, setPlaceType] = useState('nature');
   const [imgUrl, setImgUrl] = useState('');
   const [food, setFood] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -1421,16 +1442,18 @@ function AddPlaceForm({ user, onAdd, onPointsEarned, lang = 'ar' }) {
     if (!name || !desc || !imgUrl) return showToast(t.fillAllError);
     if (!placeLat || !placeLng) return showToast(t.locationError);
     const newPlace = {
-      name, desc, season, img: imgUrl,
+      name, desc, season, type: placeType, img: imgUrl,
       food: food || null,
       lat: placeLat, lng: placeLng,
       addedBy: user.displayName,
       addedByUid: user.uid,
       addedAt: new Date().toISOString(),
+      status: 'pending',
     };
     const docRef = await addDoc(collection(db, 'userPlaces'), newPlace);
     onAdd({ id: docRef.id, ...newPlace });
     if (onPointsEarned) onPointsEarned();
+    showToast(t.pendingNotice, 'success');
     // إضافة منطقة جديدة كمان بتحسب كمساهمة حقيقية — بتدخل بحساب وسام "مكتشف الأردن"
     // ومنخزنها كمان بحقل منفصل addedPlaceKeys عشان وسام "باني الأردن" المخصص للإضافات فقط
     try {
@@ -1456,6 +1479,14 @@ function AddPlaceForm({ user, onAdd, onPointsEarned, lang = 'ar' }) {
         <option value="summer">{t.summer}</option>
         <option value="winter">{t.winter}</option>
         <option value="spring">{t.spring}</option>
+      </select>
+      <select value={placeType} onChange={e => setPlaceType(e.target.value)} className="form-input">
+        <option value="nature">{t.typeNature}</option>
+        <option value="adventure">{t.typeAdventure}</option>
+        <option value="historical">{t.typeHistorical}</option>
+        <option value="religious">{t.typeReligious}</option>
+        <option value="relaxation">{t.typeRelaxation}</option>
+        <option value="urban">{t.typeUrban}</option>
       </select>
       <p style={{ fontSize: '0.85rem', color: '#8B6914', margin: '8px 0 6px' }}>{t.mapHint}</p>
       <MapContainer center={[31.95, 35.93]} zoom={7} style={{ height: 220, width: '100%', borderRadius: 10, marginBottom: 8 }}>
@@ -1784,9 +1815,186 @@ function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocatio
         <>
           <h3>{lang === 'ar' ? '📍 مناطق أضفتها' : '📍 Places You Added'}</h3>
           <ul style={{ paddingRight: 20 }}>
-            {myPlaces.map((p, i) => <li key={i}>{p.name}</li>)}
+            {myPlaces.map((p, i) => (
+              <li key={i}>
+                {p.name}
+                {p.status === 'pending' && (
+                  <span style={{ color: '#c98a1c', fontSize: '0.75rem', marginInlineStart: 8 }}>
+                    {lang === 'ar' ? '⏳ بانتظار المراجعة' : '⏳ Pending review'}
+                  </span>
+                )}
+                {p.status === 'rejected' && (
+                  <span style={{ color: '#c0392b', fontSize: '0.75rem', marginInlineStart: 8 }}>
+                    {lang === 'ar' ? '❌ ما تمت الموافقة عليها' : '❌ Not approved'}
+                  </span>
+                )}
+              </li>
+            ))}
           </ul>
         </>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// لوحة إدارة بسيطة — تظهر بس للإيميل المحدد بـ ADMIN_EMAILS.
+// بتعرض المناطق يلي بانتظار المراجعة وبتسمح بالموافقة أو الرفض
+// ============================================================
+function AdminPanel({ onClose, lang = 'ar' }) {
+  const [tab, setTab] = useState('places');
+  const [pendingPlaces, setPendingPlaces] = useState([]);
+  const [pendingPhotos, setPendingPhotos] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadAll = async () => {
+    setLoading(true);
+    try {
+      const placesSnap = await getDocs(collection(db, 'userPlaces'));
+      const allPlaces = placesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setPendingPlaces(allPlaces.filter((p) => p.status === 'pending'));
+
+      const photosSnap = await getDocs(collection(db, 'photos'));
+      const photoRows = [];
+      photosSnap.docs.forEach((d) => {
+        const items = d.data().items || [];
+        items.forEach((item) => {
+          if (item.status === 'pending') {
+            photoRows.push({ placeKey: d.id, photo: item });
+          }
+        });
+      });
+      setPendingPhotos(photoRows);
+    } catch (e) {}
+    setLoading(false);
+  };
+
+  useEffect(() => { loadAll(); }, []);
+
+  const approvePlace = async (place) => {
+    try {
+      await setDoc(doc(db, 'userPlaces', place.id), { status: 'approved' }, { merge: true });
+      setPendingPlaces((prev) => prev.filter((p) => p.id !== place.id));
+      showToast(lang === 'ar' ? '✅ تمت الموافقة على المنطقة' : '✅ Place approved', 'success');
+    } catch (e) {
+      showToast(lang === 'ar' ? 'صار خطأ، جرب مرة ثانية' : 'Something went wrong, try again');
+    }
+  };
+
+  const rejectPlace = async (place) => {
+    try {
+      await setDoc(doc(db, 'userPlaces', place.id), { status: 'rejected' }, { merge: true });
+      setPendingPlaces((prev) => prev.filter((p) => p.id !== place.id));
+      showToast(lang === 'ar' ? 'تم رفض المنطقة' : 'Place rejected', 'success');
+    } catch (e) {
+      showToast(lang === 'ar' ? 'صار خطأ، جرب مرة ثانية' : 'Something went wrong, try again');
+    }
+  };
+
+  const updatePhotoStatus = async (row, action) => {
+    try {
+      const ref = doc(db, 'photos', row.placeKey);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) return;
+      const items = snap.data().items || [];
+      let updatedItems;
+      if (action === 'approve') {
+        updatedItems = items.map((it) =>
+          it.uploadedAt === row.photo.uploadedAt && it.uploadedByUid === row.photo.uploadedByUid
+            ? { ...it, status: 'approved' }
+            : it
+        );
+      } else {
+        updatedItems = items.filter(
+          (it) => !(it.uploadedAt === row.photo.uploadedAt && it.uploadedByUid === row.photo.uploadedByUid)
+        );
+      }
+      await setDoc(ref, { items: updatedItems }, { merge: false });
+      setPendingPhotos((prev) => prev.filter((r) => !(r.placeKey === row.placeKey && r.photo.uploadedAt === row.photo.uploadedAt)));
+      showToast(action === 'approve' ? (lang === 'ar' ? '✅ تمت الموافقة على الصورة' : '✅ Photo approved') : (lang === 'ar' ? 'تم رفض الصورة' : 'Photo rejected'), 'success');
+    } catch (e) {
+      showToast(lang === 'ar' ? 'صار خطأ، جرب مرة ثانية' : 'Something went wrong, try again');
+    }
+  };
+
+  const getPlaceDisplayName = (key) => (places[key] ? (lang === 'ar' ? places[key].name : places[key].nameEn) : key);
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', maxWidth: 620, margin: '15px auto', padding: 20, textAlign: lang === 'ar' ? 'right' : 'left', position: 'relative' }}>
+      <button onClick={onClose} style={{ position: 'absolute', top: 12, left: 12, border: 'none', background: 'none', fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
+      <h2 style={{ color: '#8B6914', marginBottom: 12 }}>{lang === 'ar' ? '🛡️ لوحة الإدارة' : '🛡️ Admin Panel'}</h2>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <button
+          onClick={() => setTab('places')}
+          style={{ background: tab === 'places' ? '#8B6914' : '#faf6ec', color: tab === 'places' ? '#fff' : '#8B6914', padding: '6px 16px', borderRadius: 20, fontSize: '0.85rem', border: '1px solid #e8d5a3' }}
+        >
+          {lang === 'ar' ? `📍 مناطق (${pendingPlaces.length})` : `📍 Places (${pendingPlaces.length})`}
+        </button>
+        <button
+          onClick={() => setTab('photos')}
+          style={{ background: tab === 'photos' ? '#8B6914' : '#faf6ec', color: tab === 'photos' ? '#fff' : '#8B6914', padding: '6px 16px', borderRadius: 20, fontSize: '0.85rem', border: '1px solid #e8d5a3' }}
+        >
+          {lang === 'ar' ? `📸 صور (${pendingPhotos.length})` : `📸 Photos (${pendingPhotos.length})`}
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="rl-skeleton-group">
+          <div className="rl-skeleton-line" style={{ width: '60%' }} />
+          <div className="rl-skeleton-line" style={{ width: '40%' }} />
+        </div>
+      ) : tab === 'places' ? (
+        pendingPlaces.length === 0 ? (
+          <p style={{ color: '#999' }}>{lang === 'ar' ? 'ما في مناطق بانتظار المراجعة حالياً ✨' : 'No places pending review right now ✨'}</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {pendingPlaces.map((p) => (
+              <div key={p.id} style={{ display: 'flex', gap: 12, background: '#faf6ec', borderRadius: 12, padding: 12, alignItems: 'flex-start' }}>
+                <img src={p.img} alt={p.name} style={{ width: 90, height: 70, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <strong style={{ color: '#5a3e1b' }}>{p.name}</strong>
+                  <p style={{ fontSize: '0.8rem', color: '#666', margin: '4px 0' }}>{p.desc}</p>
+                  <p style={{ fontSize: '0.75rem', color: '#999', margin: 0 }}>
+                    {lang === 'ar' ? `أضافها: ${p.addedBy}` : `Added by: ${p.addedBy}`}
+                  </p>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button onClick={() => approvePlace(p)} style={{ background: '#4f7a45', color: '#fff', padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
+                      {lang === 'ar' ? '✅ موافقة' : '✅ Approve'}
+                    </button>
+                    <button onClick={() => rejectPlace(p)} style={{ background: '#c0392b', color: '#fff', padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
+                      {lang === 'ar' ? '❌ رفض' : '❌ Reject'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : pendingPhotos.length === 0 ? (
+        <p style={{ color: '#999' }}>{lang === 'ar' ? 'ما في صور بانتظار المراجعة حالياً ✨' : 'No photos pending review right now ✨'}</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {pendingPhotos.map((row, i) => (
+            <div key={i} style={{ display: 'flex', gap: 12, background: '#faf6ec', borderRadius: 12, padding: 12, alignItems: 'flex-start' }}>
+              <img src={row.photo.url} alt="" style={{ width: 90, height: 70, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <strong style={{ color: '#5a3e1b' }}>{getPlaceDisplayName(row.placeKey)}</strong>
+                <p style={{ fontSize: '0.75rem', color: '#999', margin: '4px 0' }}>
+                  {lang === 'ar' ? `رفعها: ${row.photo.uploadedBy || 'زائر'}` : `Uploaded by: ${row.photo.uploadedBy || 'Visitor'}`}
+                </p>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button onClick={() => updatePhotoStatus(row, 'approve')} style={{ background: '#4f7a45', color: '#fff', padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
+                    {lang === 'ar' ? '✅ موافقة' : '✅ Approve'}
+                  </button>
+                  <button onClick={() => updatePhotoStatus(row, 'reject')} style={{ background: '#c0392b', color: '#fff', padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
+                    {lang === 'ar' ? '❌ رفض' : '❌ Reject'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -2236,9 +2444,9 @@ function RahalChatbot({ userLocation, userPlaces, lang = 'ar' }) {
       : prev));
   }, [lang]);
 
-  const sendChatMessage = async () => {
-    if (!chatInput.trim() || loading) return;
-    const question = chatInput;
+  const sendChatMessage = async (presetText) => {
+    const question = presetText || chatInput;
+    if (!question.trim() || loading) return;
     setChatInput('');
     setChatMessages(prev => [...prev, { from: 'user', text: question }]);
     setLoading(true);
@@ -2246,6 +2454,16 @@ function RahalChatbot({ userLocation, userPlaces, lang = 'ar' }) {
     setChatMessages(prev => [...prev, { from: 'bot', text: replyText }]);
     setLoading(false);
   };
+
+  const suggestedPrompts = lang === 'ar' ? [
+    'اقترح لي رحلة يومين بالشمال',
+    'أماكن مناسبة للعائلة',
+    'وين أروح بالشتاء؟',
+  ] : [
+    'Suggest a 2-day trip in the north',
+    'Places good for families',
+    'Where should I go in winter?',
+  ];
 
   return (
     <div style={{ position: 'fixed', bottom: 20, insetInlineEnd: 20, zIndex: 1000, direction: lang === 'ar' ? 'rtl' : 'ltr' }}>
@@ -2266,6 +2484,19 @@ function RahalChatbot({ userLocation, userPlaces, lang = 'ar' }) {
                 <span style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 12, background: m.from === 'bot' ? '#f1e2b3' : '#e0e0e0', fontSize: '0.9rem', whiteSpace: 'pre-line', maxWidth: '85%' }}>{m.text}</span>
               </div>
             ))}
+            {chatMessages.length === 1 && !loading && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                {suggestedPrompts.map((sp, i) => (
+                  <button
+                    key={i}
+                    onClick={() => sendChatMessage(sp)}
+                    style={{ background: '#fff', border: '1px solid #e8d5a3', color: '#8B6914', borderRadius: 14, padding: '8px 12px', fontSize: '0.82rem', textAlign: lang === 'ar' ? 'right' : 'left', cursor: 'pointer', margin: 0 }}
+                  >
+                    💡 {sp}
+                  </button>
+                ))}
+              </div>
+            )}
             {loading && (
               <div style={{ textAlign: lang === 'ar' ? 'right' : 'left', margin: '10px 0' }}>
                 <span style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 12, background: '#f1e2b3', fontSize: '0.9rem' }}>
@@ -2282,7 +2513,7 @@ function RahalChatbot({ userLocation, userPlaces, lang = 'ar' }) {
               placeholder={lang === 'ar' ? 'اسأل رحال...' : 'Ask Rahhal...'}
               style={{ flex: 1, border: 'none', padding: 12, fontSize: '0.9rem', outline: 'none' }}
             />
-            <button onClick={sendChatMessage} style={{ border: 'none', background: '#b8860b', color: '#fff', padding: '0 18px', cursor: 'pointer', fontSize: '1.1rem' }}>➤</button>
+            <button onClick={() => sendChatMessage()} style={{ border: 'none', background: '#b8860b', color: '#fff', padding: '0 18px', cursor: 'pointer', fontSize: '1.1rem' }}>➤</button>
           </div>
         </div>
       )}
@@ -2300,6 +2531,7 @@ function RahalChatbot({ userLocation, userPlaces, lang = 'ar' }) {
 }
 function App() {
   const [season, setSeason] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
   const [openPlace, setOpenPlace] = useState('');
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
@@ -2332,6 +2564,7 @@ function App() {
   const [showTripPlanner, setShowTripPlanner] = useState(false);
   const [showAiTripBuilder, setShowAiTripBuilder] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [siteStats, setSiteStats] = useState({ places: Object.keys(places).length, users: 0, ratings: 0 });
 
   const t = translations[lang];
@@ -2497,10 +2730,11 @@ return () => unsubscribe();
 
   const handlePhotoUpload = async (placeKey, url) => {
     try {
-      const photoObj = { url, uploadedBy: user ? user.displayName : null, uploadedAt: new Date().toISOString() };
+      const photoObj = { url, uploadedBy: user ? user.displayName : null, uploadedByUid: user ? user.uid : null, uploadedAt: new Date().toISOString(), status: 'pending' };
       await setDoc(doc(db, 'photos', placeKey), { items: arrayUnion(photoObj) }, { merge: true });
       setPlacePhotos(prev => ({ ...prev, [placeKey]: [...(prev[placeKey] || []), photoObj] }));
       awardPoints(5);
+      showToast(lang === 'ar' ? '📋 الصورة رح تظهر بعد مراجعة سريعة منّا' : '📋 The photo will appear after a quick review from us', 'success');
     } catch (e) {}
   };
 
@@ -2678,7 +2912,7 @@ return () => unsubscribe();
     setMapServices(combined.filter(s => s.lat && s.lon));
   };
 
-  const goHome = () => { setSeason(''); setOpenPlace(''); setSelectedPlace(null); setServices([]); setRestaurants([]); setSearchQuery(''); setMapServices([]); setShowFavoritesPage(false); };
+  const goHome = () => { setSeason(''); setTypeFilter(''); setOpenPlace(''); setSelectedPlace(null); setServices([]); setRestaurants([]); setSearchQuery(''); setMapServices([]); setShowFavoritesPage(false); };
   const openLightbox = (photos, index, placeNameForLightbox, placeKeyForLightbox) => setLightboxData({ photos, index, placeName: placeNameForLightbox, placeKey: placeKeyForLightbox });
   const closeLightbox = () => { setLightboxData(null); setShowLightboxComments(false); setLightboxCommentDraft(''); };
   const lightboxPrev = () => { setShowLightboxComments(false); setLightboxCommentDraft(''); setLightboxData(prev => prev ? { ...prev, index: (prev.index - 1 + prev.photos.length) % prev.photos.length } : null); };
@@ -2691,7 +2925,8 @@ return () => unsubscribe();
     const placeName = isUserPlace ? place.name : (lang === 'ar' ? place.name : place.nameEn);
     const placeDesc = isUserPlace ? place.desc : (lang === 'ar' ? place.desc : place.descEn);
     const placeFood = isUserPlace ? place.food : (lang === 'ar' ? place.food : place.foodEn);
-    const photos = placePhotos[key] || [];
+    const allPhotosForKey = placePhotos[key] || [];
+    const photos = allPhotosForKey.filter((p) => p.status === 'approved' || !p.status || (user && p.uploadedByUid === user.uid));
     const isFav = !isUserPlace && favoriteKeys.includes(key);
 
     return (
@@ -2773,7 +3008,14 @@ return () => unsubscribe();
             <h4>{t.photos} ({photos.length})</h4>
             <div className="photos-grid">
               {photos.slice(0, 3).map((photoObj, i) => (
-                <img key={i} src={photoObj.url} alt={placeName} className="user-photo" onClick={() => openGalleryModal(photos, placeName, key)} />
+                <div key={i} style={{ position: 'relative' }}>
+                  <img src={photoObj.url} alt={placeName} className="user-photo" onClick={() => openGalleryModal(photos, placeName, key)} />
+                  {photoObj.status === 'pending' && (
+                    <span style={{ position: 'absolute', bottom: 4, insetInlineStart: 4, background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: '0.6rem', padding: '2px 6px', borderRadius: 6 }}>
+                      {lang === 'ar' ? '⏳ قيد المراجعة' : '⏳ Pending'}
+                    </span>
+                  )}
+                </div>
               ))}
             </div>
             <button
@@ -2790,9 +3032,10 @@ return () => unsubscribe();
     );
   };
 
-  const userSummerPlaces = userPlaces.filter(p => p.season === 'summer');
-  const userWinterPlaces = userPlaces.filter(p => p.season === 'winter');
-  const userSpringPlaces = userPlaces.filter(p => p.season === 'spring');
+  const isApprovedOrLegacy = (p) => p.status === 'approved' || !p.status;
+  const userSummerPlaces = userPlaces.filter(p => p.season === 'summer' && isApprovedOrLegacy(p));
+  const userWinterPlaces = userPlaces.filter(p => p.season === 'winter' && isApprovedOrLegacy(p));
+  const userSpringPlaces = userPlaces.filter(p => p.season === 'spring' && isApprovedOrLegacy(p));
 
   const getPlaceNameForKey = (pKey) => {
     if (places[pKey]) return places[pKey].name;
@@ -2803,6 +3046,7 @@ return () => unsubscribe();
   let weeklyTopPhoto = null;
   Object.entries(placePhotos).forEach(([pKey, photosArr]) => {
     (photosArr || []).forEach((p) => {
+      if (p.status === 'pending') return; // ما بينعرض كـ"صورة الأسبوع" لحد ما توافق عليه
       const likes = p.likes || [];
       const weeklyLikeCount = likes.filter((l) => l && l.likedAt && new Date(l.likedAt) >= weekStart).length;
       if (weeklyLikeCount > 0) {
@@ -2850,6 +3094,11 @@ return () => unsubscribe();
           {user && (
             <button className="lang-btn" onClick={openFavoritesPage}>
               {lang === 'ar' ? '❤️ المفضلة' : '❤️ Favorites'}
+            </button>
+          )}
+          {user && ADMIN_EMAILS.includes(user.email) && (
+            <button className="lang-btn" onClick={() => setShowAdminPanel(prev => !prev)}>
+              {lang === 'ar' ? '🛡️ لوحة الإدارة' : '🛡️ Admin'}
             </button>
           )}
           {user ? (
@@ -2905,6 +3154,10 @@ return () => unsubscribe();
         <AboutPage lang={lang} onClose={() => setShowAbout(false)} />
       )}
 
+      {showAdminPanel && (
+        <AdminPanel lang={lang} onClose={() => setShowAdminPanel(false)} />
+      )}
+
       <div className="rl-stats-card">
         <div className="rl-stat-item">
           <strong className="rl-stat-value"><StatStarIcon /><span>{siteStats.ratings}</span></strong>
@@ -2930,6 +3183,20 @@ return () => unsubscribe();
           <button onClick={() => { setShowFavoritesPage(false); setSeason('spring'); }}>{t.spring}</button>
           <button onClick={() => { setShowFavoritesPage(false); setSeason('winter'); }}>{t.winter}</button>
           <button onClick={() => { setShowFavoritesPage(false); setSeason('summer'); }}>{t.summer}</button>
+        </div>
+      )}
+
+      {!debouncedSearchQuery && !showFavoritesPage && (
+        <div className="rl-type-chip-row">
+          {PLACE_TYPES.map((pt) => (
+            <button
+              key={pt.key}
+              className={`rl-type-chip ${typeFilter === pt.key ? 'active' : ''}`}
+              onClick={() => { setSeason(''); setTypeFilter((prev) => (prev === pt.key ? '' : pt.key)); }}
+            >
+              {lang === 'ar' ? pt.labelAr : pt.labelEn}
+            </button>
+          ))}
         </div>
       )}
 
@@ -3054,6 +3321,16 @@ return () => unsubscribe();
           {Object.keys(places)
             .filter(key => places[key].name.includes(debouncedSearchQuery) || places[key].nameEn.toLowerCase().includes(debouncedSearchQuery.toLowerCase()))
             .map(key => renderPlace(key, places[key]))}
+        </div>
+      )}
+
+      {typeFilter && !debouncedSearchQuery && !selectedPlace && (
+        <div>
+          <h2>{PLACE_TYPES.find((pt) => pt.key === typeFilter) ? (lang === 'ar' ? PLACE_TYPES.find((pt) => pt.key === typeFilter).labelAr : PLACE_TYPES.find((pt) => pt.key === typeFilter).labelEn) : ''}</h2>
+          <div className="places-grid">
+            {Object.keys(places).filter((key) => places[key].type === typeFilter).map((key) => renderPlace(key, places[key]))}
+            {userPlaces.filter((p) => p.type === typeFilter && (p.status === 'approved' || !p.status)).map((p) => renderPlace(p.id, p, true))}
+          </div>
         </div>
       )}
 
