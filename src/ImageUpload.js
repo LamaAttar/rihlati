@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 
 // ============================================================
 // ضغط وتحسين الصورة قبل رفعها إلى Cloudinary
+// (فحص الدقة التلقائي انشال — الفلترة هلق بتصير من لوحة الإدارة بس)
 // ============================================================
 
 const MAX_DIMENSION = 1920;
-const MIN_DIMENSION = 1000;
 const JPEG_QUALITY = 0.85;
 
 const TEXT = {
@@ -13,7 +13,6 @@ const TEXT = {
     button: '📸 أضف صورة',
     uploading: '⏳ جاري رفع الصورة...',
     notImage: 'الملف المختار يجب أن يكون صورة',
-    lowRes: (w, h) => `دقة الصورة منخفضة (${w}×${h}px). يرجى اختيار صورة أوضح.`,
     genericError: 'حدث خطأ أثناء رفع الصورة',
     readError: 'تعذر قراءة الصورة',
     processError: 'فشلت معالجة الصورة',
@@ -23,32 +22,12 @@ const TEXT = {
     button: '📸 Add Photo',
     uploading: '⏳ Uploading photo...',
     notImage: 'The selected file must be an image',
-    lowRes: (w, h) => `Image resolution is too low (${w}×${h}px). Please choose a clearer photo.`,
     genericError: 'An error occurred while uploading the photo',
     readError: 'Could not read the image',
     processError: 'Image processing failed',
     loadError: 'Could not load the image',
   },
 };
-
-function getImageDimensions(file, t) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error(t.readError));
-    };
-
-    img.src = url;
-  });
-}
 
 function resizeAndCompress(file, t, maxDimension = MAX_DIMENSION, quality = JPEG_QUALITY) {
   return new Promise((resolve, reject) => {
@@ -111,12 +90,6 @@ function ImageUpload({ placeKey, onUpload, lang = 'ar' }) {
     try {
       if (!file.type.startsWith("image/")) {
         throw new Error(t.notImage);
-      }
-
-      const { width, height } = await getImageDimensions(file, t);
-
-      if (width < MIN_DIMENSION && height < MIN_DIMENSION) {
-        throw new Error(t.lowRes(width, height));
       }
 
       const processedBlob = await resizeAndCompress(file, t);
