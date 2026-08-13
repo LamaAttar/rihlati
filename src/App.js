@@ -555,6 +555,10 @@ function getPlaceMeta(key) {
   return placeMeta[key] || DEFAULT_PLACE_META;
 }
 
+// أقصى نقاط ممكنة يقدر يوصلها أي مكان (3 موسم + 2 رفقة + 2 ميزانية + 2 وقت)
+// نستخدمها لتحويل النقاط الخام لنسبة مئوية مفهومة للمستخدم (نقطة التوافق)
+const MAX_TRIP_SCORE = 9;
+
 function scoreTripPlace(place, key, prefs) {
   const meta = getPlaceMeta(key);
   let score = 0;
@@ -570,6 +574,12 @@ function scoreTripPlace(place, key, prefs) {
     if (rank[meta.duration] <= rank[prefs.time]) score += 2;
   }
   return score;
+}
+
+// بيحول النقاط الخام لنسبة مئوية (0-100%) — هاي النسبة يلي بتنعرض
+// للمستخدم كـ"نقطة التوافق"، بدل ما نخليها رقم خفي بالخلفية بس
+function getCompatibilityPercent(score) {
+  return Math.round((score / MAX_TRIP_SCORE) * 100);
 }
 
 function getDistance(lat1, lon1, lat2, lon2) {
@@ -2261,23 +2271,28 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar' }) {
 
     if (best) {
       const meta = getPlaceMeta(best.key);
+      // نبني قائمة أسباب مع نقاطها الفعلية (مش نص عام بس) — كل سبب
+      // موضح جنبه قديش ساهم بالنقطة الكلية، عشان يكون النظام شفاف
       const reasons = [];
       if (lang === 'ar') {
-        if (best.place.season === season) reasons.push('بيناسب الموسم يلي اخترتيه');
-        if (meta.companions && meta.companions.includes(companion)) reasons.push('مناسب لنوع الرفقة يلي حددتيها');
-        if (meta.budget === 'free') reasons.push('دخول مجاني بالكامل');
-        else if (meta.budget === 'under20' && budget !== 'open') reasons.push('يناسب ميزانيتك');
-        if (meta.duration) reasons.push(`بياخذ تقريباً ${durationLabel(meta.duration, lang)}، وهاد بيناسب الوقت يلي عندك`);
-        if (best.place.addedBy) reasons.push(`مكان اكتشفه زائر تاني (${best.place.addedBy}) وضافه للتطبيق 🌟`);
+        if (best.place.season === season) reasons.push({ text: 'بيناسب الموسم يلي اخترتيه', points: 3 });
+        if (meta.companions && meta.companions.includes(companion)) reasons.push({ text: 'مناسب لنوع الرفقة يلي حددتيها', points: 2 });
+        if (meta.budget === 'free') reasons.push({ text: 'دخول مجاني بالكامل', points: budget === 'open' ? 1 : 2 });
+        else if (meta.budget === 'under20' && budget !== 'open') reasons.push({ text: 'يناسب ميزانيتك', points: 2 });
+        else if (budget === 'open') reasons.push({ text: 'يناسب ميزانيتك المفتوحة', points: 1 });
+        if (meta.duration) reasons.push({ text: `بياخذ تقريباً ${durationLabel(meta.duration, lang)}، وهاد بيناسب الوقت يلي عندك`, points: 2 });
+        if (best.place.addedBy) reasons.push({ text: `مكان اكتشفه زائر تاني (${best.place.addedBy}) وضافه للتطبيق 🌟`, points: 0 });
       } else {
-        if (best.place.season === season) reasons.push('Matches the season you picked');
-        if (meta.companions && meta.companions.includes(companion)) reasons.push('A good fit for your travel companions');
-        if (meta.budget === 'free') reasons.push('Completely free entry');
-        else if (meta.budget === 'under20' && budget !== 'open') reasons.push('Fits your budget');
-        if (meta.duration) reasons.push(`Takes about ${durationLabel(meta.duration, lang)}, which suits the time you have`);
-        if (best.place.addedBy) reasons.push(`A place discovered by another visitor (${best.place.addedBy}) 🌟`);
+        if (best.place.season === season) reasons.push({ text: 'Matches the season you picked', points: 3 });
+        if (meta.companions && meta.companions.includes(companion)) reasons.push({ text: 'A good fit for your travel companions', points: 2 });
+        if (meta.budget === 'free') reasons.push({ text: 'Completely free entry', points: budget === 'open' ? 1 : 2 });
+        else if (meta.budget === 'under20' && budget !== 'open') reasons.push({ text: 'Fits your budget', points: 2 });
+        else if (budget === 'open') reasons.push({ text: 'Fits your open budget', points: 1 });
+        if (meta.duration) reasons.push({ text: `Takes about ${durationLabel(meta.duration, lang)}, which suits the time you have`, points: 2 });
+        if (best.place.addedBy) reasons.push({ text: `A place discovered by another visitor (${best.place.addedBy}) 🌟`, points: 0 });
       }
-      setResult({ ...best, reasons, duration: meta.duration });
+      const compatibilityPercent = getCompatibilityPercent(bestScore);
+      setResult({ ...best, reasons, duration: meta.duration, compatibilityPercent, rawScore: bestScore });
       if (auth.currentUser) {
         setDoc(doc(db, 'userProfiles', auth.currentUser.uid), { tripsBuilt: increment(1) }, { merge: true }).catch(() => {});
       }
@@ -2336,14 +2351,37 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar' }) {
           <>
             <h2 style={{ color: '#8B6914', marginBottom: 14 }}>{lang === 'ar' ? '🎉 خططنالك رحلة!' : '🎉 Your trip is ready!'}</h2>
             <div style={{ borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', border: '1px solid #f0e0b0' }}>
-              <img src={result.place.img} alt={resultName} style={{ width: '100%', height: 180, objectFit: 'cover' }} />
+              <div style={{ position: 'relative' }}>
+                <img src={result.place.img} alt={resultName} style={{ width: '100%', height: 180, objectFit: 'cover' }} />
+                {typeof result.compatibilityPercent === 'number' && (
+                  <div
+                    title={lang === 'ar' ? `نقاط التوافق الخام: ${result.rawScore} من ${MAX_TRIP_SCORE}` : `Raw score: ${result.rawScore} out of ${MAX_TRIP_SCORE}`}
+                    style={{
+                      position: 'absolute', top: 12, insetInlineEnd: 12,
+                      background: 'rgba(0,0,0,0.68)', color: '#fff', borderRadius: 999,
+                      padding: '6px 14px', fontSize: '0.9rem', fontWeight: 'bold',
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}
+                  >
+                    <span>🎯</span>
+                    <span>{lang === 'ar' ? `توافق ${result.compatibilityPercent}%` : `${result.compatibilityPercent}% match`}</span>
+                  </div>
+                )}
+              </div>
               <div style={{ padding: 16 }}>
                 <h3 style={{ color: '#8B6914', marginBottom: 6 }}>{resultName}</h3>
                 <p style={{ color: '#555', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: 10 }}>{resultDesc}</p>
                 <div style={{ background: '#faf6ec', borderRadius: 10, padding: 12, marginBottom: 10 }}>
                   <strong style={{ fontSize: '0.85rem', color: '#8B6914' }}>{lang === 'ar' ? 'ليش اخترنالك هاد المكان؟' : 'Why we picked this place for you'}</strong>
-                  <ul style={{ margin: '6px 0 0', paddingRight: lang === 'ar' ? 18 : 0, paddingLeft: lang === 'ar' ? 0 : 18, fontSize: '0.8rem', color: '#555' }}>
-                    {result.reasons.map((r, i) => <li key={i}>{r}</li>)}
+                  <ul style={{ margin: '6px 0 0', paddingRight: lang === 'ar' ? 18 : 0, paddingLeft: lang === 'ar' ? 0 : 18, fontSize: '0.8rem', color: '#555', listStyle: 'none' }}>
+                    {result.reasons.map((r, i) => (
+                      <li key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '3px 0' }}>
+                        <span>✓ {r.text}</span>
+                        {r.points > 0 && (
+                          <span style={{ color: '#4f7a45', fontWeight: 'bold', whiteSpace: 'nowrap' }}>+{r.points}</span>
+                        )}
+                      </li>
+                    ))}
                   </ul>
                 </div>
                 {result.duration && (
