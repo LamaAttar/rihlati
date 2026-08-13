@@ -2666,9 +2666,25 @@ function App() {
   const [showAiTripBuilder, setShowAiTripBuilder] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [siteStats, setSiteStats] = useState({ places: Object.keys(places).length, users: 0, ratings: 0 });
+  // نعرض آخر أرقام محفوظة بالمتصفح فوراً (بدل ما تبين صفر لثانية)، وبعدين
+  // منحدثها بهدوء بالخلفية أول ما توصل البيانات الفعلية من Firestore
+  const [siteStats, setSiteStats] = useState(() => {
+    try {
+      const cached = localStorage.getItem('rl_site_stats_cache');
+      if (cached) return JSON.parse(cached);
+    } catch (e) {}
+    return { places: Object.keys(places).length, users: 0, ratings: 0 };
+  });
 
   const t = translations[lang];
+
+  // كل ما تتحدث الإحصائيات، منخزّن آخر نسخة بالمتصفح — هيك الفتحة الجاية
+  // بتبدأ من آخر رقم صحيح بدل ما تبين صفر لحد ما يوصل الرد من Firestore
+  useEffect(() => {
+    try {
+      localStorage.setItem('rl_site_stats_cache', JSON.stringify(siteStats));
+    } catch (e) {}
+  }, [siteStats]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
