@@ -40,11 +40,18 @@ const places = {
   ummrasas: { type: 'religious', name: 'أم الرصاص', nameEn: 'Umm ar-Rasas', lat: 31.50, lng: 35.92, img: '/ummrasas.png', desc: 'موقع أثري مدرج على قائمة اليونسكو يضم فسيفساء رائعة 🏛️', descEn: 'A UNESCO-listed archaeological site featuring stunning mosaics 🏛️', food: 'الفريكة والمنسف البدوي', foodEn: 'Freekeh and Bedouin Mansaf', season: 'winter' },
   birgish: { type: 'nature', name: 'غابات برقش', nameEn: 'Birgish Forest', lat: 32.41, lng: 35.71, img: '/birgish.png', desc: 'غابات خضراء رائعة قرب إربد، وجهة مفضلة للتنزه والفرشة بالربيع 🌳', descEn: 'A beautiful green forest near Irbid, a favorite spring picnic destination 🌳', food: 'الفول والشاي بالنعناع', foodEn: 'Fava beans and mint tea', season: 'spring' },
   ummalnaml: { type: 'nature', name: 'أم النمل', nameEn: 'Um Al-Naml', lat: 32.45, lng: 35.69, img: '/ummalnaml.png', desc: 'وادٍ طبيعي خلاب بتلاله الخضراء وتنوعه البيئي، من أجمل وجهات الربيع بشمال الأردن 🌸', descEn: "A stunning natural valley with green hills and rich biodiversity, one of northern Jordan's most beautiful spring spots 🌸", food: 'المقلوبة والعكوب', foodEn: 'Maqluba and Akkoub', season: 'spring' },
+  yarmouk: { type: 'nature', name: 'محمية اليرموك', nameEn: 'Yarmouk Forest Reserve', lat: 32.70, lng: 35.85, img: '/yarmouk.png', desc: 'محمية طبيعية شمالية بغابات كثيفة وتنوع نباتي رائع، وجهة مثالية للتنزه بالربيع 🌲', descEn: 'A northern nature reserve with dense forests and rich plant diversity, an ideal spring destination 🌲', food: 'الفول والزعتر البلدي', foodEn: 'Fava beans and local thyme', season: 'spring' },
+  dibeen: { type: 'nature', name: 'غابات دبين', nameEn: 'Dibeen Forest Reserve', lat: 32.27, lng: 35.75, img: '/dibeen.png', desc: 'غابات صنوبر وسنديان كثيفة قرب جرش، من أشهر أماكن الفرشة والتنزه بالربيع 🌲', descEn: 'Dense pine and oak forests near Jerash, one of the most popular spring picnic spots 🌲', food: 'المقلوبة والزعتر', foodEn: 'Maqluba and thyme', season: 'spring' },
+  shuaib: { type: 'nature', name: 'وادي شعيب', nameEn: "Wadi Shu'ayb", lat: 32.03, lng: 35.68, img: '/shuaib.png', desc: 'وادٍ أخضر خصب قرب السلط، بيتحول لسجادة خضراء وأزهار برية بالربيع 🌿', descEn: 'A fertile green valley near Salt that turns into a carpet of greenery and wildflowers in spring 🌿', food: 'الزيت والزعتر ومنتجات الوادي', foodEn: 'Olive oil, thyme, and local valley produce', season: 'spring' },
+  rayan: { type: 'nature', name: 'وادي الريان', nameEn: 'Wadi Rayan', lat: 32.42, lng: 35.77, img: '/rayan.png', desc: 'وادٍ أخضر خلاب قرب عجلون وإربد، بمياه جارية وشلالات صغيرة ومزارع رمان وتين 🌸', descEn: 'A stunning green valley near Ajloun and Irbid, with flowing water, small waterfalls, and pomegranate and fig farms 🌸', food: 'الرمان والتين البلدي', foodEn: 'Local pomegranates and figs', season: 'spring' },
+  binhammad: { type: 'adventure', name: 'وادي بن حماد', nameEn: 'Wadi Bin Hammad', lat: 31.30, lng: 35.58, img: '/binhammad.png', desc: 'وادٍ مائي بشلالات وينابيع معدنية دافئة شمال غرب الكرك، مسار مغامرة وسط الطبيعة 💧', descEn: 'A water valley with waterfalls and warm mineral springs northwest of Karak, an adventure trail through nature 💧', food: 'المنسف الكركي الأصيل', foodEn: 'Authentic Karak-style Mansaf', season: 'spring' },
+  feynan: { type: 'nature', name: 'وادي فينان', nameEn: 'Wadi Feynan', lat: 30.65, lng: 35.44, img: '/feynan.png', desc: 'وادٍ صحراوي هادئ بمحمية ضانا، مشهور بسمائه الصافية من التلوث الضوئي وآثار مناجم النحاس القديمة ✨', descEn: 'A quiet desert valley within Dana Reserve, famous for its dark, light-pollution-free skies and ancient copper mine ruins ✨', food: 'أعشاب برية ومنتجات محلية عضوية', foodEn: 'Wild herbs and local organic products', season: 'winter' },
+  ziqlab: { type: 'nature', name: 'وادي زقلاب', nameEn: 'Wadi Ziqlab', lat: 32.47, lng: 35.63, img: '/ziqlab.png', desc: 'وادٍ دائم الجريان بلواء الكورة قرب دير أبي سعيد، فيه سد شرحبيل بن حسنة ومزارع رمان وحمضيات وموز 🌊', descEn: 'A perennially flowing valley in the Kourah district near Deir Abi Said, home to the Shurahbil bin Hasna Dam and farms of pomegranates, citrus, and bananas 🌊', food: 'الرمان والحمضيات البلدية', foodEn: 'Local pomegranates and citrus', season: 'spring' },
 };
 
 const summerKeys = ['ajloun', 'irbid', 'jerash', 'umqais', 'deadsea', 'shouna', 'salt', 'amman', 'ummjimal', 'pella', 'mujib', 'tafilah'];
-const winterKeys = ['petra', 'wadirum', 'aqaba', 'madaba', 'karak', 'deisa', 'dana', 'mainhot', 'himma', 'azraqcastle', 'azraqwetland', 'qasramra', 'hallabat', 'shobak', 'ummrasas'];
-const springKeys = ['birgish', 'ummalnaml'];
+const winterKeys = ['petra', 'wadirum', 'aqaba', 'madaba', 'karak', 'deisa', 'dana', 'mainhot', 'himma', 'azraqcastle', 'azraqwetland', 'qasramra', 'hallabat', 'shobak', 'ummrasas', 'feynan'];
+const springKeys = ['birgish', 'ummalnaml', 'yarmouk', 'dibeen', 'shuaib', 'rayan', 'binhammad', 'ziqlab'];
 
 // أماكن مميزة تظهر بقسم "الأكثر زيارة" بالصفحة الرئيسية
 const POPULAR_PLACE_KEYS = ['petra', 'wadirum', 'deadsea', 'jerash'];
@@ -79,6 +86,12 @@ const placeMeta = {
   ummrasas: { budget: 'under20', companions: ['alone', 'family', 'friends'], duration: 'half' },
   birgish: { budget: 'free', companions: ['alone', 'family', 'friends', 'kids'], duration: 'half' },
   ummalnaml: { budget: 'free', companions: ['alone', 'family', 'friends', 'kids'], duration: 'half' },
+  yarmouk: { budget: 'free', companions: ['alone', 'family', 'friends', 'kids'], duration: 'half' },
+  dibeen: { budget: 'under20', companions: ['alone', 'family', 'friends', 'kids'], duration: 'half' },
+  shuaib: { budget: 'free', companions: ['alone', 'family', 'friends'], duration: '2h' },
+  rayan: { budget: 'free', companions: ['alone', 'family', 'friends', 'kids'], duration: 'half' },
+  binhammad: { budget: 'free', companions: ['alone', 'friends'], duration: 'half' },
+  feynan: { budget: 'under20', companions: ['alone', 'family', 'friends'], duration: 'full' },
 };
 
 function durationLabel(d, lang = 'ar') {
@@ -296,6 +309,17 @@ const PLACE_ACTIVITIES = {
   ],
   ummalnaml: [
     { name: 'مشي بالوادي الأخضر ومشاهدة التلال', nameEn: 'Walk the green valley and view the hills', description: 'وادٍ طبيعي خلاب من أجمل وجهات الربيع', descriptionEn: 'A stunning natural valley, one of the best spring destinations', durationHint: 'ساعتين تقريباً', durationHintEn: 'about 2 hours', suitableFor: ['family', 'friends', 'kids'] },
+  ],
+  yarmouk: [
+    { name: 'مسير بغابات المحمية', nameEn: 'Hike through the reserve forests', description: 'غابات كثيفة وتنوع نباتي وحيواني رائع', descriptionEn: 'Dense forests with rich plant and animal diversity', durationHint: 'ساعتين تقريباً', durationHintEn: 'about 2 hours', suitableFor: ['family', 'friends', 'kids'] },
+    { name: 'مراقبة الطيور والحياة البرية', nameEn: 'Birdwatching and wildlife spotting', description: 'فرصة مشاهدة كائنات نادرة بموطنها الطبيعي', descriptionEn: 'A chance to see rare creatures in their natural habitat', durationHint: 'ساعة تقريباً', durationHintEn: 'about an hour' },
+  ],
+  dibeen: [
+    { name: 'فرشة وتنزه بغابات الصنوبر', nameEn: 'Picnic among the pine forests', description: 'من أشهر أماكن الفرشة بالأردن، أجواء خضراء منعشة', descriptionEn: "One of Jordan's most popular picnic spots, with fresh green surroundings", durationHint: 'ساعتين تقريباً', durationHintEn: 'about 2 hours', suitableFor: ['family', 'friends', 'kids'] },
+    { name: 'مسير مسارات المحمية', nameEn: 'Walk the reserve trails', description: 'مسارات مشي وسط الطبيعة لكل المستويات', descriptionEn: 'Walking trails through nature suitable for all levels', durationHint: 'ساعة ونص تقريباً', durationHintEn: 'about 1.5 hours' },
+  ],
+  shuaib: [
+    { name: 'مشي بالوادي ومشاهدة الأزهار البرية', nameEn: 'Walk the valley and see wildflowers', description: 'سجادة خضراء وأزهار برية بالربيع', descriptionEn: 'A carpet of greenery and wildflowers in spring', durationHint: 'ساعة ونص تقريباً', durationHintEn: 'about 1.5 hours', suitableFor: ['family', 'friends', 'kids'] },
   ],
 };
 
