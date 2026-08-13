@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaf
 import { db } from './firebase';
 import { auth, signInWithGoogle, logOut, checkRedirectResult } from './Auth';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, getDoc, arrayUnion, arrayRemove, collection, addDoc, getDocs, increment, query, orderBy, limit, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, arrayUnion, arrayRemove, collection, addDoc, getDocs, increment, query, orderBy, limit, deleteDoc, where, updateDoc } from 'firebase/firestore';
 import L from 'leaflet';
 import ImageUpload from './ImageUpload';
 import translations from './translations';
@@ -639,8 +639,6 @@ const SERVICES_CACHE_TTL = 1000 * 60 * 60 * 6; // 6 ساعات
 const SERVICES_FETCH_TIMEOUT = 7000; // 7 ثواني بالحد الأقصى، وبعدها منوقف الانتظار
 
 function getServicesCacheKey(type, lat, lng) {
-  // نقرّب الإحداثيات لأربع خانات عشرية (تقريباً 11 متر دقة) عشان
-  // نفس المكان تقريباً يرجع يستخدم نفس الكاش حتى لو فيه فرق بسيط بالإحداثية
   return `rl_v2_${type}_${lat.toFixed(4)}_${lng.toFixed(4)}`;
 }
 
@@ -680,8 +678,6 @@ function isHebrewText(text) {
   return /[\u0590-\u05FF]/.test(text);
 }
 
-// أكتر من سيرفر Overpass مجاني — لو الأول بطيء أو واقع، منجرب يلي بعده
-// فوراً بدل ما نرجع "لا توجد نتائج" بالغلط بسبب سيرفر واحد بس
 const OVERPASS_SERVERS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
@@ -701,7 +697,7 @@ async function runOverpassQuery(query) {
       if (data && data.elements) return data.elements;
       lastError = new Error('no elements');
     } catch (e) {
-      lastError = e; // نكمل على السيرفر يلي بعده
+      lastError = e;
     }
   }
   throw lastError || new Error('all servers failed');
@@ -717,8 +713,6 @@ async function fetchNearbyRestaurants(lat, lng) {
     if (result.length > 0) setCachedServices(cacheKey, result);
     return result;
   } catch (e) {
-    // كل السيرفرات فشلت — نرجع الكاش القديم لو موجود (حتى لو قديم شوي)، ومنعلّم
-    // النتيجة كـ "فشل اتصال مؤقت" عشان الواجهة تفرّق بينه وبين "فعلاً ما في خدمات"
     const cached = getCachedServices(cacheKey);
     const result = cached || [];
     result.failed = !cached;
@@ -1179,7 +1173,6 @@ function StarRating({ placeKey, ratings, setRatings, user, onRated, lang = 'ar' 
       }
       await setDoc(ref, { avg: newAvg, count: newCount });
       setRatings({ ...ratings, [placeKey]: { avg: newAvg, count: newCount } });
-      // نتتبع المناطق يلي قيّمها المستخدم — أساس وسامي "مكتشف الأردن" و"عاشق الطبيعة"
       try {
         await setDoc(doc(db, 'userProfiles', user.uid), { ratedPlaceKeys: arrayUnion(placeKey) }, { merge: true });
       } catch (e) {}
@@ -1199,10 +1192,6 @@ function StarRating({ placeKey, ratings, setRatings, user, onRated, lang = 'ar' 
   );
 }
 
-// ============================================================
-// مراجعات نصية كاملة لكل منطقة — أبعد من النجوم بس، بتعرض تجارب
-// حقيقية مكتوبة من زوار، وبتسمح لأي مستخدم مسجّل يكتب تجربته
-// ============================================================
 function PlaceReviews({ placeKey, user, lang = 'ar', onReviewed }) {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1244,7 +1233,6 @@ function PlaceReviews({ placeKey, user, lang = 'ar', onReviewed }) {
       setReviews((prev) => [newReview, ...prev]);
       setDraftText('');
       setShowForm(false);
-      // نفس منطق تتبع الأوسمة — كتابة مراجعة تعتبر كمان تفاعل حقيقي مع المكان
       await setDoc(doc(db, 'userProfiles', user.uid), { ratedPlaceKeys: arrayUnion(placeKey) }, { merge: true }).catch(() => {});
       if (onReviewed) onReviewed();
     } catch (e) {
@@ -1352,8 +1340,7 @@ function LocationPicker({ onSelect, position }) {
   });
   return position ? <Marker position={position} /> : null;
 }
-// بيصغّر ويضغط الصورة قبل الرفع — نفس الحل يلي طبقناه بمعرض الصور،
-// هلق مطبق هون كمان بنموذج "إضافة منطقة جديدة" عشان نحل مشكلة التغبيش بالكامل
+
 function compressImageFile(file, maxDimension = 1920, quality = 0.85) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -1476,10 +1463,9 @@ function AddPlaceForm({ user, onAdd, onPointsEarned, lang = 'ar' }) {
     };
     const docRef = await addDoc(collection(db, 'userPlaces'), newPlace);
     onAdd({ id: docRef.id, ...newPlace });
+    createNotification({ toAdmin: true, type: 'place_pending', placeName: name });
     if (onPointsEarned) onPointsEarned();
     showToast(t.pendingNotice, 'success');
-    // إضافة منطقة جديدة كمان بتحسب كمساهمة حقيقية — بتدخل بحساب وسام "مكتشف الأردن"
-    // ومنخزنها كمان بحقل منفصل addedPlaceKeys عشان وسام "باني الأردن" المخصص للإضافات فقط
     try {
       await setDoc(doc(db, 'userProfiles', user.uid), {
         ratedPlaceKeys: arrayUnion(docRef.id),
@@ -1539,8 +1525,6 @@ function AddPlaceForm({ user, onAdd, onPointsEarned, lang = 'ar' }) {
   );
 }
 
-// أيقونات SVG بسيطة بلون ذهبي ثابت — بديل عن الإيموجي عشان تضل نفس
-// الشكل واللون بالضبط على كل الأجهزة (الإيموجي بتتغيّر شكلها حسب نظام التشغيل)
 function StatStarIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="#C4952A">
@@ -1564,11 +1548,6 @@ function StatPinIcon() {
   );
 }
 
-// ============================================================
-// نظام إشعارات Toast — بديل أنيق لنافذة alert() الرمادية المتطفلة
-// من المتصفح. أي مكان بالكود بيقدر يستدعي showToast(...) مباشرة
-// (حتى لو مكوّن بعيد عن App)، وبينبعث حدث عام يلتقطه ToastContainer
-// ============================================================
 function showToast(message, type = 'error') {
   window.dispatchEvent(new CustomEvent('rl-toast', { detail: { message, type } }));
 }
@@ -1597,6 +1576,107 @@ function ToastContainer() {
           {t.message}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ============================================================
+// نظام الإشعارات — مناطق/صور بانتظار المراجعة (للأدمن)
+// وموافقة/رفض/لايك/تعليق (للمستخدم صاحب المحتوى)
+// ============================================================
+async function createNotification({ toUid = null, toAdmin = false, type, placeName = null }) {
+  if (toAdmin === false && !toUid) return;
+  try {
+    await addDoc(collection(db, 'notifications'), {
+      toUid,
+      toAdmin,
+      type,
+      placeName,
+      read: false,
+      createdAt: new Date().toISOString(),
+    });
+  } catch (e) {}
+}
+
+function getNotificationText(n, lang = 'ar') {
+  const p = n.placeName || '';
+  const map = {
+    place_pending: { ar: `📍 منطقة جديدة "${p}" بانتظار المراجعة`, en: `📍 New place "${p}" pending review` },
+    place_approved: { ar: `✅ تمت الموافقة على منطقتك "${p}" 🎉`, en: `✅ Your place "${p}" was approved 🎉` },
+    place_rejected: { ar: `❌ للأسف ما تمت الموافقة على منطقتك "${p}"`, en: `❌ Your place "${p}" was not approved` },
+    photo_pending: { ar: `📸 صورة جديدة بـ"${p}" بانتظار المراجعة`, en: `📸 New photo in "${p}" pending review` },
+    photo_approved: { ar: `✅ تمت الموافقة على صورتك بـ"${p}" 🎉`, en: `✅ Your photo in "${p}" was approved 🎉` },
+    photo_rejected: { ar: `❌ للأسف ما تمت الموافقة على صورتك بـ"${p}"`, en: `❌ Your photo in "${p}" was not approved` },
+    photo_liked: { ar: `❤️ حدا حط لايك على صورتك بـ"${p}"`, en: `❤️ Someone liked your photo in "${p}"` },
+    photo_commented: { ar: `💬 حدا علّق على صورتك بـ"${p}"`, en: `💬 Someone commented on your photo in "${p}"` },
+  };
+  return (map[n.type] && map[n.type][lang]) || (lang === 'ar' ? '🔔 إشعار جديد' : '🔔 New notification');
+}
+
+function NotificationBell({ user, isAdmin, lang = 'ar' }) {
+  const [notifs, setNotifs] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const loadNotifs = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const field = isAdmin ? 'toAdmin' : 'toUid';
+      const value = isAdmin ? true : user.uid;
+      const q = query(collection(db, 'notifications'), where(field, '==', value), orderBy('createdAt', 'desc'), limit(20));
+      const snap = await getDocs(q);
+      setNotifs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    } catch (e) {}
+    setLoading(false);
+  };
+
+  useEffect(() => { loadNotifs(); }, [user, isAdmin]);
+
+  const unreadCount = notifs.filter((n) => !n.read).length;
+
+  const handleOpen = async () => {
+    const willOpen = !open;
+    setOpen(willOpen);
+    if (willOpen && unreadCount > 0) {
+      try {
+        await Promise.all(notifs.filter((n) => !n.read).map((n) => updateDoc(doc(db, 'notifications', n.id), { read: true })));
+        setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
+      } catch (e) {}
+    }
+  };
+
+  if (!user) return null;
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button className="lang-btn" onClick={handleOpen} style={{ position: 'relative' }}>
+        🔔
+        {unreadCount > 0 && (
+          <span style={{ position: 'absolute', top: -4, insetInlineEnd: -4, background: '#c0392b', color: '#fff', borderRadius: '50%', width: 18, height: 18, fontSize: '0.65rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div
+          style={{ position: 'absolute', top: '110%', insetInlineEnd: 0, width: 'min(340px, 90vw)', maxHeight: 400, overflowY: 'auto', background: '#fff', borderRadius: 14, boxShadow: '0 8px 30px rgba(0,0,0,0.25)', zIndex: 2000, padding: 10, textAlign: lang === 'ar' ? 'right' : 'left' }}
+        >
+          <h4 style={{ margin: '4px 8px 10px', color: '#8B6914' }}>{lang === 'ar' ? '🔔 الإشعارات' : '🔔 Notifications'}</h4>
+          {loading ? (
+            <p style={{ color: '#999', fontSize: '0.85rem', padding: '0 8px' }}>{lang === 'ar' ? 'جاري التحميل...' : 'Loading...'}</p>
+          ) : notifs.length === 0 ? (
+            <p style={{ color: '#999', fontSize: '0.85rem', padding: '0 8px' }}>{lang === 'ar' ? 'ما في إشعارات لهلق ✨' : 'No notifications yet ✨'}</p>
+          ) : (
+            notifs.map((n) => (
+              <div key={n.id} style={{ padding: '10px 8px', borderBottom: '1px solid #f0e0b0', fontSize: '0.85rem', color: '#444', background: n.read ? 'transparent' : '#faf6ec', borderRadius: 8 }}>
+                {getNotificationText(n, lang)}
+                <div style={{ fontSize: '0.7rem', color: '#aaa', marginTop: 3 }}>{new Date(n.createdAt).toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US')}</div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1861,10 +1941,6 @@ function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocatio
   );
 }
 
-// ============================================================
-// لوحة إدارة بسيطة — تظهر بس للإيميل المحدد بـ ADMIN_EMAILS.
-// بتعرض المناطق يلي بانتظار المراجعة وبتسمح بالموافقة أو الرفض
-// ============================================================
 function AdminPanel({ onClose, lang = 'ar' }) {
   const [tab, setTab] = useState('places');
   const [pendingPlaces, setPendingPlaces] = useState([]);
@@ -1899,6 +1975,7 @@ function AdminPanel({ onClose, lang = 'ar' }) {
     try {
       await setDoc(doc(db, 'userPlaces', place.id), { status: 'approved' }, { merge: true });
       setPendingPlaces((prev) => prev.filter((p) => p.id !== place.id));
+      createNotification({ toUid: place.addedByUid, type: 'place_approved', placeName: place.name });
       showToast(lang === 'ar' ? '✅ تمت الموافقة على المنطقة' : '✅ Place approved', 'success');
     } catch (e) {
       showToast(lang === 'ar' ? 'صار خطأ، جرب مرة ثانية' : 'Something went wrong, try again');
@@ -1909,6 +1986,7 @@ function AdminPanel({ onClose, lang = 'ar' }) {
     try {
       await setDoc(doc(db, 'userPlaces', place.id), { status: 'rejected' }, { merge: true });
       setPendingPlaces((prev) => prev.filter((p) => p.id !== place.id));
+      createNotification({ toUid: place.addedByUid, type: 'place_rejected', placeName: place.name });
       showToast(lang === 'ar' ? 'تم رفض المنطقة' : 'Place rejected', 'success');
     } catch (e) {
       showToast(lang === 'ar' ? 'صار خطأ، جرب مرة ثانية' : 'Something went wrong, try again');
@@ -1934,6 +2012,7 @@ function AdminPanel({ onClose, lang = 'ar' }) {
         );
       }
       await setDoc(ref, { items: updatedItems }, { merge: false });
+      createNotification({ toUid: row.photo.uploadedByUid, type: action === 'approve' ? 'photo_approved' : 'photo_rejected', placeName: getPlaceDisplayName(row.placeKey) });
       setPendingPhotos((prev) => prev.filter((r) => !(r.placeKey === row.placeKey && r.photo.uploadedAt === row.photo.uploadedAt)));
       showToast(action === 'approve' ? (lang === 'ar' ? '✅ تمت الموافقة على الصورة' : '✅ Photo approved') : (lang === 'ar' ? 'تم رفض الصورة' : 'Photo rejected'), 'success');
     } catch (e) {
@@ -2311,7 +2390,6 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar' }) {
     setLoading(true);
     setTrip(null);
 
-    // نظام محلي بالكامل — فوري وبدون أي اتصال خارجي أو مفتاح API
     setTimeout(() => {
       try {
         const result = buildLocalTripPlan(prompt.trim(), userPlaces, lang);
@@ -2461,7 +2539,6 @@ function RahalChatbot({ userLocation, userPlaces, lang = 'ar' }) {
   const [loading, setLoading] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
 
-  // لو المستخدم بدّل اللغة، منحدّث رسالة الترحيب الأولى بس (لو ما بلّش محادثة فعلية بعد)
   useEffect(() => {
     setChatMessages(prev => (prev.length === 1 && prev[0].from === 'bot'
       ? [{ from: 'bot', text: lang === 'ar' ? 'مرحباً! 👋 كيف يمكنني مساعدتك اليوم؟' : 'Hi! 👋 How can I help you today?' }]
@@ -2593,17 +2670,12 @@ function App() {
 
   const t = translations[lang];
 
-  // نأخر تحديث نتائج البحث الفعلية 300 ملي ثانية بعد آخر حرف تكتبيه —
-  // هيك الكتابة نفسها بتضل سلسة، وما منعيد رسم كل البطاقات مع كل حرف
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
   useEffect(() => {
-    // لو المستخدم رجع لتوه من صفحة تسجيل الدخول بجوجل (طريقة الـ redirect
-    // المستخدمة بالموبايل)، منمسك النتيجة هون. لو صار خطأ، منعرضه فوراً
-    // بدل ما يختفي بصمت (نفس مشكلة auth/popup-blocked يلي كانت بالسابق)
     checkRedirectResult().catch((err) => {
       showToast(`⚠️ ${err.code || err.message || 'خطأ أثناء تسجيل الدخول'}`);
     });
@@ -2728,7 +2800,6 @@ return () => unsubscribe();
   const awardPoints = async (amount) => {
     if (!user) return;
     try {
-      // نمنع النقاط من تنزل تحت الصفر بقاعدة البيانات نفسها (مش بس بالشاشة)
       const safeAmount = amount < 0 ? -Math.min(Math.abs(amount), points) : amount;
       await setDoc(doc(db, 'userProfiles', user.uid), { points: increment(safeAmount) }, { merge: true });
       setPoints(prev => Math.max(0, prev + safeAmount));
@@ -2758,6 +2829,7 @@ return () => unsubscribe();
       await setDoc(doc(db, 'photos', placeKey), { items: arrayUnion(photoObj) }, { merge: true });
       setPlacePhotos(prev => ({ ...prev, [placeKey]: [...(prev[placeKey] || []), photoObj] }));
       awardPoints(5);
+      createNotification({ toAdmin: true, type: 'photo_pending', placeName: getPlaceNameForKey(placeKey) });
       showToast(lang === 'ar' ? '📋 الصورة رح تظهر بعد مراجعة سريعة منّا' : '📋 The photo will appear after a quick review from us', 'success');
     } catch (e) {}
   };
@@ -2809,6 +2881,9 @@ return () => unsubscribe();
           const newLikes = hasLiked
             ? likes.filter((l) => (l && l.uid) !== user.uid)
             : [...likes, { uid: user.uid, likedAt: new Date().toISOString() }];
+          if (!hasLiked && p.uploadedByUid && p.uploadedByUid !== user.uid) {
+            createNotification({ toUid: p.uploadedByUid, type: 'photo_liked', placeName: getPlaceNameForKey(placeKey) });
+          }
           return { ...p, likes: newLikes };
         }
         return p;
@@ -2829,6 +2904,9 @@ return () => unsubscribe();
       const updatedPhotos = currentPhotos.map((p) => {
         if (p.url === photoObj.url && p.uploadedAt === photoObj.uploadedAt) {
           const comments = p.comments || [];
+          if (p.uploadedByUid && p.uploadedByUid !== user.uid) {
+            createNotification({ toUid: p.uploadedByUid, type: 'photo_commented', placeName: getPlaceNameForKey(placeKey) });
+          }
           return { ...p, comments: [...comments, newComment] };
         }
         return p;
@@ -2869,7 +2947,6 @@ return () => unsubscribe();
     setOpenPlace(key);
     setServicesFetchFailed(false);
 
-    // نعرض النتائج المخزّنة (من زيارة سابقة) فوراً بدون أي انتظار، لو موجودة
     const cachedSupport = getCachedServices(getServicesCacheKey('support', place.lat, place.lng));
     const cachedRestaurants = getCachedServices(getServicesCacheKey('restaurants', place.lat, place.lng));
     if (cachedSupport || cachedRestaurants) {
@@ -2882,13 +2959,10 @@ return () => unsubscribe();
       setLoadingServices(true);
     }
 
-    // وبنفس الوقت منجيب نسخة محدثة بالخلفية (حتى لو كان في كاش) عشان
-    // البيانات تضل صحيحة، ومنحدث الشاشة لما توصل النتيجة الجديدة
     const [supportResult, restaurantResult] = await Promise.all([
       fetchNearbySupportServices(place.lat, place.lng),
       fetchNearbyRestaurants(place.lat, place.lng),
     ]);
-    // لو المستخدم بدّل لمكان تاني بالأثناء، ما منحدث الشاشة بنتيجة المكان القديم
     setOpenPlace((current) => {
       if (current === key) {
         setServices(supportResult.slice(0, 10));
@@ -3070,7 +3144,7 @@ return () => unsubscribe();
   let weeklyTopPhoto = null;
   Object.entries(placePhotos).forEach(([pKey, photosArr]) => {
     (photosArr || []).forEach((p) => {
-      if (p.status === 'pending') return; // ما بينعرض كـ"صورة الأسبوع" لحد ما توافق عليه
+      if (p.status === 'pending') return;
       const likes = p.likes || [];
       const weeklyLikeCount = likes.filter((l) => l && l.likedAt && new Date(l.likedAt) >= weekStart).length;
       if (weeklyLikeCount > 0) {
@@ -3112,6 +3186,7 @@ return () => unsubscribe();
           <button className="lang-btn" onClick={() => setShowLeaderboard(prev => !prev)}>
             {lang === 'ar' ? '🏆 أفضل الرحالة' : '🏆 Top Explorers'}
           </button>
+          <NotificationBell user={user} isAdmin={user && ADMIN_EMAILS.includes(user.email)} lang={lang} />
           <button className="lang-btn" onClick={() => setShowAbout(true)}>
             {lang === 'ar' ? 'عن رحلتي' : 'About'}
           </button>
@@ -3138,8 +3213,6 @@ return () => unsubscribe();
               className="login-btn"
               onClick={() => {
                 signInWithGoogle().catch((err) => {
-                  // نعرض كود الخطأ الحقيقي بدل ما يختفي بصمت — هاد بالضبط
-                  // اللي محتاجينه نشخص مشكلة سفاري
                   showToast(`⚠️ ${err.code || err.message || (lang === 'ar' ? 'صار خطأ غير متوقع' : 'An unexpected error occurred')}`);
                 });
               }}
