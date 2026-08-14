@@ -399,30 +399,106 @@ const NEARBY_PLACES = {
   hallabat: ['azraqcastle', 'ummjimal', 'qasramra'],
 };
 
-function buildLocalTripPlan(userText, userPlaces, lang = 'ar') {
+// ============================================================
+// اكتشاف نوع الاهتمام والموسم من نص المستخدم الحر — عشان نظام
+// بناء الرحلة يفهم وصف عام ("بدي طبيعة وهدوء") مش بس أسماء أماكن.
+// بتستخدم نفس محرك توسيع المرادفات (expandSynonyms) يلي رحال
+// الشات بوت بيستخدمه — يعني نفس القدرة على فهم الأخطاء الإملائية
+// والصياغات المختلفة، بدل ما يكون عنا قائمة كلمات منفصلة ومحدودة
+// ============================================================
+const TYPE_CANONICAL_MAP = {
+  nature: ['طبيعة'],
+  adventure: ['مغامرة', 'تخييم'],
+  historical: ['اثري'],
+  religious: ['ديني'],
+  relaxation: ['استجمام'],
+  urban: ['مدينة'],
+};
+
+function detectPlaceTypesFromText(text) {
+  const expanded = expandSynonyms(text).toLowerCase();
+  const found = [];
+  Object.entries(TYPE_CANONICAL_MAP).forEach(([type, canonicalWords]) => {
+    if (canonicalWords.some((w) => expanded.includes(w))) found.push(type);
+  });
+  return found;
+}
+
+function detectSeasonFromText(text) {
+  const expanded = expandSynonyms(text).toLowerCase();
+  if (expanded.includes('صيف')) return 'summer';
+  if (expanded.includes('شتاء')) return 'winter';
+  if (expanded.includes('ربيع')) return 'spring';
+  return null;
+}
+
+function buildLocalTripPlan(userText, userPlaces, lang = 'ar', explicitStartHour = null) {
   const days = extractDaysCount(userText);
   const userBudget = extractBudgetNumber(userText);
   const mentioned = extractMentionedPlaces(userText, userPlaces);
   const companionType = detectCompanionType(userText);
-  const startHour = extractStartTime(userText);
+  // لو المستخدم اختارت وقت بداية من القائمة بالواجهة، نستخدمه بالأولوية.
+  // غير هيك، منجرب نستخرجه من النص المكتوب (مثلاً "الساعة 11")
+  const startHour = explicitStartHour !== null && explicitStartHour !== undefined ? explicitStartHour : extractStartTime(userText);
   const schedule = buildDaySchedule(startHour, lang);
 
   const getName = (place, isUserPlace) => (isUserPlace ? place.name : (lang === 'en' ? (place.nameEn || place.name) : place.name));
   const getFood = (place, isUserPlace) => (isUserPlace ? place.food : (lang === 'en' ? (place.foodEn || place.food) : place.food));
 
-  // لو المستخدم ذكر أماكن معينة (رسمية أو أضافها زوار)، نستخدمها.
-  // غير هيك، منختار مجموعة مميزة افتراضية من الأماكن الرسمية
-  const defaultHighlights = ['petra', 'wadirum', 'aqaba', 'deadsea', 'jerash', 'ajloun', 'madaba'].map(
-    (key) => ({ key, place: places[key], isUserPlace: false })
-  );
-  let pool = mentioned.length > 0 ? mentioned : defaultHighlights;
+  // لو المستخدم ذكر أماكن معينة (رسمية أو أضافها زوار)، نستخدمها كأولوية.
+  // غير هيك، منحلل النص لنفهم نوع الاهتمام (طبيعة/مغامرة/تاريخي...)
+  // والموسم والرفقة والميزانية، ومنبني قائمة أماكن مبنية فعلياً على
+  // وصف المستخدم بدل ما نرجع دايماً لنفس القائمة الثابتة (بترا+رم)
+  let pool;
+  let didNotUnderstand = false;
+  if (mentioned.length > 0) {
+    pool = mentioned;
+    // لو المستخدم ذكر مكان واحد بس وطلب كذا يوم، منضيف أماكن قريبة
+    // للأيام التالية عشان نتفادى تكرار نفس البرنامج كل يوم
+    if (pool.length === 1 && days > 1 && !pool[0].isUserPlace) {
+      const nearbyKeys = NEARBY_PLACES[pool[0].key] || [];
+      const nearbyEntries = nearbyKeys.map((k) => ({ key: k, place: places[k], isUserPlace: false }));
+      pool = [pool[0], ...nearbyEntries];
+    }
+  } else {
+    const detectedTypes = detectPlaceTypesFromText(userText);
+    const detectedSeason = detectSeasonFromText(userText);
+    const hasSignal = detectedTypes.length > 0 || detectedSeason || companionType || userBudget !== null;
 
-  // لو المستخدم ذكر مكان واحد بس وطلب كذا يوم، منضيف أماكن قريبة
-  // للأيام التالية عشان نتفادى تكرار نفس البرنامج كل يوم
-  if (pool.length === 1 && days > 1 && !pool[0].isUserPlace) {
-    const nearbyKeys = NEARBY_PLACES[pool[0].key] || [];
-    const nearbyEntries = nearbyKeys.map((k) => ({ key: k, place: places[k], isUserPlace: false }));
-    pool = [pool[0], ...nearbyEntries];
+    if (!hasSignal) {
+      // ما لقينا أي إشارة بالنص (لا نوع، لا موسم، لا رفقة، لا ميزانية)
+      // — منستخدم مجموعة مميزة متنوعة كحل احتياطي، وبنكون صريحين
+      // مع المستخدم إنه هاد اقتراح عام مش مبني على تفاصيل وصفه
+      pool = ['petra', 'wadirum', 'aqaba', 'deadsea', 'jerash', 'ajloun', 'madaba'].map(
+        (key) => ({ key, place: places[key], isUserPlace: false })
+      );
+      didNotUnderstand = true;
+    } else {
+      // نحسب نقاط لكل مكان رسمي بناءً على مدى تطابقه مع كل إشارة
+      // لقيناها بالنص، ومنرتبهم وناخذ الأنسب — هيك كل وصف مختلف
+      // بيرجع أماكن مختلفة فعلياً، مش نفس القائمة الثابتة كل مرة
+      const scoredCandidates = Object.keys(places).map((key) => {
+        const place = places[key];
+        const meta = getPlaceMeta(key);
+        let score = 0;
+        if (detectedTypes.includes(place.type)) score += 4;
+        if (detectedSeason && place.season === detectedSeason) score += 3;
+        if (companionType && meta.companions && meta.companions.includes(companionType)) score += 2;
+        if (userBudget !== null) {
+          if (userBudget <= 10 && meta.budget === 'free') score += 2;
+          else if (userBudget <= 25 && (meta.budget === 'free' || meta.budget === 'under20')) score += 2;
+          else if (userBudget > 25) score += 1;
+        }
+        return { key, place, score };
+      });
+      scoredCandidates.sort((a, b) => b.score - a.score);
+      // لو أعلى نقاط طلعت صفر (يعني ولا مكان طابق أي إشارة فعلياً رغم
+      // وجود كلمات عامة بالنص)، هاد كمان معناه ما فهمنا بدقة — نبلغ المستخدم
+      if ((scoredCandidates[0] && scoredCandidates[0].score === 0)) {
+        didNotUnderstand = true;
+      }
+      pool = scoredCandidates.slice(0, Math.max(days * 2, 6)).map(({ key, place }) => ({ key, place, isUserPlace: false }));
+    }
   }
 
   const dayEntries = [];
@@ -546,7 +622,13 @@ function buildLocalTripPlan(userText, userPlaces, lang = 'ar') {
     }
   }
 
-  return { title, totalDays: days, days: tripDays, tips };
+  const clarificationNote = didNotUnderstand
+    ? (lang === 'en'
+        ? "We couldn't clearly understand your specific interests from the description, so this is a general suggestion based on Jordan's most popular destinations. Try being more specific (e.g., \"I want nature and quiet places\") for a more personalized result."
+        : 'ما قدرنا نفهم اهتماماتك بالتحديد من الوصف، فهاد اقتراح عام مبني على أشهر الوجهات بالأردن. جربي تكوني أوضح شوي (مثلاً: "بدي طبيعة وأماكن هادئة") لنتيجة أدق ومخصصة أكتر.')
+    : null;
+
+  return { title, totalDays: days, days: tripDays, tips, didNotUnderstand, clarificationNote };
 }
 
 const DEFAULT_PLACE_META = { budget: 'free', companions: ['alone', 'family', 'friends', 'kids'], duration: 'half' };
@@ -816,21 +898,27 @@ function isFriendsQuery(q) {
 const KEYWORD_SYNONYMS = {
   'مطعم': ['مطعم', 'مطاعم', 'restaurant', 'restaurants', 'food', 'eat', 'اكل', 'أكل', 'طعام'],
   'قريب': ['قريب', 'قريبة', 'قريبين', 'near', 'nearby', 'close by'],
-  'صيف': ['صيف', 'صيفي', 'صيفية', 'summer'],
-  'شتاء': ['شتاء', 'شتوي', 'شتوية', 'winter'],
-  'ربيع': ['ربيع', 'ربيعي', 'spring'],
+  'صيف': ['صيف', 'صيفي', 'صيفية', 'حر', 'حار', 'summer', 'hot'],
+  'شتاء': ['شتاء', 'شتوي', 'شتوية', 'برد', 'بارد', 'winter', 'cold'],
+  'ربيع': ['ربيع', 'ربيعي', 'ربيعية', 'spring'],
   'طقس': ['طقس', 'weather', 'حرارة', 'درجة الحرارة', 'temperature'],
-  'بحر': ['بحر', 'sea', 'سباحة', 'swim', 'swimming', 'beach'],
-  'جبال': ['جبال', 'جبل', 'mountain', 'mountains'],
-  'اثري': ['اثري', 'أثري', 'اثار', 'آثار', 'ancient', 'roman', 'historical', 'history'],
-  'تخييم': ['تخييم', 'خيمة', 'camping', 'camp'],
-  'مغامرة': ['مغامرة', 'adventure'],
-  'تصوير': ['تصوير', 'photo', 'photography', 'انستقرام', 'instagram'],
-  'رومانسي': ['رومانسي', 'romantic', 'حبيب', 'حبيبي', 'خطيب', 'خطيبة', 'زوجي', 'زوجتي'],
-  'اصحاب': ['اصحاب', 'أصحاب', 'friends', 'friend', 'frind', 'صحاب', 'شلة'],
-  'رحلة': ['رحلة', 'trip', 'holiday', 'vacation', 'travel', 'travelling'],
-  'وين': ['وين', 'where'],
-  'مرحبا': ['مرحبا', 'مرحباً', 'hi', 'hello', 'hey', 'salam'],
+  'بحر': ['بحر', 'sea', 'سباحة', 'اسبح', 'أسبح', 'عوم', 'swim', 'swimming', 'beach'],
+  'طبيعة': ['طبيعة', 'طبيعية', 'خضرة', 'خضراء', 'اخضر', 'أخضر', 'غابة', 'غابات', 'جبال', 'جبل', 'nature', 'green', 'forest', 'mountain', 'mountains'],
+  'اثري': ['اثري', 'أثري', 'تاريخي', 'تاريخية', 'اثار', 'آثار', 'قلعة', 'قلاع', 'روماني', 'ancient', 'roman', 'historical', 'history', 'castle', 'ruins'],
+  'تخييم': ['تخييم', 'خيمة', 'خيم', 'camping', 'camp'],
+  'مغامرة': ['مغامرة', 'مغامرات', 'مغامره', 'تسلق', 'سفاري', 'مسار', 'مسارات', 'هايكنغ', 'adventure', 'hike', 'hiking', 'climbing', 'safari', 'trail'],
+  'ديني': ['ديني', 'دينية', 'كنيسة', 'كنائس', 'فسيفساء', 'تراثي', 'مقدس', 'religious', 'church', 'mosaic', 'heritage', 'sacred'],
+  'استجمام': ['استجمام', 'استرخاء', 'استرخى', 'علاج', 'شلالات', 'شلال', 'ينابيع', 'حمامات', 'relax', 'relaxation', 'therapy', 'spa', 'waterfall'],
+  'مدينة': ['مدينة', 'مدن', 'تسوق', 'سوق', 'مولات', 'city', 'urban', 'shopping', 'mall'],
+  'هدوء': ['هدوء', 'هادئ', 'هادية', 'بعيد عن الزحمة', 'مزدحم', 'quiet', 'peaceful', 'calm', 'crowd'],
+  'تصوير': ['تصوير', 'صور', 'صورة', 'photo', 'photos', 'photography', 'انستقرام', 'instagram'],
+  'رومانسي': ['رومانسي', 'رومنسي', 'romantic', 'حبيب', 'حبيبي', 'حبيبتي', 'خطيب', 'خطيبة', 'زوجي', 'زوجتي'],
+  'اصحاب': ['اصحاب', 'أصحاب', 'صحاب', 'شلة', 'شلتي', 'رفقة', 'friends', 'friend', 'frind', 'buddies'],
+  'عائلة': ['عائلة', 'عائلتي', 'اهلي', 'أهلي', 'اطفال', 'أطفال', 'family', 'kids', 'children'],
+  'لحالي': ['لحالي', 'وحدي', 'لوحدي', 'alone', 'solo', 'myself'],
+  'رحلة': ['رحلة', 'رحله', 'trip', 'holiday', 'vacation', 'vacation', 'travel', 'travelling', 'traveling'],
+  'وين': ['وين', 'فين', 'where'],
+  'مرحبا': ['مرحبا', 'مرحباً', 'هلا', 'hi', 'hello', 'hey', 'salam'],
 };
 
 function buildPlaceSynonyms() {
@@ -2417,6 +2505,9 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar' }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [trip, setTrip] = useState(null);
+  // null = بدون اختيار صريح (النظام بيجرب يفهمها من النص، وإلا افتراضي 8 الصبح)
+  const [startHour, setStartHour] = useState(null);
+  const startHourOptions = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
 
   const handleGenerate = () => {
     if (!prompt.trim() || prompt.trim().length < 5) {
@@ -2430,7 +2521,7 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar' }) {
 
     setTimeout(() => {
       try {
-        const result = buildLocalTripPlan(prompt.trim(), userPlaces, lang);
+        const result = buildLocalTripPlan(prompt.trim(), userPlaces, lang, startHour);
         setTrip(result);
         if (auth.currentUser) {
           setDoc(doc(db, 'userProfiles', auth.currentUser.uid), { tripsBuilt: increment(1) }, { merge: true }).catch(() => {});
@@ -2447,6 +2538,7 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar' }) {
     setTrip(null);
     setError(null);
     setPrompt('');
+    setStartHour(null);
   };
 
   const getTypeIcon = (type) => {
@@ -2493,6 +2585,29 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar' }) {
               }}
             />
 
+            <label style={{ display: 'block', fontSize: '0.85rem', color: '#5a3e1b', marginBottom: 6 }}>
+              {lang === 'ar' ? '🕐 الساعة يلي بدك تبلشي فيها يومك (اختياري)' : '🕐 What time do you want to start your day (optional)'}
+            </label>
+            <select
+              value={startHour === null ? '' : startHour}
+              onChange={(e) => setStartHour(e.target.value === '' ? null : parseInt(e.target.value, 10))}
+              style={{
+                width: '100%',
+                border: '1.5px solid #e8d5a3',
+                borderRadius: 12,
+                padding: 10,
+                fontSize: '0.9rem',
+                marginBottom: 12,
+                background: '#faf6ec',
+                color: '#3E2A14',
+              }}
+            >
+              <option value="">{lang === 'ar' ? 'افتراضي (8 الصبح، أو حسب ما تكتبيه بالنص)' : 'Default (8 AM, or as written in the text)'}</option>
+              {startHourOptions.map((h) => (
+                <option key={h} value={h}>{formatHour(h, lang)}</option>
+              ))}
+            </select>
+
             {error && (
               <p style={{ color: '#c0392b', fontSize: '0.85rem', marginBottom: 10 }}>{error}</p>
             )}
@@ -2517,9 +2632,16 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar' }) {
         ) : (
           <>
             <h2 style={{ color: '#8B6914', marginBottom: 4 }}>🤖 {trip.title}</h2>
-            <p style={{ color: '#777', fontSize: '0.85rem', marginBottom: 16 }}>
+            <p style={{ color: '#777', fontSize: '0.85rem', marginBottom: trip.didNotUnderstand ? 10 : 16 }}>
               {lang === 'ar' ? `رحلة ${trip.totalDays} يوم مبنية خصيصاً إلك` : `A ${trip.totalDays}-day trip built just for you`}
             </p>
+
+            {trip.didNotUnderstand && trip.clarificationNote && (
+              <div style={{ background: '#fff4e0', border: '1px solid #f0cf8f', borderRadius: 12, padding: '10px 14px', marginBottom: 16, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '1.1rem' }}>ℹ️</span>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: '#8B6914', lineHeight: 1.6 }}>{trip.clarificationNote}</p>
+              </div>
+            )}
 
             {trip.days?.map((day, i) => (
               <div key={i} style={{ background: '#faf6ec', borderRadius: 14, padding: 16, marginBottom: 12, border: '1px solid #e8d5a3' }}>
