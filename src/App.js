@@ -489,15 +489,35 @@ function buildLocalTripPlan(userText, userPlaces, lang = 'ar', explicitStartHour
           else if (userBudget <= 25 && (meta.budget === 'free' || meta.budget === 'under20')) score += 2;
           else if (userBudget > 25) score += 1;
         }
-        return { key, place, score };
+        return { key, place, score, isUserPlace: false };
       });
-      scoredCandidates.sort((a, b) => b.score - a.score);
+      // كمان نحسب نقاط لمناطق أضافها زوار (وتمت الموافقة عليها فقط)،
+      // بنفس منطق التقييم — هيك أي منطقة يضيفها زائر بتصير جزء فعلي
+      // من التوصيات الذكية بمجرد ما توافق عليها الإدارة، مش لازم
+      // المستخدم يذكرها بالاسم بالضبط عشان تظهر
+      const scoredUserCandidates = (userPlaces || [])
+        .filter((p) => p.lat && p.lng)
+        .map((p) => {
+          const meta = DEFAULT_PLACE_META;
+          let score = 0;
+          if (detectedTypes.includes(p.type)) score += 4;
+          if (detectedSeason && p.season === detectedSeason) score += 3;
+          if (companionType && meta.companions.includes(companionType)) score += 2;
+          if (userBudget !== null) {
+            if (userBudget <= 10) score += 2; // مناطق الزوار افتراضياً "مجاني" بالتقييم العام
+            else if (userBudget <= 25) score += 2;
+            else score += 1;
+          }
+          return { key: p.id, place: p, score, isUserPlace: true };
+        });
+      const allScored = [...scoredCandidates, ...scoredUserCandidates];
+      allScored.sort((a, b) => b.score - a.score);
       // لو أعلى نقاط طلعت صفر (يعني ولا مكان طابق أي إشارة فعلياً رغم
       // وجود كلمات عامة بالنص)، هاد كمان معناه ما فهمنا بدقة — نبلغ المستخدم
-      if ((scoredCandidates[0] && scoredCandidates[0].score === 0)) {
+      if ((allScored[0] && allScored[0].score === 0)) {
         didNotUnderstand = true;
       }
-      pool = scoredCandidates.slice(0, Math.max(days * 2, 6)).map(({ key, place }) => ({ key, place, isUserPlace: false }));
+      pool = allScored.slice(0, Math.max(days * 2, 6)).map(({ key, place, isUserPlace }) => ({ key, place, isUserPlace }));
     }
   }
 
@@ -966,7 +986,7 @@ function expandSynonyms(text) {
   });
   return text + extra;
 }
-async function getRahalResponse(question, userLocation, userPlaces, lang = 'ar') {
+async function getRahalCoreResponse(question, userLocation, userPlaces, lang = 'ar') {
   const q = expandSynonyms(question.trim()).toLowerCase();
   const isEn = lang === 'en';
 
@@ -1215,6 +1235,32 @@ async function getRahalResponse(question, userLocation, userPlaces, lang = 'ar')
   return isEn
     ? "I couldn't find a precise answer to your question 🤔 try asking me about: a place name, the season, food, nature, ruins, swimming, adventure, photography, castles, or \"where should I go tomorrow\" and I'll answer based on the weather 😊"
     : 'ما قدرت ألاقي جواب دقيق لسؤالك 🤔 جرب تسألني عن: اسم منطقة، الموسم، الأكل، الطبيعة، الآثار، السباحة، المغامرة، التصوير، القلاع، أو "وين أروح بكرا" وبجاوبك حسب الطقس 😊';
+}
+
+// بيدور على مناطق أضافها زوار (وتمت الموافقة عليها فقط) بتطابق نوع
+// الاهتمام المذكور بسؤال المستخدم — عشان رحال يقترحها كمان مش بس
+// المناطق الرسمية. هيك أي منطقة يضيفها زائر بتصير جزء فعلي من
+// توصيات رحال بمجرد ما توافق عليها الإدارة
+function findMatchingApprovedUserPlaces(question, userPlaces, lang = 'ar') {
+  const approved = (userPlaces || []).filter((p) => p.status === 'approved' || !p.status);
+  if (approved.length === 0) return [];
+  const detectedTypes = detectPlaceTypesFromText(question);
+  if (detectedTypes.length === 0) return [];
+  return approved.filter((p) => detectedTypes.includes(p.type)).slice(0, 3);
+}
+
+// الدالة يلي فعلياً بتستدعيها الواجهة — بتاخذ جواب رحال الأساسي
+// وبتضيفله (لو في تطابق) اقتراح مناطق اكتشفها زوار تانيين، عشان
+// كل منطقة تمت الموافقة عليها تصير جزء فعلي من تجربة الاكتشاف
+async function getRahalResponse(question, userLocation, userPlaces, lang = 'ar') {
+  const baseAnswer = await getRahalCoreResponse(question, userLocation, userPlaces, lang);
+  const matchedUserPlaces = findMatchingApprovedUserPlaces(question, userPlaces, lang);
+  if (matchedUserPlaces.length === 0) return baseAnswer;
+  const names = matchedUserPlaces.map((p) => p.name).join(lang === 'ar' ? '، ' : ', ');
+  const suffix = lang === 'ar'
+    ? `\n\n🌟 وكمان في مناطق اكتشفها زوار زيك وضافوها للتطبيق ممكن تعجبك: ${names}`
+    : `\n\n🌟 Also, here are places discovered and added by other visitors that might interest you: ${names}`;
+  return baseAnswer + suffix;
 }
 
 const ECO_MESSAGES = {
@@ -3312,6 +3358,10 @@ return () => unsubscribe();
   };
 
   const isApprovedOrLegacy = (p) => p.status === 'approved' || !p.status;
+  // نمرر بس المناطق الموافق عليها لأنظمة التوصية (خطط رحلتي، بناء
+  // رحلة بالـ AI، رحال) — عشان منطقة لسا قيد المراجعة أو مرفوضة
+  // ما توصي فيها الأنظمة لزوار تانيين قبل ما الإدارة توافق عليها
+  const approvedUserPlaces = userPlaces.filter(isApprovedOrLegacy);
   const userSummerPlaces = userPlaces.filter(p => p.season === 'summer' && isApprovedOrLegacy(p));
   const userWinterPlaces = userPlaces.filter(p => p.season === 'winter' && isApprovedOrLegacy(p));
   const userSpringPlaces = userPlaces.filter(p => p.season === 'spring' && isApprovedOrLegacy(p));
@@ -3542,11 +3592,11 @@ return () => unsubscribe();
       )}
 
       {showTripPlanner && (
-        <TripPlanner onClose={() => setShowTripPlanner(false)} onOpenMap={openMap} userPlaces={userPlaces} lang={lang} />
+        <TripPlanner onClose={() => setShowTripPlanner(false)} onOpenMap={openMap} userPlaces={approvedUserPlaces} lang={lang} />
       )}
 
       {showAiTripBuilder && (
-        <AITripBuilder onClose={() => setShowAiTripBuilder(false)} userPlaces={userPlaces} lang={lang} />
+        <AITripBuilder onClose={() => setShowAiTripBuilder(false)} userPlaces={approvedUserPlaces} lang={lang} />
       )}
 
       {weeklyTopPhoto && (
@@ -3824,7 +3874,7 @@ return () => unsubscribe();
         </div>
       )}
 
-      <RahalChatbot userLocation={userLocation} userPlaces={userPlaces} lang={lang} />
+      <RahalChatbot userLocation={userLocation} userPlaces={approvedUserPlaces} lang={lang} />
     </div>
   );
 }
