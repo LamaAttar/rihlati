@@ -6,6 +6,7 @@ import { auth, signInWithGoogle, logOut, checkRedirectResult } from './Auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, setDoc, getDoc, arrayUnion, arrayRemove, collection, addDoc, getDocs, increment, query, orderBy, limit, deleteDoc, where, updateDoc } from 'firebase/firestore';
 import L from 'leaflet';
+import emailjs from '@emailjs/browser';
 import ImageUpload from './ImageUpload';
 import translations from './translations';
 import AboutPage from './AboutPage';
@@ -710,6 +711,26 @@ const NATURE_PLACE_KEYS = ['dana', 'wadirum', 'mujib', 'ajloun', 'mainhot', 'azr
 // ⚠️ عدّلي هاد الإيميل ليصير إيميل حسابك أنتِ (نفس إيميل تسجيل الدخول بجوجل)
 // عشان زر "لوحة الإدارة" يظهر إلك بس، مش لأي مستخدم تاني
 const ADMIN_EMAILS = ['lolonazem5@gmail.com'];
+
+// ============================================================
+// إشعارات إيميل حقيقية للإدارة — لما حدا يضيف منطقة أو صورة جديدة
+// بتنتظر المراجعة، بيوصل إيميل مباشرة (بدون سيرفر خلفي، بدون تكلفة)
+// عبر EmailJS (باقة مجانية حتى 200 إيميل بالشهر)
+// ============================================================
+const EMAILJS_SERVICE_ID = 'service_wb58vvc';
+const EMAILJS_TEMPLATE_ID = 'template_8sshsll';
+const EMAILJS_PUBLIC_KEY = 'lr2KV4FG-D8pyc851';
+
+function sendAdminEmailAlert(subject, message) {
+  try {
+    emailjs.send(
+      EMAILJS_SERVICE_ID,
+      EMAILJS_TEMPLATE_ID,
+      { subject, message },
+      EMAILJS_PUBLIC_KEY
+    ).catch(() => {}); // لو صار خطأ بالإرسال، ما منوقف تجربة المستخدم بسببه
+  } catch (e) {}
+}
 
 const PLACE_TYPES = [
   { key: 'nature', labelAr: '🌿 طبيعة', labelEn: '🌿 Nature' },
@@ -1608,6 +1629,10 @@ function AddPlaceForm({ user, onAdd, onPointsEarned, lang = 'ar' }) {
     const docRef = await addDoc(collection(db, 'userPlaces'), newPlace);
     onAdd({ id: docRef.id, ...newPlace });
     createNotification({ toAdmin: true, type: 'place_pending', placeName: name });
+    sendAdminEmailAlert(
+      `📍 منطقة جديدة بانتظار المراجعة: ${name}`,
+      `أضاف ${user.displayName} منطقة جديدة اسمها "${name}" وبتنتظر موافقتك. افتحي لوحة الإدارة بموقع رحلتي للمراجعة.`
+    );
     if (onPointsEarned) onPointsEarned();
     showToast(t.pendingNotice, 'success');
     try {
@@ -3011,6 +3036,30 @@ function App() {
 
 return () => unsubscribe();
 }, []);
+
+  // لو حدا فتح رابط مشاركة (?place=key أو ?userPlace=id)، منفتحله
+  // المنطقة مباشرة على الخريطة بدل ما يوصل للصفحة الرئيسية العامة
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const placeKey = params.get('place');
+    const userPlaceId = params.get('userPlace');
+    if (!placeKey && !userPlaceId) return;
+
+    let target = null;
+    if (placeKey && places[placeKey]) {
+      target = places[placeKey];
+    } else if (userPlaceId) {
+      target = userPlaces.find((p) => p.id === userPlaceId && (p.status === 'approved' || !p.status)) || null;
+      if (!target && userPlaces.length === 0) return; // لسا ما وصلت بيانات مناطق الزوار، منستنى تحميلها
+    }
+
+    if (target) {
+      openMap(target);
+      // ننضف الرابط من شريط العنوان عشان لو المستخدم عمل refresh ما يرجع يفتح نفس المكان تلقائياً
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, [userPlaces]);
+
   const updateGender = async (g) => {
     if (!user) return;
     try {
@@ -3052,6 +3101,10 @@ return () => unsubscribe();
       setPlacePhotos(prev => ({ ...prev, [placeKey]: [...(prev[placeKey] || []), photoObj] }));
       awardPoints(5);
       createNotification({ toAdmin: true, type: 'photo_pending', placeName: getPlaceNameForKey(placeKey) });
+      sendAdminEmailAlert(
+        `📸 صورة جديدة بانتظار المراجعة: ${getPlaceNameForKey(placeKey)}`,
+        `رفع ${user ? user.displayName : 'زائر'} صورة جديدة بمنطقة "${getPlaceNameForKey(placeKey)}" وبتنتظر موافقتك. افتحي لوحة الإدارة بموقع رحلتي للمراجعة.`
+      );
       showToast(lang === 'ar' ? '📋 الصورة رح تظهر بعد مراجعة سريعة منّا' : '📋 The photo will appear after a quick review from us', 'success');
     } catch (e) {}
   };
@@ -3233,6 +3286,29 @@ return () => unsubscribe();
   };
 
   const goHome = () => { setSeason(''); setTypeFilter(''); setOpenPlace(''); setSelectedPlace(null); setServices([]); setRestaurants([]); setSearchQuery(''); setMapServices([]); setShowFavoritesPage(false); };
+
+  // بيبني رابط مباشر لمنطقة معينة (رسمية أو أضافها زائر)، وبيحاول
+  // يفتح قائمة المشاركة الجاهزة بالجهاز (واتساب، ماسنجر...) لو
+  // مدعومة، وإلا بينسخ الرابط للحافظة كحل احتياطي
+  const handleShare = async (key, placeName, placeDesc, isUserPlace) => {
+    const base = window.location.origin + window.location.pathname;
+    const shareUrl = isUserPlace ? `${base}?userPlace=${encodeURIComponent(key)}` : `${base}?place=${encodeURIComponent(key)}`;
+    const shareText = lang === 'ar'
+      ? `شوفي هاد المكان الحلو بالأردن: ${placeName} 🗺️\n${placeDesc || ''}`
+      : `Check out this beautiful place in Jordan: ${placeName} 🗺️\n${placeDesc || ''}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: placeName, text: shareText, url: shareUrl });
+      } catch (e) {} // المستخدم لغى المشاركة، ما في داعي لأي رسالة خطأ
+    } else {
+      try {
+        await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+        showToast(lang === 'ar' ? '🔗 تم نسخ الرابط! شاركيه مع أصحابك' : '🔗 Link copied! Share it with friends', 'success');
+      } catch (e) {
+        showToast(lang === 'ar' ? 'تعذر نسخ الرابط' : 'Could not copy the link');
+      }
+    }
+  };
   const openLightbox = (photos, index, placeNameForLightbox, placeKeyForLightbox) => setLightboxData({ photos, index, placeName: placeNameForLightbox, placeKey: placeKeyForLightbox });
   const closeLightbox = () => { setLightboxData(null); setShowLightboxComments(false); setLightboxCommentDraft(''); };
   const lightboxPrev = () => { setShowLightboxComments(false); setLightboxCommentDraft(''); setLightboxData(prev => prev ? { ...prev, index: (prev.index - 1 + prev.photos.length) % prev.photos.length } : null); };
@@ -3288,6 +3364,7 @@ return () => unsubscribe();
           <>
             <button onClick={() => openMap(place)}>{t.map}</button>
             <a href={`https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`} target="_blank" rel="noopener noreferrer" className="directions-btn">{t.directions}</a>
+            <button onClick={() => handleShare(key, placeName, placeDesc, isUserPlace)}>🔗 {lang === 'ar' ? 'شارك' : 'Share'}</button>
           </>
         )}
         {place.lat && (
