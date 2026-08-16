@@ -3327,15 +3327,24 @@ return () => unsubscribe();
 
     return (
       <div className="place-card" key={key} style={{ position: 'relative' }}>
-        {!isUserPlace && (
+        <div style={{ position: 'absolute', top: 10, insetInlineEnd: 10, zIndex: 5, display: 'flex', gap: 10, alignItems: 'center' }}>
           <span
-            onClick={() => toggleFavorite(key)}
-            style={{ position: 'absolute', top: 10, insetInlineEnd: 10, fontSize: '1.4rem', cursor: 'pointer', zIndex: 5 }}
-            title={isFav ? 'إزالة من المفضلة' : 'أضف للمفضلة'}
+            onClick={() => handleShare(key, placeName, placeDesc, isUserPlace)}
+            style={{ fontSize: '1.25rem', cursor: 'pointer' }}
+            title={lang === 'ar' ? 'شارك' : 'Share'}
           >
-            {isFav ? '❤️' : '🤍'}
+            🔗
           </span>
-        )}
+          {!isUserPlace && (
+            <span
+              onClick={() => toggleFavorite(key)}
+              style={{ fontSize: '1.4rem', cursor: 'pointer' }}
+              title={isFav ? 'إزالة من المفضلة' : 'أضف للمفضلة'}
+            >
+              {isFav ? '❤️' : '🤍'}
+            </span>
+          )}
+        </div>
         <h3>{placeName}</h3>
         {isUserPlace && <span className="user-badge">👤 {place.addedBy}</span>}
         {isUserPlace && user && place.addedBy === user.displayName && (
@@ -3364,7 +3373,6 @@ return () => unsubscribe();
           <>
             <button onClick={() => openMap(place)}>{t.map}</button>
             <a href={`https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`} target="_blank" rel="noopener noreferrer" className="directions-btn">{t.directions}</a>
-            <button onClick={() => handleShare(key, placeName, placeDesc, isUserPlace)}>🔗 {lang === 'ar' ? 'شارك' : 'Share'}</button>
           </>
         )}
         {place.lat && (
