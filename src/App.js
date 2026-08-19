@@ -340,6 +340,130 @@ function getPlaceActivities(key, place, lang = 'ar') {
   return [{ name: fallbackName, description: fallbackDesc, durationHint: lang === 'en' ? 'as long as you like' : 'حسب رغبتك' }];
 }
 
+// ============================================================
+// معلومات ثقافية موثقة لأهم المواقع التاريخية والتراثية — خلفية
+// تاريخية موجزة + نصيحة سلوك مسؤول تناسب طبيعة المكان. عمداً
+// اقتصرنا على المواقع يلي عندنا معلومات موثوقة عنها فقط (بدل
+// ما نخترع معلومات لكل الـ36 منطقة) — نفس مبدأ الصدق المتبع
+// برسوم الدخول
+// ============================================================
+const CULTURAL_INFO = {
+  petra: {
+    history: 'بناها الأنباط عاصمة لمملكتهم قبل أكتر من 2000 سنة، واستخدموها كمحطة رئيسية على طريق تجارة البخور والتوابل بين الجزيرة العربية والبحر المتوسط. اتصنّفت إحدى عجائب الدنيا السبع الجديدة، ومسجلة على قائمة التراث العالمي لليونسكو.',
+    historyEn: 'Built by the Nabataeans as their capital over 2000 years ago, Petra served as a key stop on the incense and spice trade route between Arabia and the Mediterranean. Named one of the New Seven Wonders of the World and a UNESCO World Heritage Site.',
+    tip: 'لا تلمسي أو تخدشي النقوش الصخرية، والتزمي بالمسارات المخصصة، وتجنبي التسلق على الواجهات الأثرية.',
+    tipEn: "Don't touch or scratch the rock carvings, stick to marked trails, and avoid climbing on the ancient facades.",
+  },
+  jerash: {
+    history: 'واحدة من أفضل المدن الرومانية المحفوظة خارج إيطاليا، كانت جزء من "مدن العشرة" (ديكابوليس) الرومانية. عمرانها يعود لأكتر من 2000 سنة، وفيها شارع الأعمدة والمدرجات الرومانية بحالة استثنائية.',
+    historyEn: 'One of the best-preserved Roman cities outside Italy, Jerash was part of the Roman Decapolis. Its architecture dates back over 2000 years, featuring an exceptionally preserved colonnaded street and Roman theatres.',
+    tip: 'امشي بس على المسارات الحجرية المخصصة، ولا تجلسي أو تتسلقي على الأعمدة والجدران الأثرية.',
+    tipEn: 'Walk only on the designated stone paths, and avoid sitting or climbing on the ancient columns and walls.',
+  },
+  ajloun: {
+    history: 'بناها القائد صلاح الدين الأيوبي سنة 1184م لمراقبة تحركات الصليبيين وحماية طرق التجارة بين الأردن وسوريا. تعتبر من أهم القلاع الإسلامية بالمنطقة.',
+    historyEn: "Built in 1184 CE by Saladin's forces to monitor Crusader movements and protect trade routes between Jordan and Syria. One of the most significant Islamic-era castles in the region.",
+    tip: 'احترمي حدود المسارات المخصصة داخل القلعة، ولا ترمي نفايات بالغابات المحيطة.',
+    tipEn: "Respect the designated paths inside the castle, and don't litter in the surrounding forests.",
+  },
+  karak: {
+    history: 'قلعة صليبية ضخمة بنيت منتصف القرن الـ12، وشهدت معارك مهمة بين الصليبيين وصلاح الدين. تحوي أنفاق ومخازن تحت أرضية توضح فن العمارة الدفاعية بهالفترة.',
+    historyEn: "A massive Crusader castle built in the mid-12th century, site of major battles between the Crusaders and Saladin's forces. Its underground tunnels and storerooms showcase medieval defensive architecture.",
+    tip: 'انتبهي أثناء التجول بالممرات الداخلية المظلمة، ولا تلمسي الجدران الحجرية الهشة.',
+    tipEn: 'Be careful walking through the dark internal passages, and avoid touching the fragile stone walls.',
+  },
+  shobak: {
+    history: 'أول قلعة صليبية بمنطقة الأردن، بنيت سنة 1115م، وكانت تُعرف باسم "كراك دي مونتريال". استعادها صلاح الدين سنة 1189م بعد حصار طويل.',
+    historyEn: 'The first Crusader castle in Jordan, built in 1115 CE and known as "Krak de Montréal". Reclaimed by Saladin in 1189 CE after a long siege.',
+    tip: 'الأرضية داخل القلعة غير مستوية بأماكن كتير، احترسي أثناء التجول خصوصاً مع الأطفال.',
+    tipEn: 'The ground inside the castle is uneven in many places — be careful while walking, especially with children.',
+  },
+  umqais: {
+    history: 'مدينة "جدارا" الرومانية القديمة، اشتهرت بعلمائها وفلاسفتها بالعصر الروماني، وتطل على بحيرة طبريا وهضبة الجولان. فيها مزيج معماري روماني وبيزنطي وعثماني بنفس الموقع.',
+    historyEn: 'The ancient Roman city of "Gadara", once known for its scholars and philosophers. Overlooks the Sea of Galilee and the Golan Heights, with a blend of Roman, Byzantine, and Ottoman architecture in one site.',
+    tip: 'تجنبي المشي بالمناطق غير المرممة من الموقع الأثري، والتزمي بالمسارات المُشار إليها.',
+    tipEn: 'Avoid walking through unrestored parts of the site, and stick to marked paths.',
+  },
+  madaba: {
+    history: 'تُعرف بـ"مدينة الفسيفساء"، وفيها خريطة الفسيفساء الأشهر بالعالم لفلسطين والأردن يعود تاريخها للقرن السادس ميلادي، محفوظة بكنيسة القديس جاورجيوس الأرثوذكسية.',
+    historyEn: 'Known as the "City of Mosaics", home to the world-famous 6th-century Madaba Map mosaic depicting Palestine and Jordan, preserved inside St. George\'s Orthodox Church.',
+    tip: 'خففي صوتك واحترمي أوقات الصلاة إذا زرتي الكنائس، والتصوير بدون فلاش للمحافظة على الفسيفساء.',
+    tipEn: 'Keep your voice down and respect prayer times if visiting the churches, and photograph without flash to help preserve the mosaics.',
+  },
+  ummrasas: {
+    history: 'موقع أثري مسجل باليونسكو، فيه بقايا كنائس بيزنطية بفسيفساء رائعة تعود للقرن الثامن ميلادي، وبرج حجري غامض ما زال سبب بنائه غير مؤكد للباحثين.',
+    historyEn: 'A UNESCO-listed site featuring 8th-century Byzantine church mosaics and a mysterious stone tower whose exact purpose remains debated among researchers.',
+    tip: 'الموقع بعيد نسبياً وقليل الخدمات — خذي معك ماء كافي، والتزمي بالمسارات المرصوفة.',
+    tipEn: 'The site is fairly remote with limited services — bring enough water, and stick to the paved paths.',
+  },
+  wadirum: {
+    history: 'موطن قبائل بدوية أردنية عريقة عايشوا هالصحراء لأجيال، واشتهر عالمياً بعد ثورة الشريف حسين ودور لورنس العرب. مسجل على قائمة اليونسكو للتراث الطبيعي والثقافي المختلط.',
+    historyEn: "Home to Bedouin tribes who have lived in this desert for generations, made globally famous after the Great Arab Revolt and Lawrence of Arabia's role there. A UNESCO Mixed Natural and Cultural Heritage Site.",
+    tip: 'احترمي عادات المجتمع البدوي المحلي، اطفي النار بالكامل قبل المغادرة، ولا تترك نفايات بالصحراء.',
+    tipEn: 'Respect local Bedouin customs, fully extinguish fires before leaving, and never litter in the desert.',
+  },
+  aqaba: {
+    history: 'أقدم مدينة ساحلية مأهولة بالعالم (يعود تاريخها لأكتر من 6000 سنة)، وكانت ميناء تجاري مهم على طريق التجارة بين آسيا وأوروبا وأفريقيا منذ العصر البرونزي.',
+    historyEn: "One of the oldest continuously inhabited coastal cities in the world (dating back over 6000 years), historically a key trading port linking Asia, Europe, and Africa since the Bronze Age.",
+    tip: 'احترمي الشعاب المرجانية أثناء الغطس أو السباحة، ولا تلمسيها أو تقفي عليها.',
+    tipEn: "Respect the coral reefs while diving or swimming — don't touch or stand on them.",
+  },
+  amman: {
+    history: 'كانت تُعرف قديماً بـ"فيلادلفيا" بالعصر الروماني، وقبلها "ربّة عمّون" عاصمة مملكة عمّون. جبل القلعة يحوي طبقات حضارية متراكمة من العصر البرونزي حتى الأموي.',
+    historyEn: 'Known as "Philadelphia" in Roman times, and before that "Rabbath Ammon", capital of the Ammonite kingdom. The Citadel hill contains layered civilizations from the Bronze Age through the Umayyad period.',
+    tip: 'احترمي هدوء الأحياء السكنية القديمة بوسط البلد أثناء التجول والتصوير.',
+    tipEn: 'Respect the quiet of the old residential neighborhoods in downtown while walking around and taking photos.',
+  },
+  salt: {
+    history: 'مدينة تجارية عريقة ازدهرت أواخر العهد العثماني بفضل تجارة الصابون والحبوب، وفيها عمارة صفراء مميزة بلمسات معمارية عثمانية وأوروبية مختلطة. مسجلة على قائمة التراث العالمي لليونسكو.',
+    historyEn: 'A historic trading city that flourished in the late Ottoman era through soap and grain trade, known for its distinctive yellow limestone architecture blending Ottoman and European styles. A UNESCO World Heritage Site.',
+    tip: 'المباني التراثية أغلبها مسكونة أو فيها محلات فعلية — احترمي خصوصية السكان أثناء التصوير.',
+    tipEn: 'Most heritage buildings are still inhabited or in active use as shops — respect residents\' privacy while photographing.',
+  },
+  deadsea: {
+    history: 'أخفض نقطة على سطح اليابسة، ومذكور بالنصوص التوراتية والتاريخية منذ آلاف السنين. استخدمه المصريون القدماء بتحنيط الموتى، والملكة كليوباترا أنشأت مصانع لمستحضرات التجميل بالقرب منه.',
+    historyEn: 'The lowest point on Earth\'s land surface, mentioned in biblical and historical texts for thousands of years. Ancient Egyptians used its minerals for embalming, and Cleopatra reportedly established cosmetic factories nearby.',
+    tip: 'لا تسبحي بمياهه إذا في جروح مفتوحة، وتجنبي وصول المياه للعين، واشطفي جسمك بالماء العذب بعدها مباشرة.',
+    tipEn: "Avoid swimming with open wounds, keep the water away from your eyes, and rinse off with fresh water immediately after.",
+  },
+  mainhot: {
+    history: 'استخدمها الملك هيرودس الكبير بالعصر الروماني كمنتجع علاجي، وذُكرت بكتابات المؤرخ اليهودي يوسيفوس. مياهها الساخنة طبيعية المنشأ من نبع حراري بالجبال المحيطة.',
+    historyEn: 'Used by King Herod the Great in Roman times as a therapeutic retreat, and mentioned in the writings of historian Josephus. Its hot waters flow naturally from a thermal spring in the surrounding mountains.',
+    tip: 'لا تبقي بالمياه الساخنة أكتر من 15-20 دقيقة متواصلة، واشربي ماء كافي لتفادي الجفاف.',
+    tipEn: "Don't stay in the hot water for more than 15-20 minutes at a time, and drink enough water to avoid dehydration.",
+  },
+  azraqcastle: {
+    history: 'قلعة بازلتية سوداء بناها الرومان، وأعاد الأمويون والمماليك ترميمها. اتخذها لورنس العرب مقراً له خلال الثورة العربية الكبرى سنة 1917.',
+    historyEn: "A black basalt fortress built by the Romans and later restored by the Umayyads and Mamluks. Lawrence of Arabia used it as his headquarters during the Great Arab Revolt in 1917.",
+    tip: 'الحجر البازلتي ممكن يكون زلق وقت المطر — انتبهي لخطواتك بالممرات الداخلية.',
+    tipEn: 'The basalt stone can be slippery when wet — watch your step in the internal passages.',
+  },
+  qasramra: {
+    history: 'قصر صحراوي أموي من القرن الثامن ميلادي، مشهور برسوماته الجدارية النادرة يلي توضح مشاهد حياة يومية وفلكية، ومسجل على قائمة اليونسكو للتراث العالمي.',
+    historyEn: 'An 8th-century Umayyad desert castle famous for its rare wall paintings depicting daily life and astronomical scenes. A UNESCO World Heritage Site.',
+    tip: 'ممنوع لمس الرسومات الجدارية القديمة إطلاقاً — أي لمسة بسيطة ممكن تضر بالألوان الأصلية.',
+    tipEn: 'Never touch the ancient wall paintings — even light contact can damage the original pigments.',
+  },
+  hallabat: {
+    history: 'بني أساساً كحصن روماني، وحوّله الأمويون لقصر صحراوي بالقرن الثامن ميلادي، وفيه بقايا مسجد قديم ونظام ري متطور كان يخدم الزراعة بالمنطقة.',
+    historyEn: "Originally built as a Roman fort, later converted into an Umayyad desert palace in the 8th century, featuring the remains of an old mosque and an advanced irrigation system that once served local agriculture.",
+    tip: 'الموقع مفتوح وقليل الظل — يفضل الزيارة الصبح الباكر أو قبل الغروب بالصيف.',
+    tipEn: 'The site is open with little shade — visiting early morning or before sunset in summer is best.',
+  },
+  ummjimal: {
+    history: 'مدينة أثرية بازلتية سوداء نادرة الطراز، بنيت أساساً بالعصر النبطي وازدهرت بالعصرين الروماني والبيزنطي، وفيها أكتر من 150 مبنى محفوظ جزئياً بدون استخدام أي ملاط.',
+    historyEn: 'A rare black basalt ancient city, originally built in the Nabataean era and flourished during Roman and Byzantine times, featuring over 150 partially preserved buildings built without any mortar.',
+    tip: 'الموقع واسع ومكشوف بالكامل — خذي قبعة وواقي شمس، وتجنبي الزيارة بساعات الظهيرة بالصيف.',
+    tipEn: 'The site is large and fully exposed — bring a hat and sunscreen, and avoid visiting at midday in summer.',
+  },
+  pella: {
+    history: 'مدينة أثرية تعود لآلاف السنين، من أقدم المواقع المأهولة بالعالم، وكانت جزء من "مدن العشرة" الرومانية (ديكابوليس)، وفيها طبقات حضارية من العصر البرونزي حتى الإسلامي.',
+    historyEn: 'An ancient city dating back thousands of years, among the oldest continuously inhabited sites in the world, once part of the Roman Decapolis, with layered civilizations from the Bronze Age to the Islamic era.',
+    tip: 'الموقع مفتوح للتنقيب الأثري المستمر — التزمي بالمسارات المخصصة وابتعدي عن مناطق الحفر النشطة.',
+    tipEn: 'The site has ongoing archaeological excavations — stick to designated paths and stay away from active dig areas.',
+  },
+};
+
 // بيكتشف نوع الرفقة من نص المستخدم عشان نختار أنشطة مناسبة
 function detectCompanionType(text) {
   const lower = text.toLowerCase();
@@ -1353,6 +1477,40 @@ function StarRating({ placeKey, ratings, setRatings, user, onRated, lang = 'ar' 
       {count > 0
         ? <span style={{ fontSize:'0.9rem', color:'#555' }}> ({avg.toFixed(1)}/5 | {count} تقييم)</span>
         : <span className="no-rating-msg">ولسا محدا قيّم هالمكان ✨</span>}
+    </div>
+  );
+}
+
+// ============================================================
+// صندوق المعلومات الثقافية — خلفية تاريخية موجزة + نصيحة سلوك
+// مسؤول، قابل للطي عشان ما يثقل بطاقة المنطقة لمين مش مهتم
+// ============================================================
+function CulturalInfoBox({ info, lang = 'ar' }) {
+  const [open, setOpen] = useState(false);
+  const history = lang === 'ar' ? info.history : (info.historyEn || info.history);
+  const tip = lang === 'ar' ? info.tip : (info.tipEn || info.tip);
+
+  return (
+    <div style={{ margin: '10px 0' }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        style={{ background: '#faf6ec', color: '#8B6914', border: '1px solid #e8d5a3', borderRadius: 10, padding: '8px 14px', fontSize: '0.85rem', width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 0 }}
+      >
+        <span>🏛️ {lang === 'ar' ? 'الخلفية الثقافية والتاريخية' : 'Cultural & Historical Background'}</span>
+        <span>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div style={{ background: '#fff8e6', borderRadius: 10, padding: 12, marginTop: 6, fontSize: '0.85rem', color: '#5a3e1b', lineHeight: 1.7 }}>
+          <p style={{ margin: '0 0 8px' }}>{history}</p>
+          {tip && (
+            <p style={{ margin: 0, color: '#4f7a45', fontWeight: 'bold' }}>
+              🌿 {lang === 'ar' ? 'سلوك زائر مسؤول: ' : 'Responsible visitor tip: '}
+              <span style={{ fontWeight: 'normal' }}>{tip}</span>
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -3367,6 +3525,7 @@ return () => unsubscribe();
             🎫 {lang === 'ar' ? place.priceInfo : (place.priceInfoEn || place.priceInfo)}
           </p>
         )}
+        {!isUserPlace && CULTURAL_INFO[key] && <CulturalInfoBox info={CULTURAL_INFO[key]} lang={lang} />}
         {!isUserPlace && <StarRating placeKey={key} ratings={ratings} setRatings={setRatings} user={user} onRated={() => awardPoints(3)} lang={lang} />}
         {!isUserPlace && <PlaceReviews placeKey={key} user={user} lang={lang} onReviewed={() => awardPoints(5)} />}
         {place.lat && (
