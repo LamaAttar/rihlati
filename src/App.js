@@ -1163,6 +1163,15 @@ async function getRahalCoreResponse(question, userLocation, userPlaces, lang = '
   const foundKey = Object.keys(places).find(k => q.includes(places[k].name) || q.includes(places[k].nameEn.toLowerCase()));
   if (foundKey) {
     const p = places[foundKey];
+    const wantsStory = q.includes('قصة') || q.includes('تاريخ') || q.includes('احكيلي') || q.includes('احكي لي') || q.includes('story') || q.includes('history');
+    if (wantsStory && CULTURAL_INFO[foundKey]) {
+      const info = CULTURAL_INFO[foundKey];
+      const history = isEn ? (info.historyEn || info.history) : info.history;
+      const tip = isEn ? (info.tipEn || info.tip) : info.tip;
+      return isEn
+        ? `📖 ${p.nameEn}\n\n${history}${tip ? `\n\n🌿 Responsible visitor tip: ${tip}` : ''}`
+        : `📖 ${p.name}\n\n${history}${tip ? `\n\n🌿 سلوك زائر مسؤول: ${tip}` : ''}`;
+    }
     return isEn
       ? `${p.nameEn}: ${p.descEn}\n🍽️ Famous for: ${p.foodEn}`
       : `${p.name}: ${p.desc}\n🍽️ يشتهر بـ: ${p.food}`;
@@ -1485,7 +1494,14 @@ function StarRating({ placeKey, ratings, setRatings, user, onRated, lang = 'ar' 
 // صندوق المعلومات الثقافية — خلفية تاريخية موجزة + نصيحة سلوك
 // مسؤول، قابل للطي عشان ما يثقل بطاقة المنطقة لمين مش مهتم
 // ============================================================
-function CulturalInfoBox({ info, lang = 'ar' }) {
+// بتفتح شات رحال وتسأله تلقائياً عن قصة مكان معين — نستخدم حدث
+// مخصص (زي آلية showToast بالضبط) عشان نقدر نستدعيها من أي بطاقة
+// منطقة بدون ما نحتاج نمرر props لمسافات طويلة بين المكونات
+function askRahalStory(placeName) {
+  window.dispatchEvent(new CustomEvent('rl-ask-rahal', { detail: { question: `احكيلي قصة ${placeName}` } }));
+}
+
+function CulturalInfoBox({ info, lang = 'ar', placeName }) {
   const [open, setOpen] = useState(false);
   const history = lang === 'ar' ? info.history : (info.historyEn || info.history);
   const tip = lang === 'ar' ? info.tip : (info.tipEn || info.tip);
@@ -1509,6 +1525,13 @@ function CulturalInfoBox({ info, lang = 'ar' }) {
               <span style={{ fontWeight: 'normal' }}>{tip}</span>
             </p>
           )}
+          <button
+            type="button"
+            onClick={() => askRahalStory(placeName)}
+            style={{ marginTop: 10, background: '#b8860b', color: '#fff', border: 'none', borderRadius: 20, padding: '7px 16px', fontSize: '0.8rem' }}
+          >
+            🎙️ {lang === 'ar' ? 'خلي رحال يحكيلك القصة بالشات' : 'Let Rahhal tell you the story in chat'}
+          </button>
         </div>
       )}
     </div>
@@ -2945,6 +2968,17 @@ function RahalChatbot({ userLocation, userPlaces, lang = 'ar' }) {
     setLoading(false);
   };
 
+  // لما زائر يدوس على "خلي رحال يحكيلك القصة" بأي بطاقة منطقة،
+  // منفتح شات رحال تلقائياً ومنسأله السؤال مباشرة
+  useEffect(() => {
+    const handler = (e) => {
+      setChatOpen(true);
+      sendChatMessage(e.detail.question);
+    };
+    window.addEventListener('rl-ask-rahal', handler);
+    return () => window.removeEventListener('rl-ask-rahal', handler);
+  }, [lang, userLocation, userPlaces]);
+
   const suggestedPrompts = lang === 'ar' ? [
     'اقترح لي رحلة يومين بالشمال',
     'أماكن مناسبة للعائلة',
@@ -3525,7 +3559,7 @@ return () => unsubscribe();
             🎫 {lang === 'ar' ? place.priceInfo : (place.priceInfoEn || place.priceInfo)}
           </p>
         )}
-        {!isUserPlace && CULTURAL_INFO[key] && <CulturalInfoBox info={CULTURAL_INFO[key]} lang={lang} />}
+        {!isUserPlace && CULTURAL_INFO[key] && <CulturalInfoBox info={CULTURAL_INFO[key]} lang={lang} placeName={placeName} />}
         {!isUserPlace && <StarRating placeKey={key} ratings={ratings} setRatings={setRatings} user={user} onRated={() => awardPoints(3)} lang={lang} />}
         {!isUserPlace && <PlaceReviews placeKey={key} user={user} lang={lang} onReviewed={() => awardPoints(5)} />}
         {place.lat && (
