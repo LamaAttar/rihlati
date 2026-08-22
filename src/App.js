@@ -1613,8 +1613,9 @@ function speakText(text, lang = 'ar') {
   window.speechSynthesis.speak(utterance);
 }
 
-function askRahalStory(placeName) {
-  window.dispatchEvent(new CustomEvent('rl-ask-rahal', { detail: { question: `احكيلي قصة ${placeName}` } }));
+function askRahalStory(placeName, lang = 'ar') {
+  const question = lang === 'en' ? `Tell me the story of ${placeName}` : `احكيلي قصة ${placeName}`;
+  window.dispatchEvent(new CustomEvent('rl-ask-rahal', { detail: { question } }));
 }
 
 function CulturalInfoBox({ info, lang = 'ar', placeName }) {
@@ -1651,7 +1652,7 @@ function CulturalInfoBox({ info, lang = 'ar', placeName }) {
             </button>
             <button
               type="button"
-              onClick={() => askRahalStory(placeName)}
+              onClick={() => askRahalStory(placeName, lang)}
               style={{ background: '#b8860b', color: '#fff', border: 'none', borderRadius: 20, padding: '7px 16px', fontSize: '0.8rem', margin: 0 }}
             >
               💬 {lang === 'ar' ? 'اقرأ/ي بالشات' : 'Read it in chat'}
