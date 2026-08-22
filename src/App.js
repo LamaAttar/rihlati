@@ -1667,6 +1667,7 @@ function PlaceReviews({ placeKey, user, lang = 'ar', onReviewed }) {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showList, setShowList] = useState(false);
   const [draftStars, setDraftStars] = useState(5);
   const [draftText, setDraftText] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -1736,7 +1737,18 @@ function PlaceReviews({ placeKey, user, lang = 'ar', onReviewed }) {
   return (
     <div className="rl-reviews">
       <div className="rl-reviews-head">
-        <h4>{lang === 'ar' ? '📝 تجارب الزوار' : '📝 Visitor Reviews'} {reviews.length > 0 && `(${reviews.length})`}</h4>
+        {reviews.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setShowList((s) => !s)}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <h4 style={{ margin: 0 }}>{lang === 'ar' ? '📝 تجارب الزوار' : '📝 Visitor Reviews'} ({reviews.length})</h4>
+            <span style={{ fontSize: '0.8rem', color: '#8B6914' }}>{showList ? '▲' : '▼'}</span>
+          </button>
+        ) : (
+          <h4>{lang === 'ar' ? '📝 تجارب الزوار' : '📝 Visitor Reviews'}</h4>
+        )}
         {user && !showForm && (
           <button type="button" className="rl-review-btn" onClick={() => setShowForm(true)}>
             {lang === 'ar' ? '✍️ شارك تجربتك' : '✍️ Share your experience'}
@@ -1773,7 +1785,7 @@ function PlaceReviews({ placeKey, user, lang = 'ar', onReviewed }) {
         </div>
       )}
 
-      {reviews.length > 0 && (
+      {showList && reviews.length > 0 && (
         <div className="rl-review-list">
           {reviews.slice(0, 4).map((r, i) => (
             <div className="rl-review-item" key={i}>
