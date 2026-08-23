@@ -1624,9 +1624,25 @@ function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite
   const history = lang === 'ar' ? info.history : (info.historyEn || info.history);
   const tip = lang === 'ar' ? info.tip : (info.tipEn || info.tip);
 
+  // كروم أحياناً بيحاول يشغّل الصوت قبل ما يخلص تحميل قائمة الأصوات
+  // المتاحة بالكامل، وهاد بيسبب صوت مشوّش/متقطع. هاي الدالة بتستنى
+  // لحد ما القائمة تجهز فعلياً قبل ما نختار صوت ونشغله
+  const getVoicesReady = () => new Promise((resolve) => {
+    const existing = window.speechSynthesis.getVoices();
+    if (existing.length > 0) return resolve(existing);
+    const onVoicesChanged = () => {
+      window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+      resolve(window.speechSynthesis.getVoices());
+    };
+    window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
+    // احتياط لو المتصفح ما أطلق الحدث أبداً (نادراً ما بيصير) — منكمل
+    // بعد نص ثانية بأي قائمة موجودة بدل ما نعلّق للأبد
+    setTimeout(() => resolve(window.speechSynthesis.getVoices()), 500);
+  });
+
   // بتشغل/بتوقف القراءة الصوتية بنفس الضغطة — لو عم تحكي، الضغطة
   // الثانية بتوقفها بدل ما تعيد تشغيلها من الأول
-  const handleListen = () => {
+  const handleListen = async () => {
     if (!('speechSynthesis' in window)) {
       showToast(lang === 'ar' ? 'متصفحك ما بيدعم القراءة الصوتية للأسف' : "Sorry, your browser doesn't support text-to-speech");
       return;
@@ -1637,8 +1653,13 @@ function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite
       return;
     }
     window.speechSynthesis.cancel();
+    const targetLangPrefix = lang === 'ar' ? 'ar' : 'en';
+    const voices = await getVoicesReady();
+    const matchedVoice = voices.find((v) => v.lang.toLowerCase().startsWith(targetLangPrefix));
+
     const utterance = new SpeechSynthesisUtterance(`${history} ${tip || ''}`);
     utterance.lang = lang === 'ar' ? 'ar-SA' : 'en-US';
+    if (matchedVoice) utterance.voice = matchedVoice;
     utterance.rate = 0.95;
     utterance.onend = () => setSpeaking(false);
     utterance.onerror = () => setSpeaking(false);
