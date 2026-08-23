@@ -1618,10 +1618,41 @@ function askRahalStory(placeName, lang = 'ar') {
   window.dispatchEvent(new CustomEvent('rl-ask-rahal', { detail: { question } }));
 }
 
-function CulturalInfoBox({ info, lang = 'ar', placeName }) {
+function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite, user }) {
   const [open, setOpen] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
   const history = lang === 'ar' ? info.history : (info.historyEn || info.history);
   const tip = lang === 'ar' ? info.tip : (info.tipEn || info.tip);
+
+  // بتشغل/بتوقف القراءة الصوتية بنفس الضغطة — لو عم تحكي، الضغطة
+  // الثانية بتوقفها بدل ما تعيد تشغيلها من الأول
+  const handleListen = () => {
+    if (!('speechSynthesis' in window)) {
+      showToast(lang === 'ar' ? 'متصفحك ما بيدعم القراءة الصوتية للأسف' : "Sorry, your browser doesn't support text-to-speech");
+      return;
+    }
+    if (speaking) {
+      window.speechSynthesis.cancel();
+      setSpeaking(false);
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(`${history} ${tip || ''}`);
+    utterance.lang = lang === 'ar' ? 'ar-SA' : 'en-US';
+    utterance.rate = 0.95;
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+    setSpeaking(true);
+  };
+
+  // نوقف أي قراءة صوتية جارية لو المستخدم طوى الصندوق أو غادر الصفحة
+  useEffect(() => {
+    return () => {
+      if (speaking) window.speechSynthesis.cancel();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div style={{ margin: '10px 0' }}>
@@ -1645,10 +1676,12 @@ function CulturalInfoBox({ info, lang = 'ar', placeName }) {
           <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
             <button
               type="button"
-              onClick={() => speakText(`${history} ${tip || ''}`, lang)}
-              style={{ background: '#4f7a45', color: '#fff', border: 'none', borderRadius: 20, padding: '7px 16px', fontSize: '0.8rem', margin: 0 }}
+              onClick={handleListen}
+              style={{ background: speaking ? '#c0392b' : '#4f7a45', color: '#fff', border: 'none', borderRadius: 20, padding: '7px 16px', fontSize: '0.8rem', margin: 0 }}
             >
-              🔊 {lang === 'ar' ? 'استمع/ي للقصة' : 'Listen to the story'}
+              {speaking ? '⏹️' : '🔊'} {speaking
+                ? (lang === 'ar' ? 'إيقاف' : 'Stop')
+                : (lang === 'ar' ? 'استمع/ي للقصة' : 'Listen to the story')}
             </button>
             <button
               type="button"
@@ -1657,6 +1690,17 @@ function CulturalInfoBox({ info, lang = 'ar', placeName }) {
             >
               💬 {lang === 'ar' ? 'اقرأ/ي بالشات' : 'Read it in chat'}
             </button>
+            {onToggleFavorite && (
+              <button
+                type="button"
+                onClick={onToggleFavorite}
+                style={{ background: isFav ? '#8B6914' : '#faf6ec', color: isFav ? '#fff' : '#8B6914', border: '1px solid #e8d5a3', borderRadius: 20, padding: '7px 16px', fontSize: '0.8rem', margin: 0 }}
+              >
+                {isFav ? '✅' : '🔖'} {isFav
+                  ? (lang === 'ar' ? 'تم الحفظ' : 'Saved')
+                  : (lang === 'ar' ? 'احفظ المكان' : 'Save place')}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -3696,7 +3740,14 @@ return () => unsubscribe();
         {!isUserPlace && CULTURAL_INFO[key] && (
           <>
             <hr style={{ border: 'none', borderTop: '1px dashed #e8d5a3', margin: '12px 0' }} />
-            <CulturalInfoBox info={CULTURAL_INFO[key]} lang={lang} placeName={placeName} />
+            <CulturalInfoBox
+              info={CULTURAL_INFO[key]}
+              lang={lang}
+              placeName={placeName}
+              isFav={isFav}
+              onToggleFavorite={() => toggleFavorite(key)}
+              user={user}
+            />
           </>
         )}
         {!isUserPlace && (
