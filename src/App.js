@@ -351,7 +351,7 @@ const CULTURAL_INFO = {
   petra: {
     history: 'بناها الأنباط عاصمة لمملكتهم قبل أكتر من 2000 سنة، واستخدموها كمحطة رئيسية على طريق تجارة البخور والتوابل بين الجزيرة العربية والبحر المتوسط. اتصنّفت إحدى عجائب الدنيا السبع الجديدة، ومسجلة على قائمة التراث العالمي لليونسكو.',
     historyEn: 'Built by the Nabataeans as their capital over 2000 years ago, Petra served as a key stop on the incense and spice trade route between Arabia and the Mediterranean. Named one of the New Seven Wonders of the World and a UNESCO World Heritage Site.',
-    tip: 'لا تلمس/ي أو تخدش/ي النقوش الصخرية، والتزم/ي بالمسارات المخصصة، وتجنب/ي التسلق على الواجهات الأثرية.',
+    tip: 'لا تلمس أو تخدش النقوش الصخرية، والتزم بالمسارات المخصصة، وتجنب التسلق على الواجهات الأثرية.',
     tipEn: "Don't touch or scratch the rock carvings, stick to marked trails, and avoid climbing on the ancient facades.",
   },
   jerash: {
@@ -363,13 +363,13 @@ const CULTURAL_INFO = {
   ajloun: {
     history: 'بناها القائد صلاح الدين الأيوبي سنة 1184م لمراقبة تحركات الصليبيين وحماية طرق التجارة بين الأردن وسوريا. تعتبر من أهم القلاع الإسلامية بالمنطقة.',
     historyEn: "Built in 1184 CE by Saladin's forces to monitor Crusader movements and protect trade routes between Jordan and Syria. One of the most significant Islamic-era castles in the region.",
-    tip: 'احترم/ي حدود المسارات المخصصة داخل القلعة، ولا ترمِ نفايات بالغابات المحيطة.',
+    tip: 'احترم حدود المسارات المخصصة داخل القلعة، ولا ترمِ نفايات بالغابات المحيطة.',
     tipEn: "Respect the designated paths inside the castle, and don't litter in the surrounding forests.",
   },
   karak: {
     history: 'قلعة صليبية ضخمة بنيت منتصف القرن الـ12، وشهدت معارك مهمة بين الصليبيين وصلاح الدين. تحوي أنفاق ومخازن تحت أرضية توضح فن العمارة الدفاعية بهالفترة.',
     historyEn: "A massive Crusader castle built in the mid-12th century, site of major battles between the Crusaders and Saladin's forces. Its underground tunnels and storerooms showcase medieval defensive architecture.",
-    tip: 'انتبه/ي أثناء التجول بالممرات الداخلية المظلمة، ولا تلمس/ي الجدران الحجرية الهشة.',
+    tip: 'انتبه أثناء التجول بالممرات الداخلية المظلمة، ولا تلمس الجدران الحجرية الهشة.',
     tipEn: 'Be careful walking through the dark internal passages, and avoid touching the fragile stone walls.',
   },
   shobak: {
@@ -381,49 +381,49 @@ const CULTURAL_INFO = {
   umqais: {
     history: 'مدينة "جدارا" الرومانية القديمة، اشتهرت بعلمائها وفلاسفتها بالعصر الروماني، وتطل على بحيرة طبريا وهضبة الجولان. فيها مزيج معماري روماني وبيزنطي وعثماني بنفس الموقع.',
     historyEn: 'The ancient Roman city of "Gadara", once known for its scholars and philosophers. Overlooks the Sea of Galilee and the Golan Heights, with a blend of Roman, Byzantine, and Ottoman architecture in one site.',
-    tip: 'تجنب/ي المشي بالمناطق غير المرممة من الموقع الأثري، والتزم/ي بالمسارات المُشار إليها.',
+    tip: 'تجنب المشي بالمناطق غير المرممة من الموقع الأثري، والتزم بالمسارات المُشار إليها.',
     tipEn: 'Avoid walking through unrestored parts of the site, and stick to marked paths.',
   },
   madaba: {
     history: 'تُعرف بـ"مدينة الفسيفساء"، وفيها خريطة الفسيفساء الأشهر بالعالم لفلسطين والأردن يعود تاريخها للقرن السادس ميلادي، محفوظة بكنيسة القديس جاورجيوس الأرثوذكسية.',
     historyEn: 'Known as the "City of Mosaics", home to the world-famous 6th-century Madaba Map mosaic depicting Palestine and Jordan, preserved inside St. George\'s Orthodox Church.',
-    tip: 'خفف/ي صوتك واحترم/ي أوقات الصلاة إذا زرت الكنائس، والتصوير بدون فلاش للمحافظة على الفسيفساء.',
+    tip: 'خفف صوتك واحترم أوقات الصلاة إذا زرت الكنائس، والتصوير بدون فلاش للمحافظة على الفسيفساء.',
     tipEn: 'Keep your voice down and respect prayer times if visiting the churches, and photograph without flash to help preserve the mosaics.',
   },
   ummrasas: {
     history: 'موقع أثري مسجل باليونسكو، فيه بقايا كنائس بيزنطية بفسيفساء رائعة تعود للقرن الثامن ميلادي، وبرج حجري غامض ما زال سبب بنائه غير مؤكد للباحثين.',
     historyEn: 'A UNESCO-listed site featuring 8th-century Byzantine church mosaics and a mysterious stone tower whose exact purpose remains debated among researchers.',
-    tip: 'الموقع بعيد نسبياً وقليل الخدمات — خذ/ي معك ماء كافي، والتزم/ي بالمسارات المرصوفة.',
+    tip: 'الموقع بعيد نسبياً وقليل الخدمات — خذ معك ماء كافي، والتزم بالمسارات المرصوفة.',
     tipEn: 'The site is fairly remote with limited services — bring enough water, and stick to the paved paths.',
   },
   wadirum: {
     history: 'موطن قبائل بدوية أردنية عريقة عايشوا هالصحراء لأجيال، واشتهر عالمياً بعد ثورة الشريف حسين ودور لورنس العرب. مسجل على قائمة اليونسكو للتراث الطبيعي والثقافي المختلط.',
     historyEn: "Home to Bedouin tribes who have lived in this desert for generations, made globally famous after the Great Arab Revolt and Lawrence of Arabia's role there. A UNESCO Mixed Natural and Cultural Heritage Site.",
-    tip: 'احترم/ي عادات المجتمع البدوي المحلي، أطفئ/ي النار بالكامل قبل المغادرة، ولا تترك/ي نفايات بالصحراء.',
+    tip: 'احترم عادات المجتمع البدوي المحلي، أطفئ النار بالكامل قبل المغادرة، ولا تترك نفايات بالصحراء.',
     tipEn: 'Respect local Bedouin customs, fully extinguish fires before leaving, and never litter in the desert.',
   },
   aqaba: {
     history: 'أقدم مدينة ساحلية مأهولة بالعالم (يعود تاريخها لأكتر من 6000 سنة)، وكانت ميناء تجاري مهم على طريق التجارة بين آسيا وأوروبا وأفريقيا منذ العصر البرونزي.',
     historyEn: "One of the oldest continuously inhabited coastal cities in the world (dating back over 6000 years), historically a key trading port linking Asia, Europe, and Africa since the Bronze Age.",
-    tip: 'احترم/ي الشعاب المرجانية أثناء الغطس أو السباحة، ولا تلمسها أو تقف/ي عليها.',
+    tip: 'احترم الشعاب المرجانية أثناء الغطس أو السباحة، ولا تلمسها أو تقف عليها.',
     tipEn: "Respect the coral reefs while diving or swimming — don't touch or stand on them.",
   },
   amman: {
     history: 'كانت تُعرف قديماً بـ"فيلادلفيا" بالعصر الروماني، وقبلها "ربّة عمّون" عاصمة مملكة عمّون. جبل القلعة يحوي طبقات حضارية متراكمة من العصر البرونزي حتى الأموي.',
     historyEn: 'Known as "Philadelphia" in Roman times, and before that "Rabbath Ammon", capital of the Ammonite kingdom. The Citadel hill contains layered civilizations from the Bronze Age through the Umayyad period.',
-    tip: 'احترم/ي هدوء الأحياء السكنية القديمة بوسط البلد أثناء التجول والتصوير.',
+    tip: 'احترم هدوء الأحياء السكنية القديمة بوسط البلد أثناء التجول والتصوير.',
     tipEn: 'Respect the quiet of the old residential neighborhoods in downtown while walking around and taking photos.',
   },
   salt: {
     history: 'مدينة تجارية عريقة ازدهرت أواخر العهد العثماني بفضل تجارة الصابون والحبوب، وفيها عمارة صفراء مميزة بلمسات معمارية عثمانية وأوروبية مختلطة. مسجلة على قائمة التراث العالمي لليونسكو.',
     historyEn: 'A historic trading city that flourished in the late Ottoman era through soap and grain trade, known for its distinctive yellow limestone architecture blending Ottoman and European styles. A UNESCO World Heritage Site.',
-    tip: 'المباني التراثية أغلبها مسكونة أو فيها محلات فعلية — احترم/ي خصوصية السكان أثناء التصوير.',
+    tip: 'المباني التراثية أغلبها مسكونة أو فيها محلات فعلية — احترم خصوصية السكان أثناء التصوير.',
     tipEn: 'Most heritage buildings are still inhabited or in active use as shops — respect residents\' privacy while photographing.',
   },
   deadsea: {
     history: 'أخفض نقطة على سطح اليابسة، ومذكور بالنصوص التوراتية والتاريخية منذ آلاف السنين. استخدمه المصريون القدماء بتحنيط الموتى، والملكة كليوباترا أنشأت مصانع لمستحضرات التجميل بالقرب منه.',
     historyEn: 'The lowest point on Earth\'s land surface, mentioned in biblical and historical texts for thousands of years. Ancient Egyptians used its minerals for embalming, and Cleopatra reportedly established cosmetic factories nearby.',
-    tip: 'لا تسبح/ي بمياهه إذا في جروح مفتوحة، وتجنب/ي وصول المياه للعين، واشطف/ي جسمك بالماء العذب بعدها مباشرة.',
+    tip: 'لا تسبح بمياهه إذا في جروح مفتوحة، وتجنب وصول المياه للعين، واشطف جسمك بالماء العذب بعدها مباشرة.',
     tipEn: "Avoid swimming with open wounds, keep the water away from your eyes, and rinse off with fresh water immediately after.",
   },
   mainhot: {
@@ -435,7 +435,7 @@ const CULTURAL_INFO = {
   azraqcastle: {
     history: 'قلعة بازلتية سوداء بناها الرومان، وأعاد الأمويون والمماليك ترميمها. اتخذها لورنس العرب مقراً له خلال الثورة العربية الكبرى سنة 1917.',
     historyEn: "A black basalt fortress built by the Romans and later restored by the Umayyads and Mamluks. Lawrence of Arabia used it as his headquarters during the Great Arab Revolt in 1917.",
-    tip: 'الحجر البازلتي ممكن يكون زلق وقت المطر — انتبه/ي لخطواتك بالممرات الداخلية.',
+    tip: 'الحجر البازلتي ممكن يكون زلق وقت المطر — انتبه لخطواتك بالممرات الداخلية.',
     tipEn: 'The basalt stone can be slippery when wet — watch your step in the internal passages.',
   },
   qasramra: {
@@ -453,55 +453,55 @@ const CULTURAL_INFO = {
   ummjimal: {
     history: 'مدينة أثرية بازلتية سوداء نادرة الطراز، بنيت أساساً بالعصر النبطي وازدهرت بالعصرين الروماني والبيزنطي، وفيها أكتر من 150 مبنى محفوظ جزئياً بدون استخدام أي ملاط.',
     historyEn: 'A rare black basalt ancient city, originally built in the Nabataean era and flourished during Roman and Byzantine times, featuring over 150 partially preserved buildings built without any mortar.',
-    tip: 'الموقع واسع ومكشوف بالكامل — خذ/ي قبعة وواقي شمس، وتجنب/ي الزيارة بساعات الظهيرة بالصيف.',
+    tip: 'الموقع واسع ومكشوف بالكامل — خذ قبعة وواقي شمس، وتجنب الزيارة بساعات الظهيرة بالصيف.',
     tipEn: 'The site is large and fully exposed — bring a hat and sunscreen, and avoid visiting at midday in summer.',
   },
   pella: {
     history: 'مدينة أثرية تعود لآلاف السنين، من أقدم المواقع المأهولة بالعالم، وكانت جزء من "مدن العشرة" الرومانية (ديكابوليس)، وفيها طبقات حضارية من العصر البرونزي حتى الإسلامي.',
     historyEn: 'An ancient city dating back thousands of years, among the oldest continuously inhabited sites in the world, once part of the Roman Decapolis, with layered civilizations from the Bronze Age to the Islamic era.',
-    tip: 'الموقع مفتوح للتنقيب الأثري المستمر — التزم/ي بالمسارات المخصصة وابتعد/ي عن مناطق الحفر النشطة.',
+    tip: 'الموقع مفتوح للتنقيب الأثري المستمر — التزم بالمسارات المخصصة وابتعد عن مناطق الحفر النشطة.',
     tipEn: 'The site has ongoing archaeological excavations — stick to designated paths and stay away from active dig areas.',
   },
   dana: {
     history: 'أكبر محمية طبيعية بالأردن (تغطي أكتر من 300 كم²)، وبتضم أربع مناطق حياة بيئية مختلفة بمدى ارتفاع واحد — من قمم جبلية بالمتوسط الأبيض حتى صحراء قاحلة، وفيها أكتر من 800 نوع نباتي و45 نوع من الثدييات، بعضها مهدد بالانقراض عالمياً زي النمر العربي.',
     historyEn: "Jordan's largest nature reserve (over 300 km²), spanning four distinct bioclimatic zones within one elevation range — from Mediterranean mountain peaks to arid desert. Home to over 800 plant species and 45 mammal species, some globally endangered like the Arabian leopard.",
-    tip: 'ابق/ي على المسارات المخصصة، ولا تطعم/ي أو تقترب/ي من الحياة البرية، واحمل/ي معك كل نفاياتك للخارج.',
+    tip: 'ابق على المسارات المخصصة، ولا تطعم أو تقترب من الحياة البرية، واحمل معك كل نفاياتك للخارج.',
     tipEn: "Stay on marked trails, don't feed or approach wildlife, and carry all your trash back out with you.",
   },
   azraqwetland: {
     history: 'واحة صحراوية فريدة كانت يوماً بحيرة دائمة وسط الصحراء الشرقية، ومحطة استراحة رئيسية لملايين الطيور المهاجرة بين أوروبا وأفريقيا. تعرّضت لجفاف شبه كامل بالتسعينيات بسبب الضخ الجائر، وجهود إعادة التأهيل أرجعت جزء من مياهها وحياتها البرية.',
     historyEn: 'A unique desert oasis, once a permanent lake in the Eastern Desert and a vital rest stop for millions of migratory birds between Europe and Africa. It nearly dried up in the 1990s due to over-pumping, and restoration efforts have since revived part of its water and wildlife.',
-    tip: 'حافظ/ي على الهدوء قدر الإمكان لتفادي إزعاج الطيور، وابق/ي بالممرات الخشبية المخصصة فوق الأراضي الرطبة.',
+    tip: 'حافظ على الهدوء قدر الإمكان لتفادي إزعاج الطيور، وابق بالممرات الخشبية المخصصة فوق الأراضي الرطبة.',
     tipEn: 'Keep noise to a minimum to avoid disturbing the birds, and stay on the designated boardwalks over the wetlands.',
   },
   mujib: {
     history: 'أخفض محمية طبيعية بالعالم (تبدأ من 410 متر تحت سطح البحر عند البحر الميت)، وسُميت أحياناً "الجراند كانيون الأردني". الوادي بيصب بالبحر الميت، وتنوعه البيئي الكبير بمدى ارتفاع شاسع خلاه محمية محيط حيوي معترف فيها عالمياً.',
     historyEn: "The lowest-altitude nature reserve in the world (starting at 410m below sea level at the Dead Sea), sometimes called Jordan's 'Grand Canyon'. The wadi drains into the Dead Sea, and its dramatic elevation range gives it globally recognized biosphere reserve status.",
-    tip: 'المسارات المائية تحتاج لياقة بدنية جيدة — لا تدخل/ي المسار وحدك، والتزم/ي بتعليمات المرشدين المرخّصين.',
+    tip: 'المسارات المائية تحتاج لياقة بدنية جيدة — لا تدخل المسار وحدك، والتزم بتعليمات المرشدين المرخّصين.',
     tipEn: "The water trails require good physical fitness — don't enter alone, and follow the instructions of licensed guides.",
   },
   irbid: {
     history: 'تُعرف بـ"مدينة العلم"، وتضم جامعة اليرموك وجامعة العلوم والتكنولوجيا. بضواحيها موقع "بيت راس" الأثري، وهو مدينة "كابيتولياس" الرومانية القديمة، إحدى مدن الديكابوليس.',
     historyEn: 'Known as the "City of Knowledge", home to Yarmouk University and Jordan University of Science & Technology. Its outskirts include the ancient site of Beit Ras — the Roman city of "Capitolias", one of the Decapolis cities.',
-    tip: 'لو زرت بيت راس الأثري، احترم/ي إنه موقع مفتوح وسط منطقة سكنية، وتجنب/ي الإزعاج بأوقات متأخرة.',
+    tip: 'لو زرت بيت راس الأثري، احترم إنه موقع مفتوح وسط منطقة سكنية، وتجنب الإزعاج بأوقات متأخرة.',
     tipEn: "If visiting the Beit Ras archaeological site, keep in mind it's open within a residential area — avoid visiting late or making noise.",
   },
   shouna: {
     history: 'منطقة زراعية خصبة بالأغوار الشمالية، اشتهرت تاريخياً بزراعتها المروية على مدار السنة بفضل مناخها الدافئ وقربها من نهر الأردن.',
     historyEn: "A fertile agricultural region in the Northern Jordan Valley, historically known for year-round irrigated farming thanks to its warm climate and proximity to the Jordan River.",
-    tip: 'احترم/ي أراضي المزارعين الخاصة، ولا تدخل/ي المزارع بدون إذن أصحابها.',
+    tip: 'احترم أراضي المزارعين الخاصة، ولا تدخل المزارع بدون إذن أصحابها.',
     tipEn: "Respect farmers' private land, and don't enter farms without the owners' permission.",
   },
   tafilah: {
     history: 'مدينة جبلية جنوبية عريقة على طريق الملوك التاريخي، كانت محطة تجارية مهمة تربط بين البتراء والبحر الميت، وبوابة رئيسية لمحمية ضانا.',
     historyEn: 'An ancient southern mountain city on the historic King\'s Highway, once an important trading stop linking Petra and the Dead Sea, and a main gateway to Dana Reserve.',
-    tip: 'الطرق الجبلية المحيطة ممكن تكون ضبابية شتاءً — خفف/ي السرعة وانتبه/ي للطريق.',
+    tip: 'الطرق الجبلية المحيطة ممكن تكون ضبابية شتاءً — خفف السرعة وانتبه للطريق.',
     tipEn: 'The surrounding mountain roads can be foggy in winter — drive carefully and slow down.',
   },
   deisa: {
     history: 'وادٍ صحراوي بين تشكيلات صخرية حمراء قرب العقبة ووادي رم، ومن مناطق السكن التقليدية لقبائل بدوية أردنية عايشت هالصحراء لأجيال.',
     historyEn: 'A desert valley amid red rock formations near Aqaba and Wadi Rum, traditionally home to Bedouin tribes who have lived in this desert for generations.',
-    tip: 'احترم/ي عادات المجتمع البدوي المحلي، وأطفئ/ي أي نار بالكامل قبل المغادرة.',
+    tip: 'احترم عادات المجتمع البدوي المحلي، وأطفئ أي نار بالكامل قبل المغادرة.',
     tipEn: 'Respect local Bedouin customs, and fully extinguish any fire before leaving.',
   },
   himma: {
@@ -513,55 +513,55 @@ const CULTURAL_INFO = {
   birgish: {
     history: 'غابات طبيعية كثيفة قرب إربد، من أهم مواطن الأشجار المعمّرة بشمال الأردن، ووجهة تقليدية للفرشة العائلية بفصل الربيع منذ أجيال.',
     historyEn: 'Dense natural forests near Irbid, home to some of northern Jordan\'s oldest trees, and a traditional family picnic destination for generations in spring.',
-    tip: 'أطفئ/ي أي نار للشواء بالكامل قبل المغادرة، ولا تكسر/ي أو تقطف/ي فروع الأشجار.',
+    tip: 'أطفئ أي نار للشواء بالكامل قبل المغادرة، ولا تكسر أو تقطف فروع الأشجار.',
     tipEn: "Fully extinguish any BBQ fire before leaving, and don't break or pick tree branches.",
   },
   ummalnaml: {
     history: 'وادٍ طبيعي خلاب بتلاله الخضراء قرب إربد، بيتحول لمساحة زراعية وسياحية نشطة بفصل الربيع بسبب تربته الخصبة ووفرة الأمطار بالمنطقة.',
     historyEn: 'A stunning natural valley with green hills near Irbid, becoming an active agricultural and tourism spot in spring thanks to its fertile soil and abundant rainfall.',
-    tip: 'المسارات ممكن تكون طينية بعد المطر — خذ/ي حذاء مناسب للمشي بالطبيعة.',
+    tip: 'المسارات ممكن تكون طينية بعد المطر — خذ حذاء مناسب للمشي بالطبيعة.',
     tipEn: 'Trails can get muddy after rain — wear suitable footwear for walking in nature.',
   },
   yarmouk: {
     history: 'محمية طبيعية شمالية بغابات كثيفة، سُميت نسبة لنهر اليرموك القريب، وهو موقع معركة اليرموك التاريخية الشهيرة سنة 636م بين المسلمين والبيزنطيين.',
     historyEn: "A northern nature reserve with dense forests, named after the nearby Yarmouk River — site of the historic Battle of Yarmouk in 636 CE between Muslim and Byzantine forces.",
-    tip: 'التزم/ي بمسارات المحمية الرسمية، وتجنب/ي إشعال النار بمناطق غير مخصصة لها.',
+    tip: 'التزم بمسارات المحمية الرسمية، وتجنب إشعال النار بمناطق غير مخصصة لها.',
     tipEn: 'Stick to the reserve\'s official trails, and avoid lighting fires in undesignated areas.',
   },
   dibeen: {
     history: 'غابات صنوبر وسنديان طبيعية قرب جرش، من آخر الغابات الطبيعية المتبقية بهالحجم بالأردن، وموطن لأنواع نادرة زي السنجاب الفارسي المهدد بالانقراض محلياً.',
     historyEn: "Natural pine and oak forests near Jerash, among the last remaining forests of this size in Jordan, home to rare species like the locally endangered Persian squirrel.",
-    tip: 'حافظ/ي على نظافة الغابة، واحمل/ي نفاياتك معك للخارج بدل رميها بين الأشجار.',
+    tip: 'حافظ على نظافة الغابة، واحمل نفاياتك معك للخارج بدل رميها بين الأشجار.',
     tipEn: "Keep the forest clean, and carry your trash out with you instead of leaving it among the trees.",
   },
   shuaib: {
     history: 'وادٍ أخضر خصب قرب السلط، سُمي نسبة للنبي شعيب عليه السلام حسب الموروث المحلي، وبيتحول لسجادة خضراء وأزهار برية بفصل الربيع.',
     historyEn: 'A fertile green valley near Salt, named after the Prophet Shu\'ayb according to local tradition, turning into a carpet of greenery and wildflowers in spring.',
-    tip: 'احترم/ي أراضي المزارعين المحلية، والتزم/ي بالطرق العامة المخصصة للزوار.',
+    tip: 'احترم أراضي المزارعين المحلية، والتزم بالطرق العامة المخصصة للزوار.',
     tipEn: 'Respect local farmland, and stick to the public roads designated for visitors.',
   },
   rayan: {
     history: 'وادٍ أخضر قرب عجلون وإربد بمياه جارية ومزارع رمان وتين، يعكس طبيعة المرتفعات الشمالية الغنية بالمياه الجوفية والينابيع الموسمية.',
     historyEn: "A green valley near Ajloun and Irbid with flowing water and pomegranate and fig farms, reflecting the water-rich nature of Jordan's northern highlands and seasonal springs.",
-    tip: 'احترم/ي مزارع السكان المحليين، ولا تقطف/ي الثمار بدون إذن أصحاب الأرض.',
+    tip: 'احترم مزارع السكان المحليين، ولا تقطف الثمار بدون إذن أصحاب الأرض.',
     tipEn: "Respect local farms, and don't pick fruit without the landowners' permission.",
   },
   binhammad: {
     history: 'وادٍ مائي بشلالات وينابيع معدنية دافئة شمال غرب الكرك، استُخدمت مياهه المعدنية تقليدياً من سكان المنطقة لخصائصها العلاجية الطبيعية.',
     historyEn: "A water valley with waterfalls and warm mineral springs northwest of Karak, whose mineral waters have traditionally been used by locals for their natural therapeutic properties.",
-    tip: 'المسار فيه تسلق صخور ومياه جارية — خذ/ي حذاء مقاوم للانزلاق ولا تروح/ي لحالك.',
+    tip: 'المسار فيه تسلق صخور ومياه جارية — خذ حذاء مقاوم للانزلاق ولا تروح لحالك.',
     tipEn: "The trail involves rock scrambling and flowing water — wear non-slip shoes and don't go alone.",
   },
   feynan: {
     history: 'من أقدم مواقع تعدين النحاس بالعالم، استُخرج منه النحاس منذ العصر النحاسي (قبل أكتر من 6000 سنة) وحتى العصر الروماني والبيزنطي. مسجل كأول "محمية سماء مظلمة" بالشرق الأوسط لنقاء سمائه من التلوث الضوئي.',
     historyEn: 'One of the oldest copper mining sites in the world, worked continuously from the Chalcolithic era (over 6000 years ago) through Roman and Byzantine times. Designated the first "Dark Sky Reserve" in the Middle East for its exceptionally clear, light-pollution-free skies.',
-    tip: 'قلل/ي استخدام الأضواء الصناعية ليلاً للمحافظة على صفاء السماء يلي يميّز المكان.',
+    tip: 'قلل استخدام الأضواء الصناعية ليلاً للمحافظة على صفاء السماء يلي يميّز المكان.',
     tipEn: 'Minimize artificial lighting at night to help preserve the exceptionally dark skies this place is known for.',
   },
   ziqlab: {
     history: 'وادٍ دائم الجريان بلواء الكورة، فيه سد شرحبيل بن حسنة المُنشأ بالسبعينيات لتخزين المياه وري الأراضي الزراعية المحيطة بمزارع الرمان والحمضيات والموز.',
     historyEn: 'A perennially flowing valley in the Kourah district, home to the Shurahbil bin Hasna Dam built in the 1970s to store water and irrigate the surrounding farms of pomegranates, citrus, and bananas.',
-    tip: 'منطقة السد للنظر بس عادة — تأكد/ي من التعليمات المحلية قبل السباحة أو الاقتراب من حافة السد.',
+    tip: 'منطقة السد للنظر بس عادة — تأكد من التعليمات المحلية قبل السباحة أو الاقتراب من حافة السد.',
     tipEn: 'The dam area is usually for viewing only — check local guidance before swimming or approaching the dam edge.',
   },
 };
@@ -864,7 +864,7 @@ function buildLocalTripPlan(userText, userPlaces, lang = 'ar', explicitStartHour
       tips.push(
         lang === 'en'
           ? `Your budget (${userBudget} JOD) is quite comfortable for this trip — you could add extra activities or fancier accommodation`
-          : `ميزانيتك (${userBudget} دينار) مريحة جداً لهاي الرحلة، فيك تضيف/ي أنشطة إضافية أو إقامة أفخم`
+          : `ميزانيتك (${userBudget} دينار) مريحة جداً لهاي الرحلة، فيك تضيف أنشطة إضافية أو إقامة أفخم`
       );
     }
   }
@@ -872,7 +872,7 @@ function buildLocalTripPlan(userText, userPlaces, lang = 'ar', explicitStartHour
   const clarificationNote = didNotUnderstand
     ? (lang === 'en'
         ? "We couldn't clearly understand your specific interests from the description, so this is a general suggestion based on Jordan's most popular destinations. Try being more specific (e.g., \"I want nature and quiet places\") for a more personalized result."
-        : 'ما قدرنا نفهم اهتماماتك بالتحديد من الوصف، فهاد اقتراح عام مبني على أشهر الوجهات بالأردن. جرّب/ي تكون/ي أوضح شوي (مثلاً: "بدي طبيعة وأماكن هادئة") لنتيجة أدق ومخصصة أكتر.')
+        : 'ما قدرنا نفهم اهتماماتك بالتحديد من الوصف، فهاد اقتراح عام مبني على أشهر الوجهات بالأردن. جرّب تكون أوضح شوي (مثلاً: "بدي طبيعة وأماكن هادئة") لنتيجة أدق ومخصصة أكتر.')
     : null;
 
   return { title, totalDays: days, days: tripDays, tips, didNotUnderstand, clarificationNote };
@@ -1459,7 +1459,7 @@ async function getRahalCoreResponse(question, userLocation, userPlaces, lang = '
   if (q.includes('اكل') || q.includes('أكل') || q.includes('طعام') || q.includes('طبخ') || q.includes('مطاعم') || q.includes('food') || q.includes('eat')) {
     return isEn
       ? '🍽️ Every place on the site has info about its most famous dish — tell me a specific place and I\'ll tell you what it\'s known for'
-      : 'كل منطقة بالموقع فيها معلومة عن أشهر أكلة فيها 🍽️ قل/ي لي اسم منطقة محددة وبقلك شو يشتهروا فيها';
+      : 'كل منطقة بالموقع فيها معلومة عن أشهر أكلة فيها 🍽️ قل لي اسم منطقة محددة وبقلك شو يشتهروا فيها';
   }
   if (q.includes('تخييم') || q.includes('خيمة') || q.includes('camp')) {
     return isEn ? '🏜️ Best places to camp: Wadi Rum (an unforgettable desert experience), or Deisa near Aqaba 🏔️' : 'أفضل أماكن للتخييم: وادي رم 🏜️ (تجربة صحراوية لا تُنسى)، أو الديسة قرب العقبة 🏔️';
@@ -1702,14 +1702,14 @@ function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite
             >
               {speaking ? '⏹️' : '🔊'} {speaking
                 ? (lang === 'ar' ? 'إيقاف' : 'Stop')
-                : (lang === 'ar' ? 'استمع/ي للقصة' : 'Listen to the story')}
+                : (lang === 'ar' ? 'استمع للقصة' : 'Listen to the story')}
             </button>
             <button
               type="button"
               onClick={() => askRahalStory(placeName, lang)}
               style={{ background: '#b8860b', color: '#fff', border: 'none', borderRadius: 20, padding: '7px 16px', fontSize: '0.8rem', margin: 0 }}
             >
-              💬 {lang === 'ar' ? 'اقرأ/ي بالشات' : 'Read it in chat'}
+              💬 {lang === 'ar' ? 'اقرأ بالشات' : 'Read it in chat'}
             </button>
             {onToggleFavorite && (
               <button
@@ -2011,7 +2011,7 @@ function AddPlaceForm({ user, onAdd, onPointsEarned, lang = 'ar' }) {
     createNotification({ toAdmin: true, type: 'place_pending', placeName: name });
     sendAdminEmailAlert(
       `📍 منطقة جديدة بانتظار المراجعة: ${name}`,
-      `أضاف ${user.displayName} منطقة جديدة اسمها "${name}" وبتنتظر موافقتك. افتح/ي لوحة الإدارة بموقع رحلتي للمراجعة.`
+      `أضاف ${user.displayName} منطقة جديدة اسمها "${name}" وبتنتظر موافقتك. افتح لوحة الإدارة بموقع رحلتي للمراجعة.`
     );
     if (onPointsEarned) onPointsEarned();
     showToast(t.pendingNotice, 'success');
@@ -3494,7 +3494,7 @@ return () => unsubscribe();
       createNotification({ toAdmin: true, type: 'photo_pending', placeName: getPlaceNameForKey(placeKey) });
       sendAdminEmailAlert(
         `📸 صورة جديدة بانتظار المراجعة: ${getPlaceNameForKey(placeKey)}`,
-        `رفع ${user ? user.displayName : 'زائر'} صورة جديدة بمنطقة "${getPlaceNameForKey(placeKey)}" وبتنتظر موافقتك. افتح/ي لوحة الإدارة بموقع رحلتي للمراجعة.`
+        `رفع ${user ? user.displayName : 'زائر'} صورة جديدة بمنطقة "${getPlaceNameForKey(placeKey)}" وبتنتظر موافقتك. افتح لوحة الإدارة بموقع رحلتي للمراجعة.`
       );
       showToast(lang === 'ar' ? '📋 الصورة رح تظهر بعد مراجعة سريعة منّا' : '📋 The photo will appear after a quick review from us', 'success');
     } catch (e) {}
@@ -3694,7 +3694,7 @@ return () => unsubscribe();
     } else {
       try {
         await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
-        showToast(lang === 'ar' ? '🔗 تم نسخ الرابط! شارك/ي مع أصحابك' : '🔗 Link copied! Share it with friends', 'success');
+        showToast(lang === 'ar' ? '🔗 تم نسخ الرابط! شارك مع أصحابك' : '🔗 Link copied! Share it with friends', 'success');
       } catch (e) {
         showToast(lang === 'ar' ? 'تعذر نسخ الرابط' : 'Could not copy the link');
       }
@@ -3981,6 +3981,19 @@ return () => unsubscribe();
         <AdminPanel lang={lang} onClose={() => setShowAdminPanel(false)} />
       )}
 
+      {!debouncedSearchQuery && season === '' && !showFavoritesPage && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap', margin: '15px auto' }}>
+          <button className="add-place-btn rl-trip-btn" onClick={() => setShowTripPlanner(true)}>
+            <span>🗺️</span>
+            <span>{lang === 'ar' ? 'خطط رحلتي' : 'Plan My Trip'}</span>
+          </button>
+          <button className="add-place-btn rl-trip-btn" onClick={() => setShowAiTripBuilder(true)}>
+            <span>🤖</span>
+            <span>{lang === 'ar' ? 'ابنيلي رحلة بالـ AI' : 'Build My Trip with AI'}</span>
+          </button>
+        </div>
+      )}
+
       <div className="rl-stats-card">
         <div className="rl-stat-item">
           <strong className="rl-stat-value"><StatStarIcon /><span>{siteStats.ratings}</span></strong>
@@ -4020,19 +4033,6 @@ return () => unsubscribe();
               {lang === 'ar' ? pt.labelAr : pt.labelEn}
             </button>
           ))}
-        </div>
-      )}
-
-      {!debouncedSearchQuery && season === '' && !showFavoritesPage && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap', margin: '15px auto' }}>
-          <button className="add-place-btn rl-trip-btn" onClick={() => setShowTripPlanner(true)}>
-            <span>🗺️</span>
-            <span>{lang === 'ar' ? 'خطط رحلتي' : 'Plan My Trip'}</span>
-          </button>
-          <button className="add-place-btn rl-trip-btn" onClick={() => setShowAiTripBuilder(true)}>
-            <span>🤖</span>
-            <span>{lang === 'ar' ? 'ابنيلي رحلة بالـ AI' : 'Build My Trip with AI'}</span>
-          </button>
         </div>
       )}
 
