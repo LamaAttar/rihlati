@@ -1,5 +1,5 @@
 import './App.css';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import { db } from './firebase';
 import { auth, signInWithGoogle, logOut, checkRedirectResult } from './Auth';
@@ -1621,6 +1621,7 @@ function askRahalStory(placeName, lang = 'ar') {
 function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite, user }) {
   const [open, setOpen] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const keepAliveRef = useRef(null);
   const history = lang === 'ar' ? info.history : (info.historyEn || info.history);
   const tip = lang === 'ar' ? info.tip : (info.tipEn || info.tip);
 
@@ -1640,6 +1641,13 @@ function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite
     setTimeout(() => resolve(window.speechSynthesis.getVoices()), 500);
   });
 
+  const clearKeepAlive = () => {
+    if (keepAliveRef.current) {
+      clearInterval(keepAliveRef.current);
+      keepAliveRef.current = null;
+    }
+  };
+
   // بتشغل/بتوقف القراءة الصوتية بنفس الضغطة — لو عم تحكي، الضغطة
   // الثانية بتوقفها بدل ما تعيد تشغيلها من الأول
   const handleListen = async () => {
@@ -1648,6 +1656,7 @@ function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite
       return;
     }
     if (speaking) {
+      clearKeepAlive();
       window.speechSynthesis.cancel();
       setSpeaking(false);
       return;
@@ -1661,10 +1670,29 @@ function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite
     utterance.lang = lang === 'ar' ? 'ar-SA' : 'en-US';
     if (matchedVoice) utterance.voice = matchedVoice;
     utterance.rate = 0.95;
-    utterance.onend = () => setSpeaking(false);
-    utterance.onerror = () => setSpeaking(false);
-    window.speechSynthesis.speak(utterance);
-    setSpeaking(true);
+    utterance.onend = () => { clearKeepAlive(); setSpeaking(false); };
+    utterance.onerror = () => { clearKeepAlive(); setSpeaking(false); };
+
+    // علة معروفة بكروم: النصوص الأطول من ~15 ثانية بتتوقف أو تتشوّش
+    // بسبب خلل داخلي بمحرك الصوت. الحل المعروف إنه نعمل "نبضة"
+    // إيقاف مؤقت/استئناف كل كم ثانية أثناء الكلام، وهاد بيمنع كروم
+    // من تجميد المحرك بمنتصف الجملة
+    clearKeepAlive();
+    keepAliveRef.current = setInterval(() => {
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      } else {
+        clearKeepAlive();
+      }
+    }, 9000);
+
+    // تأخير بسيط بعد cancel() قبل speak() — استدعاء الاثنين فوراً
+    // ورا بعض أحياناً بيلخبط كروم ويطلع صوت مشوّش من أول ثانية
+    setTimeout(() => {
+      window.speechSynthesis.speak(utterance);
+      setSpeaking(true);
+    }, 80);
   };
 
   // نوقف أي قراءة صوتية جارية لو المستخدم طوى الصندوق أو غادر الصفحة
