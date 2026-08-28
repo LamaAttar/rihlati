@@ -1046,20 +1046,31 @@ const OVERPASS_SERVERS = [
 ];
 
 async function runOverpassQuery(query) {
-  let lastError = null;
-  for (const server of OVERPASS_SERVERS) {
-    const url = `${server}?data=${encodeURIComponent(query)}`;
-    try {
+  // نرسل الطلب لكل السيرفرات بنفس الوقت (بالتوازي) للسرعة، بس
+  // منستنى ردود الكل (مش أول وحدة بس) عشان نتجنب مشكلة حقيقية:
+  // لو سيرفر سريع رجع نتيجة فاضية وسيرفر تاني أبطأ شوي كان رح
+  // يرجع بيانات حقيقية، أول وحدة (Promise.any) كانت بتكسب السباق
+  // غلط حتى لو فاضية. هلق منفضّل أي سيرفر رجع نتائج فعلية، ولو
+  // كلهم فاضيين منقبلها كنتيجة صحيحة (فعلاً ما في خدمات)، ولو
+  // كلهم فشلوا اتصال منطلع خطأ حقيقي
+  const settled = await Promise.allSettled(
+    OVERPASS_SERVERS.map(async (server) => {
+      const url = `${server}?data=${encodeURIComponent(query)}`;
       const res = await fetchWithTimeout(url, 9000);
-      if (!res.ok) { lastError = new Error('bad status'); continue; }
+      if (!res.ok) throw new Error('bad status');
       const data = await res.json();
-      if (data && data.elements) return data.elements;
-      lastError = new Error('no elements');
-    } catch (e) {
-      lastError = e;
-    }
-  }
-  throw lastError || new Error('all servers failed');
+      if (!data || !Array.isArray(data.elements)) throw new Error('invalid response');
+      return data.elements;
+    })
+  );
+
+  const withData = settled.find((r) => r.status === 'fulfilled' && r.value.length > 0);
+  if (withData) return withData.value;
+
+  const anySuccess = settled.find((r) => r.status === 'fulfilled');
+  if (anySuccess) return anySuccess.value; // نتيجة فاضية حقيقية، مش فشل اتصال
+
+  throw new Error('all servers failed'); // كل السيرفرات فشلت فعلياً (مشكلة اتصال حقيقية)
 }
 
 async function fetchNearbyRestaurants(lat, lng) {
