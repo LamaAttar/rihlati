@@ -1659,60 +1659,59 @@ function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite
     }
   };
 
-  // بتشغل/بتوقف القراءة الصوتية بنفس الضغطة — لو عم تحكي، الضغطة
-  // الثانية بتوقفها بدل ما تعيد تشغيلها من الأول
-  const handleListen = async () => {
-    if (!('speechSynthesis' in window)) {
-      showToast(lang === 'ar' ? 'متصفحك ما بيدعم القراءة الصوتية للأسف' : "Sorry, your browser doesn't support text-to-speech");
-      return;
-    }
-    if (speaking) {
-      clearKeepAlive();
-      window.speechSynthesis.cancel();
-      setSpeaking(false);
-      return;
-    }
-    window.speechSynthesis.cancel();
-    const targetLangPrefix = lang === 'ar' ? 'ar' : 'en';
-    const voices = await getVoicesReady();
-    const matchedVoice = voices.find((v) => v.lang.toLowerCase().startsWith(targetLangPrefix));
+  const speakQueueRef = useRef([]);
 
-    const utterance = new SpeechSynthesisUtterance(`${history} ${tip || ''}`);
+const splitIntoChunks = (text) => {
+  // نقسم لجمل قصيرة عشان نتفادى خلل Chrome يلي بيقطع النصوص الطويلة (~15 ثانية)
+  const sentences = text
+    .split(/(?<=[.!؟?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return sentences.length > 0 ? sentences : [text];
+};
+
+const handleListen = async () => {
+  if (!('speechSynthesis' in window)) {
+    showToast(lang === 'ar' ? 'متصفحك ما بيدعم القراءة الصوتية للأسف' : "Sorry, your browser doesn't support text-to-speech");
+    return;
+  }
+  if (speaking) {
+    window.speechSynthesis.cancel();
+    speakQueueRef.current = [];
+    setSpeaking(false);
+    return;
+  }
+  window.speechSynthesis.cancel();
+  const targetLangPrefix = lang === 'ar' ? 'ar' : 'en';
+  const voices = await getVoicesReady();
+  const matchedVoice = voices.find((v) => v.lang.toLowerCase().startsWith(targetLangPrefix));
+
+  const fullText = `${history} ${tip || ''}`.trim();
+  speakQueueRef.current = splitIntoChunks(fullText);
+  setSpeaking(true);
+
+  const speakNext = () => {
+    const next = speakQueueRef.current.shift();
+    if (!next) { setSpeaking(false); return; }
+    const utterance = new SpeechSynthesisUtterance(next);
     utterance.lang = lang === 'ar' ? 'ar-SA' : 'en-US';
     if (matchedVoice) utterance.voice = matchedVoice;
     utterance.rate = 0.95;
-    utterance.onend = () => { clearKeepAlive(); setSpeaking(false); };
-    utterance.onerror = () => { clearKeepAlive(); setSpeaking(false); };
-
-    // علة معروفة بكروم: النصوص الأطول من ~15 ثانية بتتوقف أو تتشوّش
-    // بسبب خلل داخلي بمحرك الصوت. الحل المعروف إنه نعمل "نبضة"
-    // إيقاف مؤقت/استئناف كل كم ثانية أثناء الكلام، وهاد بيمنع كروم
-    // من تجميد المحرك بمنتصف الجملة
-    clearKeepAlive();
-    keepAliveRef.current = setInterval(() => {
-      if (window.speechSynthesis.speaking) {
-        window.speechSynthesis.pause();
-        window.speechSynthesis.resume();
-      } else {
-        clearKeepAlive();
-      }
-    }, 9000);
-
-    // تأخير بسيط بعد cancel() قبل speak() — استدعاء الاثنين فوراً
-    // ورا بعض أحياناً بيلخبط كروم ويطلع صوت مشوّش من أول ثانية
-    setTimeout(() => {
-      window.speechSynthesis.speak(utterance);
-      setSpeaking(true);
-    }, 80);
+    utterance.onend = speakNext;
+    utterance.onerror = () => setSpeaking(false);
+    window.speechSynthesis.speak(utterance);
   };
 
-  // نوقف أي قراءة صوتية جارية لو المستخدم طوى الصندوق أو غادر الصفحة
+  setTimeout(speakNext, 80);
+};
+
   useEffect(() => {
-    return () => {
-      if (speaking) window.speechSynthesis.cancel();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  return () => {
+    window.speechSynthesis.cancel();
+    speakQueueRef.current = [];
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
   return (
     <div style={{ margin: '10px 0' }}>
