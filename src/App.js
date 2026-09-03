@@ -995,10 +995,10 @@ function getBadges(ratedPlaceKeys = [], tripsBuilt = 0, addedPlaceKeys = [], lan
 // لما نرجع نفتح نفس المكان ما نستنى الـ API من الصفر كل مرة
 // ============================================================
 const SERVICES_CACHE_TTL = 1000 * 60 * 60 * 6; // 6 ساعات
-const SERVICES_FETCH_TIMEOUT = 7000; // 7 ثواني بالحد الأقصى، وبعدها منوقف الانتظار
+const SERVICES_FETCH_TIMEOUT = 12000; // 12 ثانية بالحد الأقصى لكل سيرفر، وبعدها منوقف الانتظار
 
 function getServicesCacheKey(type, lat, lng) {
-  return `rl_v2_${type}_${lat.toFixed(4)}_${lng.toFixed(4)}`;
+  return `rl_v3_${type}_${lat.toFixed(4)}_${lng.toFixed(4)}`;
 }
 
 function getCachedServices(key) {
@@ -1023,7 +1023,12 @@ async function fetchWithTimeout(url, ms = SERVICES_FETCH_TIMEOUT) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), ms);
   try {
-    const res = await fetch(url, { signal: controller.signal });
+    const res = await fetch(url, {
+      signal: controller.signal,
+      mode: 'cors',
+      credentials: 'omit',
+      headers: { Accept: 'application/json' },
+    });
     clearTimeout(timeoutId);
     return res;
   } catch (e) {
@@ -1037,32 +1042,41 @@ function isHebrewText(text) {
   return /[\u0590-\u05FF]/.test(text);
 }
 
+// فقط سيرفرين Overpass معروفين بدعم CORS بشكل موثوق من المتصفح مباشرة.
+// كنا نجرب 5 سيرفرات بالتوازي، بس أغلبها بيرفض طلبات المتصفح (CORS)
+// أو بيحظر الـ IP لضغط الطلبات المتزامنة، فكانت كل الطلبات تفشل
+// بصمت وترجع "لا توجد خدمات" حتى لو المنطقة فيها بيانات فعلية بـ OSM.
+// overpass-api.de و overpass.kumi.systems هما الوحيدين اللي بيرجعوا
+// Access-Control-Allow-Origin بثبات لطلبات من المتصفح مباشرة.
 const OVERPASS_SERVERS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass.openstreetmap.ru/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter',
-  'https://overpass.osm.ch/api/interpreter',
 ];
 
-async function runOverpassQuery(query) {
-  // نرسل الطلب لكل السيرفرات بنفس الوقت (بالتوازي) للسرعة، بس
-  // منستنى ردود الكل (مش أول وحدة بس) عشان نتجنب مشكلة حقيقية:
-  // لو سيرفر سريع رجع نتيجة فاضية وسيرفر تاني أبطأ شوي كان رح
-  // يرجع بيانات حقيقية، أول وحدة (Promise.any) كانت بتكسب السباق
-  // غلط حتى لو فاضية. هلق منفضّل أي سيرفر رجع نتائج فعلية، ولو
-  // كلهم فاضيين منقبلها كنتيجة صحيحة (فعلاً ما في خدمات)، ولو
-  // كلهم فشلوا اتصال منطلع خطأ حقيقي
+async function runOverpassQuery(query, debugLabel) {
+  // نرسل الطلب للسيرفرين بالتوازي، ومنستنى ردود الاثنين (مش أول
+  // وحدة بس) عشان لو وحدة رجعت نتيجة فاضية بالغلط والتانية عندها
+  // بيانات فعلية، ناخذ اللي عندها بيانات. لو الاثنين فاضيين فعلاً
+  // منقبلها كنتيجة صحيحة، ولو الاثنين فشلوا (شبكة/CORS) منطلع خطأ
   const settled = await Promise.allSettled(
     OVERPASS_SERVERS.map(async (server) => {
       const url = `${server}?data=${encodeURIComponent(query)}`;
-      const res = await fetchWithTimeout(url, 9000);
-      if (!res.ok) throw new Error('bad status');
+      const res = await fetchWithTimeout(url, SERVICES_FETCH_TIMEOUT);
+      if (!res.ok) throw new Error(`bad status ${res.status} from ${server}`);
       const data = await res.json();
-      if (!data || !Array.isArray(data.elements)) throw new Error('invalid response');
+      if (!data || !Array.isArray(data.elements)) throw new Error(`invalid response from ${server}`);
       return data.elements;
     })
   );
+
+  // بنسجل بالـ console أي خطأ فعلي (CORS، تايم اوت، حظر...) عشان
+  // يقدر أي حدا يفتح Developer Tools > Console ويشوف السبب الحقيقي
+  // بدل ما يبقى الخطأ صامت بالكامل
+  settled.forEach((r, i) => {
+    if (r.status === 'rejected') {
+      console.warn(`[rihlati] Overpass server failed (${debugLabel || 'query'}):`, OVERPASS_SERVERS[i], r.reason);
+    }
+  });
 
   const withData = settled.find((r) => r.status === 'fulfilled' && r.value.length > 0);
   if (withData) return withData.value;
@@ -1075,14 +1089,18 @@ async function runOverpassQuery(query) {
 
 async function fetchNearbyRestaurants(lat, lng) {
   const cacheKey = getServicesCacheKey('restaurants', lat, lng);
-  const radius = 15000;
-  const query = `[out:json][timeout:9];node["amenity"="restaurant"](around:${radius},${lat},${lng});out body 20;`;
+  const radius = 20000;
+  // وسّعنا البحث ليشمل مقاهي ومطاعم وجبات سريعة أيضاً — كتير أماكن
+  // بالأردن مسجلة بـ OSM كـ cafe أو fast_food بدل restaurant فقط،
+  // وكان هاد التضييق سبب رئيسي بظهور "لا توجد خدمات" رغم وجودها فعلياً
+  const query = `[out:json][timeout:20];(node["amenity"="restaurant"](around:${radius},${lat},${lng});node["amenity"="fast_food"](around:${radius},${lat},${lng});node["amenity"="cafe"](around:${radius},${lat},${lng}););out body 30;`;
   try {
-    const elements = await runOverpassQuery(query);
+    const elements = await runOverpassQuery(query, 'restaurants');
     const result = elements.filter(el => !isHebrewText(el.tags && el.tags.name) && el.tags && el.tags.name);
     if (result.length > 0) setCachedServices(cacheKey, result);
     return result;
   } catch (e) {
+    console.warn('[rihlati] fetchNearbyRestaurants failed completely:', e);
     const cached = getCachedServices(cacheKey);
     const result = cached || [];
     result.failed = !cached;
@@ -1092,14 +1110,15 @@ async function fetchNearbyRestaurants(lat, lng) {
 
 async function fetchNearbySupportServices(lat, lng) {
   const cacheKey = getServicesCacheKey('support', lat, lng);
-  const radius = 15000;
-  const query = `[out:json][timeout:9];(node["amenity"="fuel"](around:${radius},${lat},${lng});node["amenity"="hospital"](around:${radius},${lat},${lng});node["amenity"="clinic"](around:${radius},${lat},${lng});node["shop"="supermarket"](around:${radius},${lat},${lng});node["amenity"="bank"](around:${radius},${lat},${lng}););out body 25;`;
+  const radius = 20000;
+  const query = `[out:json][timeout:20];(node["amenity"="fuel"](around:${radius},${lat},${lng});node["amenity"="hospital"](around:${radius},${lat},${lng});node["amenity"="clinic"](around:${radius},${lat},${lng});node["shop"="supermarket"](around:${radius},${lat},${lng});node["amenity"="bank"](around:${radius},${lat},${lng}););out body 30;`;
   try {
-    const elements = await runOverpassQuery(query);
+    const elements = await runOverpassQuery(query, 'support');
     const result = elements.filter(el => !isHebrewText(el.tags && el.tags.name) && el.tags && el.tags.name);
     if (result.length > 0) setCachedServices(cacheKey, result);
     return result;
   } catch (e) {
+    console.warn('[rihlati] fetchNearbySupportServices failed completely:', e);
     const cached = getCachedServices(cacheKey);
     const result = cached || [];
     result.failed = !cached;
@@ -1110,6 +1129,8 @@ async function fetchNearbySupportServices(lat, lng) {
 
 function getServiceIcon(tags) {
   if (tags.amenity === 'restaurant') return '🍽️';
+  if (tags.amenity === 'fast_food') return '🍔';
+  if (tags.amenity === 'cafe') return '☕';
   if (tags.shop === 'supermarket') return '🛒';
   if (tags.amenity === 'fuel') return '⛽';
   if (tags.amenity === 'hospital' || tags.amenity === 'clinic') return '🏥';
@@ -1118,7 +1139,7 @@ function getServiceIcon(tags) {
 }
 
 function getMarkerColor(tags) {
-  if (tags.amenity === 'restaurant') return 'red';
+  if (tags.amenity === 'restaurant' || tags.amenity === 'fast_food' || tags.amenity === 'cafe') return 'red';
   if (tags.shop === 'supermarket') return 'green';
   if (tags.amenity === 'fuel') return 'blue';
   if (tags.amenity === 'hospital' || tags.amenity === 'clinic') return 'purple';
@@ -1608,22 +1629,6 @@ function StarRating({ placeKey, ratings, setRatings, user, onRated, lang = 'ar' 
 // بتفتح شات رحال وتسأله تلقائياً عن قصة مكان معين — نستخدم حدث
 // مخصص (زي آلية showToast بالضبط) عشان نقدر نستدعيها من أي بطاقة
 // منطقة بدون ما نحتاج نمرر props لمسافات طويلة بين المكونات
-// بتقرأ نص بصوت حقيقي باستخدام تقنية "تحويل نص لصوت" المدمجة
-// بالمتصفح (Web Speech API) — مجانية بالكامل وما بتحتاج أي
-// اشتراك أو اتصال خارجي، بس جودة الصوت العربي بتختلف حسب
-// المتصفح ونظام التشغيل (كروم عادة أفضل خيار للعربي)
-function speakText(text, lang = 'ar') {
-  if (!('speechSynthesis' in window)) {
-    showToast(lang === 'ar' ? 'متصفحك ما بيدعم القراءة الصوتية للأسف' : "Sorry, your browser doesn't support text-to-speech");
-    return;
-  }
-  window.speechSynthesis.cancel(); // نوقف أي قراءة سابقة قبل ما نبدأ وحدة جديدة
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = lang === 'ar' ? 'ar-SA' : 'en-US';
-  utterance.rate = 0.95;
-  window.speechSynthesis.speak(utterance);
-}
-
 function askRahalStory(placeName, lang = 'ar') {
   const question = lang === 'en' ? `Tell me the story of ${placeName}` : `احكيلي قصة ${placeName}`;
   window.dispatchEvent(new CustomEvent('rl-ask-rahal', { detail: { question } }));
@@ -1632,7 +1637,6 @@ function askRahalStory(placeName, lang = 'ar') {
 function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite, user }) {
   const [open, setOpen] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const keepAliveRef = useRef(null);
   const history = lang === 'ar' ? info.history : (info.historyEn || info.history);
   const tip = lang === 'ar' ? info.tip : (info.tipEn || info.tip);
 
@@ -1652,66 +1656,80 @@ function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite
     setTimeout(() => resolve(window.speechSynthesis.getVoices()), 500);
   });
 
-  const clearKeepAlive = () => {
-    if (keepAliveRef.current) {
-      clearInterval(keepAliveRef.current);
-      keepAliveRef.current = null;
-    }
+  // بنقسم النص لجمل قصيرة عشان نتفادى خلل كروم يلي بيقطع النصوص
+  // الأطول من ~15 ثانية بمنتصفها
+  const splitIntoChunks = (text) => {
+    const sentences = text
+      .split(/(?<=[.!؟?])\s+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return sentences.length > 0 ? sentences : [text];
   };
 
   const speakQueueRef = useRef([]);
+  // *** المشكلة الحقيقية بكروم: لو الـ utterance صار "قابل لجمع
+  // القمامة" (garbage collected) قبل ما يخلص كلامه، كروم بيوقف
+  // الصوت بصمت من غير ما يطلق onend أو onerror إطلاقاً. لازم نحتفظ
+  // بمرجع ثابت للـ utterance الحالي طول فترة الكلام عشان الـ GC ما
+  // يلمسه. هاد أشهر سبب موثّق لتوقف speechSynthesis بمنتصف الكلام
+  // بكروم تحديداً (Chrome bug 679437 / متكرر بمصادر كتير)
+  const currentUtteranceRef = useRef(null);
 
-const splitIntoChunks = (text) => {
-  // نقسم لجمل قصيرة عشان نتفادى خلل Chrome يلي بيقطع النصوص الطويلة (~15 ثانية)
-  const sentences = text
-    .split(/(?<=[.!؟?])\s+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return sentences.length > 0 ? sentences : [text];
-};
-
-const handleListen = async () => {
-  if (!('speechSynthesis' in window)) {
-    showToast(lang === 'ar' ? 'متصفحك ما بيدعم القراءة الصوتية للأسف' : "Sorry, your browser doesn't support text-to-speech");
-    return;
-  }
-  if (speaking) {
+  const handleListen = async () => {
+    if (!('speechSynthesis' in window)) {
+      showToast(lang === 'ar' ? 'متصفحك ما بيدعم القراءة الصوتية للأسف' : "Sorry, your browser doesn't support text-to-speech");
+      return;
+    }
+    if (speaking) {
+      window.speechSynthesis.cancel();
+      speakQueueRef.current = [];
+      currentUtteranceRef.current = null;
+      setSpeaking(false);
+      return;
+    }
     window.speechSynthesis.cancel();
-    speakQueueRef.current = [];
-    setSpeaking(false);
-    return;
-  }
-  window.speechSynthesis.cancel();
-  const targetLangPrefix = lang === 'ar' ? 'ar' : 'en';
-  const voices = await getVoicesReady();
-  const matchedVoice = voices.find((v) => v.lang.toLowerCase().startsWith(targetLangPrefix));
+    const targetLangPrefix = lang === 'ar' ? 'ar' : 'en';
+    const voices = await getVoicesReady();
+    const matchedVoice = voices.find((v) => v.lang.toLowerCase().startsWith(targetLangPrefix));
 
-  const fullText = `${history} ${tip || ''}`.trim();
-  speakQueueRef.current = splitIntoChunks(fullText);
-  setSpeaking(true);
+    const fullText = `${history} ${tip || ''}`.trim();
+    speakQueueRef.current = splitIntoChunks(fullText);
+    setSpeaking(true);
 
-  const speakNext = () => {
-    const next = speakQueueRef.current.shift();
-    if (!next) { setSpeaking(false); return; }
-    const utterance = new SpeechSynthesisUtterance(next);
-    utterance.lang = lang === 'ar' ? 'ar-SA' : 'en-US';
-    if (matchedVoice) utterance.voice = matchedVoice;
-    utterance.rate = 0.95;
-    utterance.onend = speakNext;
-    utterance.onerror = () => setSpeaking(false);
-    window.speechSynthesis.speak(utterance);
+    const speakNext = () => {
+      const next = speakQueueRef.current.shift();
+      if (!next) {
+        currentUtteranceRef.current = null;
+        setSpeaking(false);
+        return;
+      }
+      const utterance = new SpeechSynthesisUtterance(next);
+      utterance.lang = lang === 'ar' ? 'ar-SA' : 'en-US';
+      if (matchedVoice) utterance.voice = matchedVoice;
+      utterance.rate = 0.95;
+      utterance.onend = speakNext;
+      utterance.onerror = () => {
+        currentUtteranceRef.current = null;
+        setSpeaking(false);
+      };
+      // نحتفظ بمرجع ثابت للـ utterance طول فترة كلامه عشان كروم ما
+      // يجمعه كقمامة ويوقف الصوت بصمت بمنتصف الجملة
+      currentUtteranceRef.current = utterance;
+      window.speechSynthesis.speak(utterance);
+    };
+
+    setTimeout(speakNext, 80);
   };
 
-  setTimeout(speakNext, 80);
-};
-
+  // نوقف أي قراءة صوتية جارية لو المستخدم طوى الصندوق أو غادر الصفحة
   useEffect(() => {
-  return () => {
-    window.speechSynthesis.cancel();
-    speakQueueRef.current = [];
-  };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+    return () => {
+      window.speechSynthesis.cancel();
+      speakQueueRef.current = [];
+      currentUtteranceRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div style={{ margin: '10px 0' }}>
@@ -3852,7 +3870,7 @@ return () => unsubscribe();
                 ) : (
                   <>
                     <h4>🍽️ {lang === 'ar' ? 'مطاعم قريبة' : 'Nearby Restaurants'}</h4>
-                    {restaurants.length > 0 ? restaurants.map((s, i) => <p key={i}>🍽️ {s.tags.name}</p>) : <p>{t.noServices}</p>}
+                    {restaurants.length > 0 ? restaurants.map((s, i) => <p key={i}>{getServiceIcon(s.tags)} {s.tags.name}</p>) : <p>{t.noServices}</p>}
                     <h4>🏥 {lang === 'ar' ? 'خدمات قريبة' : 'Nearby Services'}</h4>
                     {services.length > 0 ? services.map((s, i) => <p key={i}>{getServiceIcon(s.tags)} {s.tags.name}</p>) : <p>{t.noServices}</p>}
                   </>
