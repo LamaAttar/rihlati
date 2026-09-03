@@ -1087,6 +1087,16 @@ async function runOverpassQuery(query, debugLabel) {
   throw new Error('all servers failed'); // كل السيرفرات فشلت فعلياً (مشكلة اتصال حقيقية)
 }
 
+// بترجع نص قصير يوصف سبب الفشل الفعلي (تايم اوت، رفض اتصال، حالة
+// HTTP سيئة...) عشان نقدر نعرضه بالواجهة للمستخدم بدل ما يضيع
+// بالـ console بس — مفيد جداً للتشخيص عن بعد بدون Developer Tools
+function describeFetchError(e) {
+  if (!e) return 'unknown error';
+  if (e.name === 'AbortError') return 'timeout (server too slow)';
+  if (e instanceof TypeError) return 'network/CORS blocked (no response reached the browser)';
+  return e.message || String(e);
+}
+
 async function fetchNearbyRestaurants(lat, lng) {
   const cacheKey = getServicesCacheKey('restaurants', lat, lng);
   const radius = 20000;
@@ -1104,6 +1114,7 @@ async function fetchNearbyRestaurants(lat, lng) {
     const cached = getCachedServices(cacheKey);
     const result = cached || [];
     result.failed = !cached;
+    result.errorDetail = describeFetchError(e);
     return result;
   }
 }
@@ -1122,6 +1133,7 @@ async function fetchNearbySupportServices(lat, lng) {
     const cached = getCachedServices(cacheKey);
     const result = cached || [];
     result.failed = !cached;
+    result.errorDetail = describeFetchError(e);
     return result;
   }
 }
@@ -1640,22 +1652,6 @@ function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite
   const history = lang === 'ar' ? info.history : (info.historyEn || info.history);
   const tip = lang === 'ar' ? info.tip : (info.tipEn || info.tip);
 
-  // كروم أحياناً بيحاول يشغّل الصوت قبل ما يخلص تحميل قائمة الأصوات
-  // المتاحة بالكامل، وهاد بيسبب صوت مشوّش/متقطع. هاي الدالة بتستنى
-  // لحد ما القائمة تجهز فعلياً قبل ما نختار صوت ونشغله
-  const getVoicesReady = () => new Promise((resolve) => {
-    const existing = window.speechSynthesis.getVoices();
-    if (existing.length > 0) return resolve(existing);
-    const onVoicesChanged = () => {
-      window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
-      resolve(window.speechSynthesis.getVoices());
-    };
-    window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
-    // احتياط لو المتصفح ما أطلق الحدث أبداً (نادراً ما بيصير) — منكمل
-    // بعد نص ثانية بأي قائمة موجودة بدل ما نعلّق للأبد
-    setTimeout(() => resolve(window.speechSynthesis.getVoices()), 500);
-  });
-
   // بنقسم النص لجمل قصيرة عشان نتفادى خلل كروم يلي بيقطع النصوص
   // الأطول من ~15 ثانية بمنتصفها
   const splitIntoChunks = (text) => {
@@ -1675,7 +1671,15 @@ function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite
   // بكروم تحديداً (Chrome bug 679437 / متكرر بمصادر كتير)
   const currentUtteranceRef = useRef(null);
 
-  const handleListen = async () => {
+  // *** ملاحظة حرجة بخصوص كروم على الموبايل: أي await أو setTimeout
+  // قبل أول استدعاء لـ speak() بيكسر "بصمة تفاعل المستخدم" (user
+  // activation) اللي كروم عالموبايل بيتطلبها بدقة عالية. لو الوقت
+  // بين ضغطة الزر وأول speak() طال شوي (حتى لجلب الأصوات بشكل غير
+  // متزامن)، كروم ممكن يرفض تشغيل الصوت بصمت من غير أي خطأ. لهيك
+  // أول speak() هون لازم يصير بشكل متزامن تماماً جوا onClick، وما
+  // منستنى تحميل الأصوات قبله — منجرب ناخذهم بشكل متزامن (getVoices()
+  // العادية بترجع فوراً، حتى لو فاضية أول مرة) ونكمل عادي
+  const handleListen = () => {
     if (!('speechSynthesis' in window)) {
       showToast(lang === 'ar' ? 'متصفحك ما بيدعم القراءة الصوتية للأسف' : "Sorry, your browser doesn't support text-to-speech");
       return;
@@ -1689,8 +1693,10 @@ function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite
     }
     window.speechSynthesis.cancel();
     const targetLangPrefix = lang === 'ar' ? 'ar' : 'en';
-    const voices = await getVoicesReady();
-    const matchedVoice = voices.find((v) => v.lang.toLowerCase().startsWith(targetLangPrefix));
+    // استدعاء متزامن (بدون await) — أول مرة بالصفحة ممكن ترجع فاضية
+    // لحد ما كروم يحمّل قائمة الأصوات بالكامل، وهاد طبيعي ومقبول
+    const voicesNow = window.speechSynthesis.getVoices();
+    const matchedVoice = voicesNow.find((v) => v.lang.toLowerCase().startsWith(targetLangPrefix));
 
     const fullText = `${history} ${tip || ''}`.trim();
     speakQueueRef.current = splitIntoChunks(fullText);
@@ -1718,7 +1724,9 @@ function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite
       window.speechSynthesis.speak(utterance);
     };
 
-    setTimeout(speakNext, 80);
+    // نستدعي أول جملة فوراً وبشكل متزامن تماماً — أي تأخير هون
+    // (setTimeout أو await) بيلغي "بصمة تفاعل المستخدم" على الموبايل
+    speakNext();
   };
 
   // نوقف أي قراءة صوتية جارية لو المستخدم طوى الصندوق أو غادر الصفحة
@@ -3318,6 +3326,7 @@ function App() {
   const [restaurants, setRestaurants] = useState([]);
   const [loadingServices, setLoadingServices] = useState(false);
   const [servicesFetchFailed, setServicesFetchFailed] = useState(false);
+  const [servicesErrorDetail, setServicesErrorDetail] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [ratings, setRatings] = useState({});
@@ -3691,6 +3700,7 @@ return () => unsubscribe();
         setRestaurants(restaurantResult.slice(0, 6));
         setLoadingServices(false);
         setServicesFetchFailed(Boolean(supportResult.failed || restaurantResult.failed));
+        setServicesErrorDetail(supportResult.errorDetail || restaurantResult.errorDetail || '');
       }
       return current;
     });
@@ -3699,6 +3709,7 @@ return () => unsubscribe();
   const retryServices = async (key, place) => {
     setLoadingServices(true);
     setServicesFetchFailed(false);
+    setServicesErrorDetail('');
     const [supportResult, restaurantResult] = await Promise.all([
       fetchNearbySupportServices(place.lat, place.lng),
       fetchNearbyRestaurants(place.lat, place.lng),
@@ -3709,6 +3720,7 @@ return () => unsubscribe();
         setRestaurants(restaurantResult.slice(0, 6));
         setLoadingServices(false);
         setServicesFetchFailed(Boolean(supportResult.failed || restaurantResult.failed));
+        setServicesErrorDetail(supportResult.errorDetail || restaurantResult.errorDetail || '');
       }
       return current;
     });
@@ -3860,6 +3872,11 @@ return () => unsubscribe();
                     <p style={{ color: '#c0392b', marginBottom: 8 }}>
                       {lang === 'ar' ? '⚠️ تعذر الاتصال بالخدمة مؤقتاً — مش معناها إنه ما في خدمات، بس السيرفر مشغول هلق' : '⚠️ Temporarily unable to connect — this doesn\'t mean there are no services, the server is just busy right now'}
                     </p>
+                    {servicesErrorDetail && (
+                      <p style={{ color: '#999', fontSize: '0.7rem', marginBottom: 8, direction: 'ltr', fontFamily: 'monospace' }}>
+                        {servicesErrorDetail}
+                      </p>
+                    )}
                     <button
                       onClick={() => retryServices(key, place)}
                       style={{ background: '#faf6ec', color: '#8B6914', padding: '8px 18px', borderRadius: 10, border: '1px solid #e8d5a3', fontSize: '0.85rem' }}
