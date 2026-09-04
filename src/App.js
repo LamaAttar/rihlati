@@ -1084,7 +1084,12 @@ async function runOverpassQuery(query, debugLabel) {
   const anySuccess = settled.find((r) => r.status === 'fulfilled');
   if (anySuccess) return anySuccess.value; // نتيجة فاضية حقيقية، مش فشل اتصال
 
-  throw new Error('all servers failed'); // كل السيرفرات فشلت فعلياً (مشكلة اتصال حقيقية)
+  // كل السيرفرات فشلت فعلياً — منرمي السبب الحقيقي الأول (تايم اوت،
+  // CORS، حالة HTTP سيئة...) بدل رسالة عامة "all servers failed"
+  // ما كانت بتفيدنا بشي عند التشخيص. هيك أي مرة تفشل، الرسالة يلي
+  // بتظهر بالواجهة بتكون فعلاً وصف حقيقي لسبب الفشل
+  const firstRejection = settled.find((r) => r.status === 'rejected');
+  throw (firstRejection && firstRejection.reason) || new Error('all servers failed (no details captured)');
 }
 
 // بترجع نص قصير يوصف سبب الفشل الفعلي (تايم اوت، رفض اتصال، حالة
@@ -1092,8 +1097,8 @@ async function runOverpassQuery(query, debugLabel) {
 // بالـ console بس — مفيد جداً للتشخيص عن بعد بدون Developer Tools
 function describeFetchError(e) {
   if (!e) return 'unknown error';
-  if (e.name === 'AbortError') return 'timeout (server too slow)';
-  if (e instanceof TypeError) return 'network/CORS blocked (no response reached the browser)';
+  if (e.name === 'AbortError') return `timeout after ${SERVICES_FETCH_TIMEOUT / 1000}s (server too slow to respond)`;
+  if (e instanceof TypeError) return `network/CORS blocked: ${e.message || 'no response reached the browser'}`;
   return e.message || String(e);
 }
 
@@ -1670,6 +1675,14 @@ function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite
   // يلمسه. هاد أشهر سبب موثّق لتوقف speechSynthesis بمنتصف الكلام
   // بكروم تحديداً (Chrome bug 679437 / متكرر بمصادر كتير)
   const currentUtteranceRef = useRef(null);
+  const startCheckTimerRef = useRef(null);
+
+  const clearStartCheck = () => {
+    if (startCheckTimerRef.current) {
+      clearTimeout(startCheckTimerRef.current);
+      startCheckTimerRef.current = null;
+    }
+  };
 
   // *** ملاحظة حرجة بخصوص كروم على الموبايل: أي await أو setTimeout
   // قبل أول استدعاء لـ speak() بيكسر "بصمة تفاعل المستخدم" (user
@@ -1702,10 +1715,26 @@ function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite
     speakQueueRef.current = splitIntoChunks(fullText);
     setSpeaking(true);
 
+    // لو ما في ولا صوت مثبت للغة المطلوبة على هالجهاز، خلينا نعرف
+    // فوراً بدل ما نضل ننتظر صوت ما رح يجي أبداً — هاد بيصير أحياناً
+    // على أجهزة أندرويد ما فيها محرك "Google Text-to-Speech" مفعّل
+    // أو مثبت أصلاً بإعدادات النظام (مش شي منقدر نصلحه من الكود)
+    if (voicesNow.length > 0 && !matchedVoice) {
+      showToast(
+        lang === 'ar'
+          ? '⚠️ جهازك ما فيه صوت عربي مثبت، رح يستخدم الصوت الافتراضي المتوفر'
+          : "⚠️ No Arabic voice found on this device, using the default available voice",
+        'error'
+      );
+    }
+
+    let firstUtteranceStarted = false;
+
     const speakNext = () => {
       const next = speakQueueRef.current.shift();
       if (!next) {
         currentUtteranceRef.current = null;
+        clearStartCheck();
         setSpeaking(false);
         return;
       }
@@ -1713,10 +1742,20 @@ function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite
       utterance.lang = lang === 'ar' ? 'ar-SA' : 'en-US';
       if (matchedVoice) utterance.voice = matchedVoice;
       utterance.rate = 0.95;
+      utterance.onstart = () => {
+        firstUtteranceStarted = true;
+        clearStartCheck();
+      };
       utterance.onend = speakNext;
-      utterance.onerror = () => {
+      utterance.onerror = (ev) => {
+        clearStartCheck();
         currentUtteranceRef.current = null;
         setSpeaking(false);
+        showToast(
+          lang === 'ar'
+            ? `⚠️ صار خطأ بالقراءة الصوتية: ${ev.error || 'غير معروف'}`
+            : `⚠️ Speech error: ${ev.error || 'unknown'}`
+        );
       };
       // نحتفظ بمرجع ثابت للـ utterance طول فترة كلامه عشان كروم ما
       // يجمعه كقمامة ويوقف الصوت بصمت بمنتصف الجملة
@@ -1727,6 +1766,22 @@ function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite
     // نستدعي أول جملة فوراً وبشكل متزامن تماماً — أي تأخير هون
     // (setTimeout أو await) بيلغي "بصمة تفاعل المستخدم" على الموبايل
     speakNext();
+
+    // فحص تشخيصي: لو الصوت ما بلش فعلياً خلال ثانية ونص، هاد معناه
+    // المتصفح رفض تشغيله بصمت (مشكلة نظام/محرك صوت، مش خطأ برمجي
+    // بنقدر نصلحه من هون) — منعلم المستخدم بدل ما يضل ينتظر بصمت
+    clearStartCheck();
+    startCheckTimerRef.current = setTimeout(() => {
+      if (!firstUtteranceStarted && !window.speechSynthesis.speaking) {
+        currentUtteranceRef.current = null;
+        setSpeaking(false);
+        showToast(
+          lang === 'ar'
+            ? '⚠️ المتصفح رفض تشغيل الصوت. جرب: تأكد الصوت مو مكتوم بالجهاز، أو إنه محرك "Google Text-to-Speech" مفعّل بإعدادات جهازك (Android: الإعدادات > اللغات > تحويل النص إلى كلام)'
+            : '⚠️ The browser silently blocked the audio. Try checking your device is not muted, or that a Text-to-Speech engine is enabled in your system settings'
+        );
+      }
+    }, 1500);
   };
 
   // نوقف أي قراءة صوتية جارية لو المستخدم طوى الصندوق أو غادر الصفحة
@@ -1735,6 +1790,7 @@ function CulturalInfoBox({ info, lang = 'ar', placeName, isFav, onToggleFavorite
       window.speechSynthesis.cancel();
       speakQueueRef.current = [];
       currentUtteranceRef.current = null;
+      clearStartCheck();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
