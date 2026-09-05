@@ -306,10 +306,7 @@ export default function LandingPage({ onStart }) {
           </div>
           <div className="rl-footer-col">
             <h4>تواصل معنا</h4>
-            {/* ⚠️ بدّلي هاد بإيميل حقيقي بتقدري توصليه فعلاً — hello@rihlati.app
-                وهمي حالياً لأنه دومين rihlati.app مش مشترى، وأي رسالة رح تروح
-                بلا رجعة. مثال: rihlati.jo@gmail.com أو إيميلك الشخصي */}
-            <a href="mailto:hello@rihlati.app">hello@rihlati.app</a>
+            <a href="mailto:rihlatijordan@outlook.com">rihlatijordan@outlook.com</a>
             <a href="#rl-features">الدعم</a>
           </div>
           <div className="rl-footer-col">
