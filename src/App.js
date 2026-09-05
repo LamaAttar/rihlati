@@ -1023,12 +1023,11 @@ async function fetchWithTimeout(url, ms = SERVICES_FETCH_TIMEOUT) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), ms);
   try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      mode: 'cors',
-      credentials: 'omit',
-      headers: { Accept: 'application/json' },
-    });
+    // أبسط طلب ممكن — بدون أي headers أو خيارات إضافية (mode/credentials).
+    // جربنا الرابط المباشر بالمتصفح واشتغل تمام بدون أي خيارات زيادة،
+    // فرجّعنا fetch() هون لنفس البساطة بدل ما نضيف خيارات كانت
+    // (باحتمال كبير) سبب فشل الطلب بصمت من داخل الكود بالذات
+    const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeoutId);
     return res;
   } catch (e) {
@@ -1048,48 +1047,27 @@ function isHebrewText(text) {
 // بصمت وترجع "لا توجد خدمات" حتى لو المنطقة فيها بيانات فعلية بـ OSM.
 // overpass-api.de و overpass.kumi.systems هما الوحيدين اللي بيرجعوا
 // Access-Control-Allow-Origin بثبات لطلبات من المتصفح مباشرة.
-const OVERPASS_SERVERS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-];
+// بدل ما نطلب من Overpass مباشرة من متصفح الزائر (يلي بيفشل عند بعض
+// الأجهزة/الشبكات بسبب مشاكل DNS/شبكة خارجة عن إرادتنا)، منمرر
+// الطلب عبر سيرفر وسيط (Cloudflare Worker) بيتصل هو بـ Overpass من
+// طرفه ويرجعلنا النتيجة. هيك الاتصال دايماً بيصير لنفس الدومين
+// الموثوق (rihlati-proxy.lolonazem5.workers.dev)، بغض النظر عن أي
+// مشكلة شبكة عند الزائر تمنعه يوصل مباشرة لدومينات Overpass
+const OVERPASS_PROXY_URL = 'https://rihlati-proxy.lolonazem5.workers.dev';
 
 async function runOverpassQuery(query, debugLabel) {
-  // نرسل الطلب للسيرفرين بالتوازي، ومنستنى ردود الاثنين (مش أول
-  // وحدة بس) عشان لو وحدة رجعت نتيجة فاضية بالغلط والتانية عندها
-  // بيانات فعلية، ناخذ اللي عندها بيانات. لو الاثنين فاضيين فعلاً
-  // منقبلها كنتيجة صحيحة، ولو الاثنين فشلوا (شبكة/CORS) منطلع خطأ
-  const settled = await Promise.allSettled(
-    OVERPASS_SERVERS.map(async (server) => {
-      const url = `${server}?data=${encodeURIComponent(query)}`;
-      const res = await fetchWithTimeout(url, SERVICES_FETCH_TIMEOUT);
-      if (!res.ok) throw new Error(`bad status ${res.status} from ${server}`);
-      const data = await res.json();
-      if (!data || !Array.isArray(data.elements)) throw new Error(`invalid response from ${server}`);
-      return data.elements;
-    })
-  );
-
-  // بنسجل بالـ console أي خطأ فعلي (CORS، تايم اوت، حظر...) عشان
-  // يقدر أي حدا يفتح Developer Tools > Console ويشوف السبب الحقيقي
-  // بدل ما يبقى الخطأ صامت بالكامل
-  settled.forEach((r, i) => {
-    if (r.status === 'rejected') {
-      console.warn(`[rihlati] Overpass server failed (${debugLabel || 'query'}):`, OVERPASS_SERVERS[i], r.reason);
-    }
-  });
-
-  const withData = settled.find((r) => r.status === 'fulfilled' && r.value.length > 0);
-  if (withData) return withData.value;
-
-  const anySuccess = settled.find((r) => r.status === 'fulfilled');
-  if (anySuccess) return anySuccess.value; // نتيجة فاضية حقيقية، مش فشل اتصال
-
-  // كل السيرفرات فشلت فعلياً — منرمي السبب الحقيقي الأول (تايم اوت،
-  // CORS، حالة HTTP سيئة...) بدل رسالة عامة "all servers failed"
-  // ما كانت بتفيدنا بشي عند التشخيص. هيك أي مرة تفشل، الرسالة يلي
-  // بتظهر بالواجهة بتكون فعلاً وصف حقيقي لسبب الفشل
-  const firstRejection = settled.find((r) => r.status === 'rejected');
-  throw (firstRejection && firstRejection.reason) || new Error('all servers failed (no details captured)');
+  try {
+    const proxyUrl = `${OVERPASS_PROXY_URL}/?q=${encodeURIComponent(query)}`;
+    const res = await fetchWithTimeout(proxyUrl, SERVICES_FETCH_TIMEOUT);
+    if (!res.ok) throw new Error(`proxy returned status ${res.status}`);
+    const data = await res.json();
+    if (data && data.error) throw new Error(data.error);
+    if (!data || !Array.isArray(data.elements)) throw new Error('invalid response from proxy');
+    return data.elements;
+  } catch (e) {
+    console.warn(`[rihlati] Overpass proxy failed (${debugLabel || 'query'}):`, e);
+    throw e;
+  }
 }
 
 // بترجع نص قصير يوصف سبب الفشل الفعلي (تايم اوت، رفض اتصال، حالة
