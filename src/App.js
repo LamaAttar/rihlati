@@ -995,7 +995,7 @@ function getBadges(ratedPlaceKeys = [], tripsBuilt = 0, addedPlaceKeys = [], lan
 // لما نرجع نفتح نفس المكان ما نستنى الـ API من الصفر كل مرة
 // ============================================================
 const SERVICES_CACHE_TTL = 1000 * 60 * 60 * 6; // 6 ساعات
-const SERVICES_FETCH_TIMEOUT = 12000; // 12 ثانية بالحد الأقصى لكل سيرفر، وبعدها منوقف الانتظار
+const SERVICES_FETCH_TIMEOUT = 15000; // 15 ثانية — كافية للسيرفر الوسيط (Cloudflare) يجرب كل المرايا بالتوازي
 
 function getServicesCacheKey(type, lat, lng) {
   return `rl_v3_${type}_${lat.toFixed(4)}_${lng.toFixed(4)}`;
