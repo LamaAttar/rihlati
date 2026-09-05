@@ -2466,6 +2466,41 @@ function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocatio
   const myPlaces = userPlaces.filter(p => p.addedBy === user.displayName);
   const favoritePlacesList = favoriteKeys.map(k => places[k]).filter(Boolean);
 
+  const [myTrips, setMyTrips] = useState([]);
+  const [loadingTrips, setLoadingTrips] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadMyTrips = async () => {
+      try {
+        const q = query(collection(db, 'savedTrips'), where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'), limit(20));
+        const snap = await getDocs(q);
+        if (!cancelled) setMyTrips(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (e) {}
+      if (!cancelled) setLoadingTrips(false);
+    };
+    loadMyTrips();
+    return () => { cancelled = true; };
+  }, [user.uid]);
+
+  const shareMyTrip = (trip) => {
+    const base = window.location.origin + window.location.pathname;
+    shareOrCopyLink({
+      url: `${base}?trip=${trip.id}`,
+      title: trip.name,
+      text: lang === 'ar' ? `شوفوا الرحلة يلي خططتلها: ${trip.name} 🗺️` : `Check out my trip: ${trip.name} 🗺️`,
+      lang,
+    });
+  };
+
+  const deleteMyTrip = async (tripId) => {
+    if (!window.confirm(lang === 'ar' ? 'متأكد إنك بدك تحذف هاي الرحلة؟' : 'Are you sure you want to delete this trip?')) return;
+    try {
+      await deleteDoc(doc(db, 'savedTrips', tripId));
+      setMyTrips((prev) => prev.filter((t) => t.id !== tripId));
+    } catch (e) {}
+  };
+
   const myPhotos = [];
   Object.keys(placePhotos).forEach(key => {
     (placePhotos[key] || []).forEach(photoObj => {
@@ -2538,6 +2573,37 @@ function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocatio
           <strong>📸 {myPhotos.length}</strong> {lang === 'ar' ? 'صور رفعتها' : 'photos uploaded'}
         </div>
       </div>
+
+      <h3>{lang === 'ar' ? '🗺️ رحلاتي المحفوظة' : '🗺️ My Saved Trips'}</h3>
+      {loadingTrips ? (
+        <div className="rl-skeleton-group">
+          <div className="rl-skeleton-line" style={{ width: '60%' }} />
+        </div>
+      ) : myTrips.length === 0 ? (
+        <p style={{ color: '#999' }}>{lang === 'ar' ? 'لسا ما حفظت أي رحلة. جرب "خطط رحلتي" أو "ابنيلي رحلة بالـ AI" واحفظ رحلتك!' : 'No saved trips yet. Try "Plan My Trip" or "Build My Trip with AI" and save one!'}</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+          {myTrips.map((trip) => (
+            <div key={trip.id} style={{ background: '#faf6ec', borderRadius: 10, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: '0.9rem', color: '#5a3e1b', fontWeight: 'bold' }}>{trip.name}</span>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                <button
+                  onClick={() => shareMyTrip(trip)}
+                  style={{ background: '#4f7a45', color: '#fff', padding: '5px 10px', borderRadius: 8, fontSize: '0.75rem' }}
+                >
+                  🔗 {lang === 'ar' ? 'شارك' : 'Share'}
+                </button>
+                <button
+                  onClick={() => deleteMyTrip(trip.id)}
+                  style={{ background: '#c0392b', color: '#fff', padding: '5px 10px', borderRadius: 8, fontSize: '0.75rem' }}
+                >
+                  🗑️
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <h3>{lang === 'ar' ? '❤️ الأماكن المفضلة' : '❤️ Favorite Places'}</h3>
       {favoritePlacesList.length === 0 ? (
@@ -2809,12 +2875,34 @@ function Leaderboard({ onClose, lang = 'ar' }) {
     </div>
   );
 }
-function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar' }) {
+// بترجع كل شي محتاجينه لمشاركة رابط (سواء مكان أو رحلة محفوظة) —
+// بتحاول تفتح قائمة المشاركة الجاهزة بالجهاز (واتساب، ماسنجر...)
+// لو مدعومة، وإلا بتنسخ الرابط للحافظة كحل احتياطي. مستقلة عن أي
+// مكوّن معين عشان تُستخدم من أي مكان (بطاقة منطقة، رحلة محفوظة...)
+async function shareOrCopyLink({ url, title, text, lang = 'ar' }) {
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, text, url });
+      return;
+    } catch (e) {
+      return; // المستخدم لغى المشاركة، ما في داعي لأي رسالة خطأ
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(`${text}\n${url}`);
+    showToast(lang === 'ar' ? '🔗 تم نسخ رابط الرحلة! شارك مع أصحابك' : '🔗 Trip link copied! Share it with friends', 'success');
+  } catch (e) {
+    showToast(lang === 'ar' ? 'تعذر نسخ الرابط' : 'Could not copy the link');
+  }
+}
+
+function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar', user, onTripSaved }) {
   const [season, setSeasonSel] = useState(null);
   const [companion, setCompanion] = useState(null);
   const [time, setTime] = useState(null);
   const [budget, setBudget] = useState(null);
   const [result, setResult] = useState(null);
+  const [savingTrip, setSavingTrip] = useState(false);
 
   const seasonOptions = lang === 'ar' ? [
     { key: 'summer', label: '☀️ صيف' },
@@ -2947,6 +3035,54 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar' }) {
   const resultName = result ? (result.place.addedBy ? result.place.name : (lang === 'ar' ? result.place.name : (result.place.nameEn || result.place.name))) : '';
   const resultDesc = result ? (result.place.addedBy ? result.place.desc : (lang === 'ar' ? result.place.desc : (result.place.descEn || result.place.desc))) : '';
 
+  // بتحفظ الرحلة يلي بنيناها بـ Firestore (قابلة للمشاركة برابط ثابت)
+  // وبعدها بتفتح قائمة المشاركة الجاهزة بالجهاز، أو بتنسخ الرابط
+  const saveAndShareTrip = async () => {
+    if (!user) return showToast(lang === 'ar' ? 'سجل دخول أولاً لحفظ ومشاركة رحلتك' : 'Please log in first to save and share your trip');
+    if (!result) return;
+    const defaultName = lang === 'ar'
+      ? `رحلة ${user.displayName} إلى ${resultName}`
+      : `${user.displayName}'s trip to ${resultName}`;
+    const tripName = window.prompt(
+      lang === 'ar' ? 'اسم الرحلة (تقدري تعدليه):' : 'Trip name (you can edit it):',
+      defaultName
+    );
+    if (!tripName) return; // المستخدم لغى
+    setSavingTrip(true);
+    try {
+      const tripDoc = {
+        ownerUid: user.uid,
+        ownerName: user.displayName,
+        name: tripName,
+        lang,
+        source: 'planner',
+        createdAt: new Date().toISOString(),
+        planner: {
+          placeKey: result.key,
+          placeName: resultName,
+          placeDesc: resultDesc,
+          placeImg: result.place.img,
+          compatibilityPercent: result.compatibilityPercent,
+          reasons: result.reasons,
+          duration: result.duration,
+        },
+      };
+      const docRef = await addDoc(collection(db, 'savedTrips'), tripDoc);
+      if (onTripSaved) onTripSaved();
+      const base = window.location.origin + window.location.pathname;
+      const shareUrl = `${base}?trip=${docRef.id}`;
+      await shareOrCopyLink({
+        url: shareUrl,
+        title: tripName,
+        text: lang === 'ar' ? `شوفوا الرحلة يلي خططتلها: ${tripName} 🗺️` : `Check out my trip: ${tripName} 🗺️`,
+        lang,
+      });
+    } catch (e) {
+      showToast(lang === 'ar' ? 'صار خطأ أثناء حفظ الرحلة، جرب مرة ثانية' : 'Something went wrong while saving the trip, please try again');
+    }
+    setSavingTrip(false);
+  };
+
   return (
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
@@ -3026,7 +3162,7 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar' }) {
                     {lang === 'ar' ? `⏱️ مدة الزيارة المتوقعة: ${durationLabel(result.duration, lang)}` : `⏱️ Expected visit duration: ${durationLabel(result.duration, lang)}`}
                   </p>
                 )}
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                   <button
                     onClick={() => { onOpenMap(result.place); onClose(); }}
                     style={{ flex: 1, background: '#5a3e1b', color: '#fff', padding: 10, borderRadius: 10 }}
@@ -3040,6 +3176,15 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar' }) {
                     {lang === 'ar' ? '🔄 جرب رحلة تانية' : '🔄 Try Another Trip'}
                   </button>
                 </div>
+                <button
+                  onClick={saveAndShareTrip}
+                  disabled={savingTrip}
+                  style={{ width: '100%', background: 'linear-gradient(135deg, #4f7a45, #3a5c33)', color: '#fff', padding: 10, borderRadius: 10, opacity: savingTrip ? 0.7 : 1 }}
+                >
+                  {savingTrip
+                    ? (lang === 'ar' ? '⏳ جاري الحفظ...' : '⏳ Saving...')
+                    : (lang === 'ar' ? '💾 احفظ وشارك رحلتك' : '💾 Save & Share Trip')}
+                </button>
               </div>
             </div>
           </>
@@ -3049,11 +3194,12 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar' }) {
   );
 }
 
-function AITripBuilder({ onClose, userPlaces, lang = 'ar' }) {
+function AITripBuilder({ onClose, userPlaces, lang = 'ar', user, onTripSaved }) {
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [trip, setTrip] = useState(null);
+  const [savingTrip, setSavingTrip] = useState(false);
   // null = بدون اختيار صريح (النظام بيجرب يفهمها من النص، وإلا افتراضي 8 الصبح)
   const [startHour, setStartHour] = useState(null);
   const startHourOptions = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
@@ -3088,6 +3234,44 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar' }) {
     setError(null);
     setPrompt('');
     setStartHour(null);
+  };
+
+  const saveAndShareTrip = async () => {
+    if (!user) return showToast(lang === 'ar' ? 'سجل دخول أولاً لحفظ ومشاركة رحلتك' : 'Please log in first to save and share your trip');
+    if (!trip) return;
+    const defaultName = lang === 'ar'
+      ? `رحلة ${user.displayName}: ${trip.title}`
+      : `${user.displayName}'s trip: ${trip.title}`;
+    const tripName = window.prompt(
+      lang === 'ar' ? 'اسم الرحلة (تقدري تعدليه):' : 'Trip name (you can edit it):',
+      defaultName
+    );
+    if (!tripName) return;
+    setSavingTrip(true);
+    try {
+      const tripDoc = {
+        ownerUid: user.uid,
+        ownerName: user.displayName,
+        name: tripName,
+        lang,
+        source: 'ai',
+        createdAt: new Date().toISOString(),
+        aiTrip: trip,
+      };
+      const docRef = await addDoc(collection(db, 'savedTrips'), tripDoc);
+      if (onTripSaved) onTripSaved();
+      const base = window.location.origin + window.location.pathname;
+      const shareUrl = `${base}?trip=${docRef.id}`;
+      await shareOrCopyLink({
+        url: shareUrl,
+        title: tripName,
+        text: lang === 'ar' ? `شوفوا الرحلة يلي خططتلها: ${tripName} 🗺️` : `Check out my trip: ${tripName} 🗺️`,
+        lang,
+      });
+    } catch (e) {
+      showToast(lang === 'ar' ? 'صار خطأ أثناء حفظ الرحلة، جرب مرة ثانية' : 'Something went wrong while saving the trip, please try again');
+    }
+    setSavingTrip(false);
   };
 
   const getTypeIcon = (type) => {
@@ -3229,11 +3413,119 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar' }) {
             )}
 
             <button
+              onClick={saveAndShareTrip}
+              disabled={savingTrip}
+              style={{ width: '100%', background: 'linear-gradient(135deg, #4f7a45, #3a5c33)', color: '#fff', padding: 10, borderRadius: 10, marginBottom: 10, opacity: savingTrip ? 0.7 : 1 }}
+            >
+              {savingTrip
+                ? (lang === 'ar' ? '⏳ جاري الحفظ...' : '⏳ Saving...')
+                : (lang === 'ar' ? '💾 احفظ وشارك رحلتك' : '💾 Save & Share Trip')}
+            </button>
+
+            <button
               onClick={resetBuilder}
               style={{ width: '100%', background: '#faf6ec', color: '#8B6914', padding: 10, borderRadius: 10, border: '1px solid #e8d5a3' }}
             >
               {lang === 'ar' ? '🔄 ابنِ رحلة تانية' : '🔄 Build Another Trip'}
             </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// بتعرض رحلة محفوظة (سواء بنيت بـ"خطط رحلتي" أو "ابنيلي رحلة بالـ AI")
+// لما حدا يفتح رابط مشاركة (?trip=ID). عرض للقراءة فقط، ما فيها تعديل
+function SharedTripModal({ tripData, onClose, appLang }) {
+  const lang = tripData.lang || appLang || 'ar';
+
+  const getTypeIcon = (type) => {
+    if (type === 'فطور') return '☕';
+    if (type === 'غدا') return '🍽️';
+    if (type === 'عشاء') return '🌙';
+    return '📍';
+  };
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: '#fff', borderRadius: 20, padding: 24, maxWidth: 520, width: '100%', maxHeight: '85vh', overflowY: 'auto', textAlign: lang === 'ar' ? 'right' : 'left', position: 'relative', boxShadow: '0 15px 40px rgba(0,0,0,0.3)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button onClick={onClose} style={{ position: 'absolute', top: 12, left: 12, border: 'none', background: 'none', fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
+
+        <p style={{ color: '#8B6914', fontWeight: 'bold', marginBottom: 4, fontSize: '0.85rem' }}>
+          {lang === 'ar' ? `🗺️ رحلة شاركها ${tripData.ownerName || 'مسافر'}` : `🗺️ Trip shared by ${tripData.ownerName || 'a traveler'}`}
+        </p>
+        <h2 style={{ color: '#8B6914', marginBottom: 16 }}>{tripData.name}</h2>
+
+        {tripData.source === 'planner' && tripData.planner && (
+          <div style={{ borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', border: '1px solid #f0e0b0' }}>
+            {tripData.planner.placeImg && (
+              <img src={tripData.planner.placeImg} alt={tripData.planner.placeName} style={{ width: '100%', height: 180, objectFit: 'cover' }} />
+            )}
+            <div style={{ padding: 16 }}>
+              <h3 style={{ color: '#8B6914', marginBottom: 6 }}>{tripData.planner.placeName}</h3>
+              <p style={{ color: '#555', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: 10 }}>{tripData.planner.placeDesc}</p>
+              {tripData.planner.reasons?.length > 0 && (
+                <div style={{ background: '#faf6ec', borderRadius: 10, padding: 12, marginBottom: 10 }}>
+                  <strong style={{ fontSize: '0.85rem', color: '#8B6914' }}>
+                    {lang === 'ar' ? 'ليش اختير هاد المكان' : 'Why this place was picked'}
+                  </strong>
+                  <ul style={{ margin: '6px 0 0', paddingRight: lang === 'ar' ? 18 : 0, paddingLeft: lang === 'ar' ? 0 : 18, fontSize: '0.8rem', color: '#555', listStyle: 'none' }}>
+                    {tripData.planner.reasons.map((r, i) => (
+                      <li key={i} style={{ padding: '3px 0' }}>✓ {r.text}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {tripData.planner.duration && (
+                <p style={{ fontSize: '0.85rem', color: '#777' }}>
+                  {lang === 'ar' ? `⏱️ مدة الزيارة المتوقعة: ${durationLabel(tripData.planner.duration, lang)}` : `⏱️ Expected visit duration: ${durationLabel(tripData.planner.duration, lang)}`}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {tripData.source === 'ai' && tripData.aiTrip && (
+          <>
+            <p style={{ color: '#777', fontSize: '0.85rem', marginBottom: 16 }}>
+              {lang === 'ar' ? `رحلة ${tripData.aiTrip.totalDays} يوم` : `A ${tripData.aiTrip.totalDays}-day trip`}
+            </p>
+            {tripData.aiTrip.days?.map((day, i) => (
+              <div key={i} style={{ background: '#faf6ec', borderRadius: 14, padding: 16, marginBottom: 12, border: '1px solid #e8d5a3' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <h4 style={{ color: '#8B6914', margin: 0 }}>{lang === 'ar' ? `اليوم ${day.dayNumber}: ${day.title}` : `Day ${day.dayNumber}: ${day.title}`}</h4>
+                  {day.estimatedBudget && (
+                    <span style={{ fontSize: '0.75rem', color: '#8B6914', background: '#fff', padding: '4px 10px', borderRadius: 999, border: '1px solid #e8d5a3' }}>
+                      💰 {day.estimatedBudget}
+                    </span>
+                  )}
+                </div>
+                {day.stops?.map((stop, si) => (
+                  <div key={si} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: si < day.stops.length - 1 ? '1px dashed #e0cfa0' : 'none' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <strong style={{ color: '#5a3e1b', fontSize: '0.9rem' }}>{getTypeIcon(stop.type)} {stop.place}</strong>
+                      <span style={{ color: '#8B6914', fontSize: '0.8rem' }}>{stop.time}</span>
+                    </div>
+                    <p style={{ color: '#555', fontSize: '0.82rem', margin: 0, lineHeight: 1.5 }}>{stop.description}</p>
+                  </div>
+                ))}
+              </div>
+            ))}
+            {tripData.aiTrip.tips?.length > 0 && (
+              <div style={{ background: '#fff8e6', borderRadius: 12, padding: 14 }}>
+                <strong style={{ fontSize: '0.85rem', color: '#8B6914' }}>{lang === 'ar' ? '💡 نصائح للرحلة' : '💡 Trip tips'}</strong>
+                <ul style={{ margin: '8px 0 0', paddingRight: lang === 'ar' ? 18 : 0, paddingLeft: lang === 'ar' ? 0 : 18, fontSize: '0.8rem', color: '#555' }}>
+                  {tripData.aiTrip.tips.map((tip, i) => <li key={i}>{tip}</li>)}
+                </ul>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -3385,6 +3677,7 @@ function App() {
   const [showFavoritesPage, setShowFavoritesPage] = useState(false);
   const [showTripPlanner, setShowTripPlanner] = useState(false);
   const [showAiTripBuilder, setShowAiTripBuilder] = useState(false);
+  const [sharedTripData, setSharedTripData] = useState(null);
   const [showAbout, setShowAbout] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   // نعرض آخر أرقام محفوظة بالمتصفح فوراً (بدل ما تبين صفر لثانية)، وبعدين
@@ -3549,6 +3842,31 @@ return () => unsubscribe();
       window.history.replaceState(null, '', window.location.pathname);
     }
   }, [userPlaces]);
+
+  // لو حدا فتح رابط رحلة محفوظة (?trip=ID)، منجيب الرحلة من Firestore
+  // ومنعرضها بنافذة للقراءة فقط
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tripId = params.get('trip');
+    if (!tripId) return;
+
+    const loadSharedTrip = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'savedTrips', tripId));
+        if (snap.exists()) {
+          setSharedTripData({ id: snap.id, ...snap.data() });
+        } else {
+          showToast(lang === 'ar' ? 'هاي الرحلة مش موجودة أو انحذفت' : 'This trip was not found or was deleted');
+        }
+      } catch (e) {
+        showToast(lang === 'ar' ? 'صار خطأ أثناء تحميل الرحلة' : 'Something went wrong while loading the trip');
+      }
+      window.history.replaceState(null, '', window.location.pathname);
+    };
+    loadSharedTrip();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   const updateGender = async (g) => {
     if (!user) return;
@@ -4188,11 +4506,15 @@ return () => unsubscribe();
       )}
 
       {showTripPlanner && (
-        <TripPlanner onClose={() => setShowTripPlanner(false)} onOpenMap={openMap} userPlaces={approvedUserPlaces} lang={lang} />
+        <TripPlanner onClose={() => setShowTripPlanner(false)} onOpenMap={openMap} userPlaces={approvedUserPlaces} lang={lang} user={user} onTripSaved={() => awardPoints(10)} />
       )}
 
       {showAiTripBuilder && (
-        <AITripBuilder onClose={() => setShowAiTripBuilder(false)} userPlaces={approvedUserPlaces} lang={lang} />
+        <AITripBuilder onClose={() => setShowAiTripBuilder(false)} userPlaces={approvedUserPlaces} lang={lang} user={user} onTripSaved={() => awardPoints(10)} />
+      )}
+
+      {sharedTripData && (
+        <SharedTripModal tripData={sharedTripData} onClose={() => setSharedTripData(null)} appLang={lang} />
       )}
 
       {weeklyTopPhoto && (
