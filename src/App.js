@@ -3873,13 +3873,9 @@ return () => unsubscribe();
             />
           </>
         )}
-        {!isUserPlace && (
-          <>
-            <hr style={{ border: 'none', borderTop: '1px dashed #e8d5a3', margin: '12px 0' }} />
-            <StarRating placeKey={key} ratings={ratings} setRatings={setRatings} user={user} onRated={() => awardPoints(3)} lang={lang} />
-            <PlaceReviews placeKey={key} user={user} lang={lang} onReviewed={() => awardPoints(5)} />
-          </>
-        )}
+        <hr style={{ border: 'none', borderTop: '1px dashed #e8d5a3', margin: '12px 0' }} />
+        <StarRating placeKey={key} ratings={ratings} setRatings={setRatings} user={user} onRated={() => awardPoints(3)} lang={lang} />
+        <PlaceReviews placeKey={key} user={user} lang={lang} onReviewed={() => awardPoints(5)} />
         {place.lat && <hr style={{ border: 'none', borderTop: '1px dashed #e8d5a3', margin: '12px 0' }} />}
         {place.lat && (
           <>
