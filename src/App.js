@@ -2473,10 +2473,17 @@ function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocatio
     let cancelled = false;
     const loadMyTrips = async () => {
       try {
-        const q = query(collection(db, 'savedTrips'), where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'), limit(20));
+        // منستخدم where بس بدون orderBy عشان نتفادى الحاجة لفهرس مركّب
+        // (composite index) بـ Firestore — كان الاستعلام السابق يفشل
+        // بصمت لو الفهرس ما انعمل، فمنرتب النتائج بالكود مباشرة بدالها
+        const q = query(collection(db, 'savedTrips'), where('ownerUid', '==', user.uid), limit(20));
         const snap = await getDocs(q);
-        if (!cancelled) setMyTrips(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      } catch (e) {}
+        const trips = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        trips.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+        if (!cancelled) setMyTrips(trips);
+      } catch (e) {
+        console.warn('[rihlati] loadMyTrips failed:', e);
+      }
       if (!cancelled) setLoadingTrips(false);
     };
     loadMyTrips();
