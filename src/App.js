@@ -894,15 +894,50 @@ function scoreTripPlace(place, key, prefs) {
   if (place.season === prefs.season) score += 3;
   if (meta.companions && meta.companions.includes(prefs.companion)) score += 2;
   if (meta.budget) {
-    if (prefs.budget === 'free' && meta.budget === 'free') score += 2;
-    else if (prefs.budget === 'under20' && (meta.budget === 'free' || meta.budget === 'under20')) score += 2;
-    else if (prefs.budget === 'open') score += 1;
+    // prefs.budget هلق رقم بالدينار (10/20/50/100) بدل تصنيف عام —
+    // كل ما الميزانية أوسع، الأماكن الأغلى (open) بتاخذ نقاط أكتر
+    const budgetTier = prefs.budget;
+    if (meta.budget === 'free') {
+      score += 2; // مجاني بيناسب أي ميزانية دايماً
+    } else if (meta.budget === 'under20') {
+      score += budgetTier >= 20 ? 2 : 1;
+    } else if (meta.budget === 'open') {
+      if (budgetTier >= 50) score += 2;
+      else if (budgetTier === 20) score += 1;
+      // ميزانية 10 دينار وأماكن مفتوحة التكلفة: صفر نقاط، غالباً ما بتناسب
+    }
   }
   if (meta.duration) {
     const rank = { '2h': 1, half: 2, full: 3 };
     if (rank[meta.duration] <= rank[prefs.time]) score += 2;
   }
   return score;
+}
+
+// بيرجع تفصيل تقديري لتكلفة الرحلة (نقل/أكل/دخول/أنشطة) — أرقام
+// تقريبية مبنية على فئة المكان ومدة الزيارة، مش أسعار دقيقة لكل
+// موقع (لأنه ما عنا بيانات نقل حقيقية)، وبنوضح هيك بالواجهة صراحة
+function estimateCostBreakdown(meta, placeType, lang = 'ar') {
+  const entranceRanges = { free: [0, 0], under20: [1, 5], open: [8, 20] };
+  const foodRanges = { '2h': [3, 5], half: [6, 10], full: [10, 15] };
+  const transportRanges = { '2h': [2, 4], half: [5, 10], full: [10, 20] };
+  const activitiesRange = placeType === 'adventure' ? [5, 10] : [0, 0];
+
+  const entrance = entranceRanges[meta.budget] || [0, 0];
+  const food = foodRanges[meta.duration] || [5, 10];
+  const transport = transportRanges[meta.duration] || [5, 10];
+
+  const fmt = (r) => (r[0] === r[1] ? `${r[0]}` : `${r[0]}-${r[1]}`);
+  const totalLow = entrance[0] + food[0] + transport[0] + activitiesRange[0];
+  const totalHigh = entrance[1] + food[1] + transport[1] + activitiesRange[1];
+
+  return {
+    entrance: fmt(entrance),
+    food: fmt(food),
+    transport: fmt(transport),
+    activities: fmt(activitiesRange),
+    total: fmt([totalLow, totalHigh]),
+  };
 }
 
 // بيحول النقاط الخام لنسبة مئوية (0-100%) — هاي النسبة يلي بتنعرض
@@ -2975,13 +3010,15 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar', user, onTrip
     { key: 'full', label: '🕘 Full day' },
   ];
   const budgetOptions = lang === 'ar' ? [
-    { key: 'free', label: '🆓 مجاني' },
-    { key: 'under20', label: '💵 أقل من 20 دينار' },
-    { key: 'open', label: '💰 ميزانية مفتوحة' },
+    { key: 10, label: '💵 أقل من 10 دينار' },
+    { key: 20, label: '💵 أقل من 20 دينار' },
+    { key: 50, label: '💰 أقل من 50 دينار' },
+    { key: 100, label: '💎 100 دينار أو أكتر' },
   ] : [
-    { key: 'free', label: '🆓 Free' },
-    { key: 'under20', label: '💵 Under 20 JOD' },
-    { key: 'open', label: '💰 Open budget' },
+    { key: 10, label: '💵 Under 10 JOD' },
+    { key: 20, label: '💵 Under 20 JOD' },
+    { key: 50, label: '💰 Under 50 JOD' },
+    { key: 100, label: '💎 100 JOD or more' },
   ];
 
   const OptionRow = ({ options, value, onSelect }) => (
@@ -3043,22 +3080,23 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar', user, onTrip
       if (lang === 'ar') {
         if (best.place.season === season) reasons.push({ text: 'بيناسب الموسم يلي اخترتيه', points: 3 });
         if (meta.companions && meta.companions.includes(companion)) reasons.push({ text: 'مناسب لنوع الرفقة يلي حددتيها', points: 2 });
-        if (meta.budget === 'free') reasons.push({ text: 'دخول مجاني بالكامل', points: budget === 'open' ? 1 : 2 });
-        else if (meta.budget === 'under20' && budget !== 'open') reasons.push({ text: 'يناسب ميزانيتك', points: 2 });
-        else if (budget === 'open') reasons.push({ text: 'يناسب ميزانيتك المفتوحة', points: 1 });
+        if (meta.budget === 'free') reasons.push({ text: 'دخول مجاني بالكامل', points: 2 });
+        else if (meta.budget === 'under20') reasons.push({ text: 'يناسب ميزانيتك', points: budget >= 20 ? 2 : 1 });
+        else if (meta.budget === 'open' && budget >= 20) reasons.push({ text: 'يناسب ميزانيتك المفتوحة', points: budget >= 50 ? 2 : 1 });
         if (meta.duration) reasons.push({ text: `بياخذ تقريباً ${durationLabel(meta.duration, lang)}، وهاد بيناسب الوقت يلي عندك`, points: 2 });
         if (best.place.addedBy) reasons.push({ text: `مكان اكتشفه زائر تاني (${best.place.addedBy}) وضافه للتطبيق 🌟`, points: 0 });
       } else {
         if (best.place.season === season) reasons.push({ text: 'Matches the season you picked', points: 3 });
         if (meta.companions && meta.companions.includes(companion)) reasons.push({ text: 'A good fit for your travel companions', points: 2 });
-        if (meta.budget === 'free') reasons.push({ text: 'Completely free entry', points: budget === 'open' ? 1 : 2 });
-        else if (meta.budget === 'under20' && budget !== 'open') reasons.push({ text: 'Fits your budget', points: 2 });
-        else if (budget === 'open') reasons.push({ text: 'Fits your open budget', points: 1 });
+        if (meta.budget === 'free') reasons.push({ text: 'Completely free entry', points: 2 });
+        else if (meta.budget === 'under20') reasons.push({ text: 'Fits your budget', points: budget >= 20 ? 2 : 1 });
+        else if (meta.budget === 'open' && budget >= 20) reasons.push({ text: 'Fits your open budget', points: budget >= 50 ? 2 : 1 });
         if (meta.duration) reasons.push({ text: `Takes about ${durationLabel(meta.duration, lang)}, which suits the time you have`, points: 2 });
         if (best.place.addedBy) reasons.push({ text: `A place discovered by another visitor (${best.place.addedBy}) 🌟`, points: 0 });
       }
       const compatibilityPercent = getCompatibilityPercent(bestScore);
-      setResult({ ...best, reasons, duration: meta.duration, compatibilityPercent, rawScore: bestScore });
+      const costBreakdown = estimateCostBreakdown(meta, best.place.type, lang);
+      setResult({ ...best, reasons, duration: meta.duration, compatibilityPercent, rawScore: bestScore, costBreakdown });
       if (auth.currentUser) {
         setDoc(doc(db, 'userProfiles', auth.currentUser.uid), { tripsBuilt: increment(1) }, { merge: true }).catch(() => {});
       }
@@ -3104,6 +3142,7 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar', user, onTrip
           placeDesc: resultDesc,
           placeImg: result.place.img,
           compatibilityPercent: result.compatibilityPercent,
+          costBreakdown: result.costBreakdown || null,
           reasons: result.reasons,
           duration: result.duration,
         },
@@ -3202,6 +3241,27 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar', user, onTrip
                   <p style={{ fontSize: '0.85rem', color: '#777', marginBottom: 12 }}>
                     {lang === 'ar' ? `⏱️ مدة الزيارة المتوقعة: ${durationLabel(result.duration, lang)}` : `⏱️ Expected visit duration: ${durationLabel(result.duration, lang)}`}
                   </p>
+                )}
+                {result.costBreakdown && (
+                  <div style={{ background: '#fff8e6', borderRadius: 10, padding: 12, marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <strong style={{ fontSize: '0.85rem', color: '#8B6914' }}>
+                        {lang === 'ar' ? '💰 تفصيل التكلفة التقديرية' : '💰 Estimated cost breakdown'}
+                      </strong>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#4f7a45' }}>
+                        {lang === 'ar' ? `الإجمالي: ${result.costBreakdown.total} دينار` : `Total: ${result.costBreakdown.total} JOD`}
+                      </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6, fontSize: '0.78rem', color: '#555' }}>
+                      <span>🚗 {lang === 'ar' ? 'نقل' : 'Transport'}: {result.costBreakdown.transport} {lang === 'ar' ? 'دينار' : 'JOD'}</span>
+                      <span>🍽️ {lang === 'ar' ? 'أكل' : 'Food'}: {result.costBreakdown.food} {lang === 'ar' ? 'دينار' : 'JOD'}</span>
+                      <span>🎫 {lang === 'ar' ? 'دخول' : 'Entrance'}: {result.costBreakdown.entrance} {lang === 'ar' ? 'دينار' : 'JOD'}</span>
+                      <span>🎯 {lang === 'ar' ? 'أنشطة' : 'Activities'}: {result.costBreakdown.activities} {lang === 'ar' ? 'دينار' : 'JOD'}</span>
+                    </div>
+                    <p style={{ fontSize: '0.68rem', color: '#999', margin: '8px 0 0' }}>
+                      {lang === 'ar' ? '* أرقام تقديرية للشخص الواحد، ممكن تختلف حسب اختياراتك الفعلية' : '* Rough per-person estimates — actual costs may vary'}
+                    </p>
+                  </div>
                 )}
                 <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                   <button
@@ -3525,9 +3585,27 @@ function SharedTripModal({ tripData, onClose, appLang }) {
                 </div>
               )}
               {tripData.planner.duration && (
-                <p style={{ fontSize: '0.85rem', color: '#777' }}>
+                <p style={{ fontSize: '0.85rem', color: '#777', marginBottom: tripData.planner.costBreakdown ? 10 : 0 }}>
                   {lang === 'ar' ? `⏱️ مدة الزيارة المتوقعة: ${durationLabel(tripData.planner.duration, lang)}` : `⏱️ Expected visit duration: ${durationLabel(tripData.planner.duration, lang)}`}
                 </p>
+              )}
+              {tripData.planner.costBreakdown && (
+                <div style={{ background: '#fff8e6', borderRadius: 10, padding: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <strong style={{ fontSize: '0.85rem', color: '#8B6914' }}>
+                      {lang === 'ar' ? '💰 تفصيل التكلفة التقديرية' : '💰 Estimated cost breakdown'}
+                    </strong>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#4f7a45' }}>
+                      {lang === 'ar' ? `الإجمالي: ${tripData.planner.costBreakdown.total} دينار` : `Total: ${tripData.planner.costBreakdown.total} JOD`}
+                    </span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6, fontSize: '0.78rem', color: '#555' }}>
+                    <span>🚗 {lang === 'ar' ? 'نقل' : 'Transport'}: {tripData.planner.costBreakdown.transport}</span>
+                    <span>🍽️ {lang === 'ar' ? 'أكل' : 'Food'}: {tripData.planner.costBreakdown.food}</span>
+                    <span>🎫 {lang === 'ar' ? 'دخول' : 'Entrance'}: {tripData.planner.costBreakdown.entrance}</span>
+                    <span>🎯 {lang === 'ar' ? 'أنشطة' : 'Activities'}: {tripData.planner.costBreakdown.activities}</span>
+                  </div>
+                </div>
               )}
             </div>
           </div>
