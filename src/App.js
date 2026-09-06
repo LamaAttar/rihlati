@@ -2851,25 +2851,59 @@ function Leaderboard({ onClose, lang = 'ar' }) {
       ) : topUsers.length === 0 ? (
         <p style={{ color: '#999' }}>{lang === 'ar' ? 'لسا ما في نقاط مسجلة' : 'No points recorded yet'}</p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {topUsers.map((u, i) => (
-            <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#faf6ec', borderRadius: 12, padding: '10px 14px' }}>
-              <strong style={{ width: 22 }}>{i + 1}</strong>
-              <Avatar user={u} size={40} gender={u.gender} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 'bold' }}>{u.name || (lang === 'ar' ? 'مستخدم' : 'User')}</div>
-                <div style={{ fontSize: '0.8rem', color: '#777' }}>{getLevelInfo(u.points || 0, lang).icon} {getLevelInfo(u.points || 0, lang).label}</div>
-                {getBadges(u.ratedPlaceKeys, u.tripsBuilt, u.addedPlaceKeys, lang).length > 0 && (
-                  <div style={{ marginTop: 3 }}>
-                    {getBadges(u.ratedPlaceKeys, u.tripsBuilt, u.addedPlaceKeys, lang).map((b, bi) => (
-                      <span key={bi} title={b.label} style={{ fontSize: '0.95rem', marginInlineEnd: 4 }}>{b.icon}</span>
-                    ))}
+        <div>
+          {/* أول 3 — تصميم مميز بميداليات ذهبية/فضية/برونزية */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: topUsers.length > 3 ? 16 : 0 }}>
+            {topUsers.slice(0, 3).map((u, i) => {
+              const medalStyles = [
+                { medal: '🥇', border: '#D4AF37', bg: 'linear-gradient(135deg, #fff8e6, #fdf0c8)' },
+                { medal: '🥈', border: '#B0B8C1', bg: 'linear-gradient(135deg, #f5f6f7, #e6e8ea)' },
+                { medal: '🥉', border: '#C97A45', bg: 'linear-gradient(135deg, #fbeee1, #f3dcc4)' },
+              ][i];
+              return (
+                <div
+                  key={u.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    background: medalStyles.bg, borderRadius: 14, padding: '12px 16px',
+                    border: `2px solid ${medalStyles.border}`,
+                    boxShadow: i === 0 ? '0 4px 14px rgba(212,175,55,0.35)' : '0 2px 8px rgba(0,0,0,0.08)',
+                  }}
+                >
+                  <span style={{ fontSize: '1.6rem' }}>{medalStyles.medal}</span>
+                  <Avatar user={u} size={44} gender={u.gender} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '1.02rem' }}>{u.name || (lang === 'ar' ? 'مستخدم' : 'User')}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#777' }}>{getLevelInfo(u.points || 0, lang).icon} {getLevelInfo(u.points || 0, lang).label}</div>
+                    {getBadges(u.ratedPlaceKeys, u.tripsBuilt, u.addedPlaceKeys, lang).length > 0 && (
+                      <div style={{ marginTop: 3 }}>
+                        {getBadges(u.ratedPlaceKeys, u.tripsBuilt, u.addedPlaceKeys, lang).map((b, bi) => (
+                          <span key={bi} title={b.label} style={{ fontSize: '0.95rem', marginInlineEnd: 4 }}>{b.icon}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <strong style={{ color: '#8B6914' }}>{u.points || 0}</strong>
+                  <strong style={{ color: '#8B6914', fontSize: '1.1rem' }}>{u.points || 0}</strong>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* باقي المتصدرين (4-10) — قائمة بسيطة عشان يشوفوا ترتيبهم ويتحفزوا يطلعوا فوق */}
+          {topUsers.length > 3 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {topUsers.slice(3).map((u, i) => (
+                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#faf6ec', borderRadius: 10, padding: '8px 12px' }}>
+                  <strong style={{ width: 20, fontSize: '0.85rem', color: '#8B6914' }}>{i + 4}</strong>
+                  <Avatar user={u} size={32} gender={u.gender} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{u.name || (lang === 'ar' ? 'مستخدم' : 'User')}</div>
+                  </div>
+                  <strong style={{ color: '#8B6914', fontSize: '0.85rem' }}>{u.points || 0}</strong>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>
