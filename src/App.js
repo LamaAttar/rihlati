@@ -725,15 +725,15 @@ function buildLocalTripPlan(userText, userPlaces, lang = 'ar', explicitStartHour
       const scoredUserCandidates = (userPlaces || [])
         .filter((p) => p.lat && p.lng)
         .map((p) => {
-          const meta = DEFAULT_PLACE_META;
+          const meta = getMetaForUserPlace(p);
           let score = 0;
           if (detectedTypes.includes(p.type)) score += 4;
           if (detectedSeason && p.season === detectedSeason) score += 3;
           if (companionType && meta.companions.includes(companionType)) score += 2;
           if (userBudget !== null) {
-            if (userBudget <= 10) score += 2; // مناطق الزوار افتراضياً "مجاني" بالتقييم العام
-            else if (userBudget <= 25) score += 2;
-            else score += 1;
+            if (userBudget <= 10 && meta.budget === 'free') score += 2;
+            else if (userBudget <= 25 && (meta.budget === 'free' || meta.budget === 'under20')) score += 2;
+            else if (userBudget > 25) score += 1;
           }
           return { key: p.id, place: p, score, isUserPlace: true };
         });
@@ -755,7 +755,7 @@ function buildLocalTripPlan(userText, userPlaces, lang = 'ar', explicitStartHour
 
   const tripDays = dayEntries.map((entry, index) => {
     const { key, place, isUserPlace } = entry;
-    const meta = isUserPlace ? DEFAULT_PLACE_META : getPlaceMeta(key);
+    const meta = isUserPlace ? getMetaForUserPlace(place) : getPlaceMeta(key);
     const stops = [];
     const placeName = getName(place, isUserPlace);
     const placeFood = getFood(place, isUserPlace);
@@ -846,9 +846,9 @@ function buildLocalTripPlan(userText, userPlaces, lang = 'ar', explicitStartHour
     "Carry cash — not every small place accepts electronic payment",
     'Book accommodation in advance if traveling during peak season (summer or holidays)',
   ] : [
-    'احملي معك ماء كافي، خصوصاً لو الرحلة بمناطق صحراوية أو بالصيف',
+    'احمل معك ماء كافي، خصوصاً لو الرحلة بمناطق صحراوية أو بالصيف',
     'خذ كاش معك — مو كل الأماكن الصغيرة عندها إمكانية دفع إلكتروني',
-    'احجزي أماكن الإقامة مسبقاً لو الرحلة بموسم الذروة (الصيف أو الأعياد)',
+    'احجز أماكن الإقامة مسبقاً لو الرحلة بموسم الذروة (الصيف أو الأعياد)',
   ];
 
   if (userBudget) {
@@ -875,10 +875,31 @@ function buildLocalTripPlan(userText, userPlaces, lang = 'ar', explicitStartHour
         : 'ما قدرنا نفهم اهتماماتك بالتحديد من الوصف، فهاد اقتراح عام مبني على أشهر الوجهات بالأردن. جرّب تكون أوضح شوي (مثلاً: "بدي طبيعة وأماكن هادئة") لنتيجة أدق ومخصصة أكتر.')
     : null;
 
-  return { title, totalDays: days, days: tripDays, tips, didNotUnderstand, clarificationNote };
+  const primaryPlace = dayEntries[0]?.place;
+  const primaryPlaceLocation = primaryPlace && primaryPlace.lat && primaryPlace.lng
+    ? { lat: primaryPlace.lat, lng: primaryPlace.lng, type: primaryPlace.type }
+    : null;
+
+  return { title, totalDays: days, days: tripDays, tips, didNotUnderstand, clarificationNote, primaryPlaceLocation };
 }
 
 const DEFAULT_PLACE_META = { budget: 'free', companions: ['alone', 'family', 'friends', 'kids'], duration: 'half' };
+
+// بترجع بيانات ميزانية/مدة حقيقية لمنطقة أضافها زائر، بناءً على
+// سعر الدخول والمدة يلي الزائر نفسه أدخلها وقت الإضافة — بدل
+// الاعتماد على افتراض ثابت (مجاني + نص يوم) لكل منطقة بغض النظر
+// عن واقعها الفعلي
+function getMetaForUserPlace(place) {
+  const fee = place.entranceFee || 0;
+  let budget = 'free';
+  if (fee > 20) budget = 'open';
+  else if (fee > 0) budget = 'under20';
+  return {
+    budget,
+    duration: place.duration || 'half',
+    companions: DEFAULT_PLACE_META.companions,
+  };
+}
 
 function getPlaceMeta(key) {
   return placeMeta[key] || DEFAULT_PLACE_META;
@@ -889,7 +910,7 @@ function getPlaceMeta(key) {
 const MAX_TRIP_SCORE = 9;
 
 function scoreTripPlace(place, key, prefs) {
-  const meta = getPlaceMeta(key);
+  const meta = place.addedBy ? getMetaForUserPlace(place) : getPlaceMeta(key);
   let score = 0;
   if (place.season === prefs.season) score += 3;
   if (meta.companions && meta.companions.includes(prefs.companion)) score += 2;
@@ -1218,6 +1239,54 @@ async function getWeatherInfo(lat, lng, dayOffset) {
   }
 }
 
+// بتحول بيانات الطقس الخام لنصيحة فعلية تأثر بالقرار — مش بس وصف
+// جوي. لو المكان أغلبه بالهوا الطلق (طبيعة/مغامرة) والمطر متوقع،
+// بتحذر بوضوح؛ ولو الطقس ممتاز، بتشجع الزيارة اليوم تحديداً
+function getWeatherAdvice(weather, placeType, lang = 'ar') {
+  if (!weather || weather.temp === undefined) return null;
+  const isOutdoorHeavy = placeType === 'nature' || placeType === 'adventure';
+  const temp = Math.round(weather.temp);
+
+  if (weather.rain && weather.rain > 2) {
+    return {
+      tone: 'warning',
+      icon: '⚠️',
+      text: lang === 'ar'
+        ? (isOutdoorHeavy
+            ? `المطر متوقع اليوم — هاد المكان أغلبه بالهوا الطلق، ننصحك تأجل الزيارة ليوم تاني أو تجهز لمسارات مبللة`
+            : `المطر متوقع اليوم، بس هاد المكان فيه أجزاء مغطاة فمنيح كفرصة`)
+        : (isOutdoorHeavy
+            ? `Rain is expected today — this place is mostly outdoors, consider postponing or preparing for wet trails`
+            : `Rain is expected today, but this place has covered areas so it's still a good option`),
+    };
+  }
+  if (temp >= 32) {
+    return {
+      tone: 'caution',
+      icon: '🥵',
+      text: lang === 'ar'
+        ? `الجو حر جداً اليوم (${temp}°) — خذ ماء كافي وفضّل تزور بدري الصبح أو قبل الغروب`
+        : `It's very hot today (${temp}°) — bring plenty of water and visit early morning or before sunset`,
+    };
+  }
+  if (temp <= 5) {
+    return {
+      tone: 'caution',
+      icon: '🥶',
+      text: lang === 'ar'
+        ? `الجو بارد جداً اليوم (${temp}°) — خذ ملابس دافية معك`
+        : `It's very cold today (${temp}°) — bring warm clothes`,
+    };
+  }
+  return {
+    tone: 'good',
+    icon: '☀️',
+    text: lang === 'ar'
+      ? `الطقس مناسب جداً للزيارة اليوم (${temp}°) 🌤️`
+      : `Weather is great for a visit today (${temp}°) 🌤️`,
+  };
+}
+
 function isFriendsQuery(q) {
   const friendWords = ['اصحاب', 'أصحاب', 'صاحب', 'صاحبي', 'صاحبتي', 'صديق', 'صديقتي', 'اصدقاء', 'أصدقاء', 'رفقة', 'رفاق', 'شلة', 'شلتي', 'جماعة', 'فريق', 'زملاء', 'جروب', 'شباب', 'شب', 'بنات', 'ولاد', 'friends', 'buddies', 'group', 'gang'];
   const funWords = ['اتسلى', 'أتسلى', 'نتسلى', 'تسلية', 'استمتاع', 'نتفسح', 'فسحة', 'خرجة', 'نطلع', 'طلعة', 'fun', 'hangout', 'hang out'];
@@ -1377,7 +1446,7 @@ async function getRahalCoreResponse(question, userLocation, userPlaces, lang = '
     const weather = await getWeatherInfo(userLocation.lat, userLocation.lng, offset);
     const dateLabel = getArabicDateLabel(offset, lang);
     if (!weather || weather.temp === undefined) {
-      return isEn ? `I couldn't fetch the weather for ${dateLabel} right now 🌦️ try again in a bit` : `ما قدرت أجيب حالة الطقس ${dateLabel} حالياً 🌦️ حاولي مرة ثانية بعد شوي`;
+      return isEn ? `I couldn't fetch the weather for ${dateLabel} right now 🌦️ try again in a bit` : `ما قدرت أجيب حالة الطقس ${dateLabel} حالياً 🌦️ حاول مرة ثانية بعد شوي`;
     }
     const { temp, rain } = weather;
     if (rain && rain > 2) {
@@ -2058,6 +2127,12 @@ const ADD_PLACE_TEXT = {
     namePlaceholder: 'اسم المنطقة',
     descPlaceholder: 'وصف المنطقة',
     foodPlaceholder: 'الأكلة المشهورة (اختياري)',
+    entranceFeeLabel: '🎫 سعر الدخول بالدينار (اتركها فاضية لو مجاني)',
+    entranceFeePlaceholder: 'مثلاً: 3',
+    durationLabel: '⏱️ كم بتاخذ الزيارة تقريباً؟',
+    duration2h: 'حوالي ساعتين',
+    durationHalf: 'نص يوم',
+    durationFull: 'يوم كامل',
     summer: '☀️ صيف', winter: '❄️ شتاء', spring: '🌸 ربيع',
     typeLabel: '🏷️ نوع المكان',
     typeNature: '🌿 طبيعة', typeAdventure: '🧗 مغامرة', typeHistorical: '🏛️ تاريخي', typeReligious: '🕌 ديني/تراثي', typeRelaxation: '♨️ استجمام', typeUrban: '🏙️ مدينة',
@@ -2079,6 +2154,12 @@ const ADD_PLACE_TEXT = {
     namePlaceholder: 'Place name',
     descPlaceholder: 'Place description',
     foodPlaceholder: 'Famous dish (optional)',
+    entranceFeeLabel: '🎫 Entrance fee in JOD (leave empty if free)',
+    entranceFeePlaceholder: 'e.g., 3',
+    durationLabel: '⏱️ About how long is the visit?',
+    duration2h: 'About 2 hours',
+    durationHalf: 'Half a day',
+    durationFull: 'Full day',
     summer: '☀️ Summer', winter: '❄️ Winter', spring: '🌸 Spring',
     typeLabel: '🏷️ Place Type',
     typeNature: '🌿 Nature', typeAdventure: '🧗 Adventure', typeHistorical: '🏛️ Historical', typeReligious: '🕌 Religious/Heritage', typeRelaxation: '♨️ Relaxation', typeUrban: '🏙️ City',
@@ -2103,6 +2184,8 @@ function AddPlaceForm({ user, onAdd, onPointsEarned, lang = 'ar' }) {
   const [placeType, setPlaceType] = useState('nature');
   const [imgUrl, setImgUrl] = useState('');
   const [food, setFood] = useState('');
+  const [entranceFee, setEntranceFee] = useState('');
+  const [visitDuration, setVisitDuration] = useState('half');
   const [uploading, setUploading] = useState(false);
   const [show, setShow] = useState(false);
   const [placeLat, setPlaceLat] = useState(null);
@@ -2130,9 +2213,12 @@ function AddPlaceForm({ user, onAdd, onPointsEarned, lang = 'ar' }) {
   const handleSubmit = async () => {
     if (!name || !desc || !imgUrl) return showToast(t.fillAllError);
     if (!placeLat || !placeLng) return showToast(t.locationError);
+    const parsedFee = parseFloat(entranceFee);
     const newPlace = {
       name, desc, season, type: placeType, img: imgUrl,
       food: food || null,
+      entranceFee: !isNaN(parsedFee) && parsedFee > 0 ? parsedFee : 0,
+      duration: visitDuration,
       lat: placeLat, lng: placeLng,
       addedBy: user.displayName,
       addedByUid: user.uid,
@@ -2154,7 +2240,7 @@ function AddPlaceForm({ user, onAdd, onPointsEarned, lang = 'ar' }) {
         addedPlaceKeys: arrayUnion(docRef.id),
       }, { merge: true });
     } catch (e) {}
-    setName(''); setDesc(''); setImgUrl(''); setFood(''); setPlaceLat(null); setPlaceLng(null); setShow(false);
+    setName(''); setDesc(''); setImgUrl(''); setFood(''); setEntranceFee(''); setVisitDuration('half'); setPlaceLat(null); setPlaceLng(null); setShow(false);
   };
 
   if (!show) return (
@@ -2167,6 +2253,22 @@ function AddPlaceForm({ user, onAdd, onPointsEarned, lang = 'ar' }) {
       <input placeholder={t.namePlaceholder} value={name} onChange={e => setName(e.target.value)} className="form-input" />
       <textarea placeholder={t.descPlaceholder} value={desc} onChange={e => setDesc(e.target.value)} className="form-input" rows={3} />
       <input placeholder={t.foodPlaceholder} value={food} onChange={e => setFood(e.target.value)} className="form-input" />
+      <p style={{ fontSize: '0.85rem', color: '#8B6914', margin: '8px 0 4px' }}>{t.entranceFeeLabel}</p>
+      <input
+        type="number"
+        min="0"
+        step="0.5"
+        placeholder={t.entranceFeePlaceholder}
+        value={entranceFee}
+        onChange={e => setEntranceFee(e.target.value)}
+        className="form-input"
+      />
+      <p style={{ fontSize: '0.85rem', color: '#8B6914', margin: '8px 0 4px' }}>{t.durationLabel}</p>
+      <select value={visitDuration} onChange={e => setVisitDuration(e.target.value)} className="form-input">
+        <option value="2h">{t.duration2h}</option>
+        <option value="half">{t.durationHalf}</option>
+        <option value="full">{t.durationFull}</option>
+      </select>
       <select value={season} onChange={e => setSeason(e.target.value)} className="form-input">
         <option value="summer">{t.summer}</option>
         <option value="winter">{t.winter}</option>
@@ -2978,6 +3080,7 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar', user, onTrip
   const [time, setTime] = useState(null);
   const [budget, setBudget] = useState(null);
   const [result, setResult] = useState(null);
+  const [weatherAdvice, setWeatherAdvice] = useState(null);
   const [savingTrip, setSavingTrip] = useState(false);
 
   const seasonOptions = lang === 'ar' ? [
@@ -3047,11 +3150,12 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar', user, onTrip
     </div>
   );
 
-  const generateTrip = () => {
+  const generateTrip = async () => {
     if (!season || !companion || !time || !budget) {
-      showToast(lang === 'ar' ? 'لازم تختاري كل الخيارات الأربعة الأول 🙏' : 'Please choose all four options first 🙏');
+      showToast(lang === 'ar' ? 'لازم تختار كل الخيارات الأربعة الأول 🙏' : 'Please choose all four options first 🙏');
       return;
     }
+    setWeatherAdvice(null);
     let best = null;
     let bestScore = -1;
 
@@ -3073,13 +3177,13 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar', user, onTrip
     });
 
     if (best) {
-      const meta = getPlaceMeta(best.key);
+      const meta = best.place.addedBy ? getMetaForUserPlace(best.place) : getPlaceMeta(best.key);
       // نبني قائمة أسباب مع نقاطها الفعلية (مش نص عام بس) — كل سبب
       // موضح جنبه قديش ساهم بالنقطة الكلية، عشان يكون النظام شفاف
       const reasons = [];
       if (lang === 'ar') {
-        if (best.place.season === season) reasons.push({ text: 'بيناسب الموسم يلي اخترتيه', points: 3 });
-        if (meta.companions && meta.companions.includes(companion)) reasons.push({ text: 'مناسب لنوع الرفقة يلي حددتيها', points: 2 });
+        if (best.place.season === season) reasons.push({ text: 'بيناسب الموسم يلي اخترته', points: 3 });
+        if (meta.companions && meta.companions.includes(companion)) reasons.push({ text: 'مناسب لنوع الرفقة يلي حددتها', points: 2 });
         if (meta.budget === 'free') reasons.push({ text: 'دخول مجاني بالكامل', points: 2 });
         else if (meta.budget === 'under20') reasons.push({ text: 'يناسب ميزانيتك', points: budget >= 20 ? 2 : 1 });
         else if (meta.budget === 'open' && budget >= 20) reasons.push({ text: 'يناسب ميزانيتك المفتوحة', points: budget >= 50 ? 2 : 1 });
@@ -3100,6 +3204,15 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar', user, onTrip
       if (auth.currentUser) {
         setDoc(doc(db, 'userProfiles', auth.currentUser.uid), { tripsBuilt: increment(1) }, { merge: true }).catch(() => {});
       }
+
+      // نجيب الطقس الفعلي لهاد المكان تحديداً، ومنبني نصيحة تأثر
+      // بقرار الزيارة (مش بس معلومة جانبية) — إذا مطر ومكان بالهوا
+      // الطلق منحذر، إذا الطقس ممتاز منشجع الزيارة اليوم بالذات
+      if (best.place.lat && best.place.lng) {
+        getWeatherInfo(best.place.lat, best.place.lng, 0).then((weather) => {
+          setWeatherAdvice(getWeatherAdvice(weather, best.place.type, lang));
+        });
+      }
     }
   };
 
@@ -3109,6 +3222,7 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar', user, onTrip
     setTime(null);
     setBudget(null);
     setResult(null);
+    setWeatherAdvice(null);
   };
 
   const resultName = result ? (result.place.addedBy ? result.place.name : (lang === 'ar' ? result.place.name : (result.place.nameEn || result.place.name))) : '';
@@ -3123,7 +3237,7 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar', user, onTrip
       ? `رحلة ${user.displayName} إلى ${resultName}`
       : `${user.displayName}'s trip to ${resultName}`;
     const tripName = window.prompt(
-      lang === 'ar' ? 'اسم الرحلة (تقدري تعدليه):' : 'Trip name (you can edit it):',
+      lang === 'ar' ? 'اسم الرحلة (تقدر تعدله):' : 'Trip name (you can edit it):',
       defaultName
     );
     if (!tripName) return; // المستخدم لغى
@@ -3178,7 +3292,7 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar', user, onTrip
           <>
             <h2 style={{ color: '#8B6914', marginBottom: 4 }}>{lang === 'ar' ? '🗺️ خطط رحلتك' : '🗺️ Plan Your Trip'}</h2>
             <p style={{ color: '#777', fontSize: '0.9rem', marginBottom: 18 }}>
-              {lang === 'ar' ? 'جاوبي على 4 أسئلة بسيطة ورح نقترحلك أفضل مكان' : "Answer 4 quick questions and we'll suggest the best place for you"}
+              {lang === 'ar' ? 'جاوب على 4 أسئلة بسيطة ورح نقترحلك أفضل مكان' : "Answer 4 quick questions and we'll suggest the best place for you"}
             </p>
 
             <h4 style={{ color: '#5a3e1b', marginBottom: 8 }}>{lang === 'ar' ? '🗓️ أي موسم؟' : '🗓️ Which season?'}</h4>
@@ -3203,6 +3317,18 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar', user, onTrip
         ) : (
           <>
             <h2 style={{ color: '#8B6914', marginBottom: 14 }}>{lang === 'ar' ? '🎉 خططنالك رحلة!' : '🎉 Your trip is ready!'}</h2>
+            {weatherAdvice && (
+              <div
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, borderRadius: 12, padding: '10px 14px', marginBottom: 12,
+                  background: weatherAdvice.tone === 'warning' ? '#fdecea' : weatherAdvice.tone === 'caution' ? '#fff4e0' : '#eaf6ec',
+                  border: `1px solid ${weatherAdvice.tone === 'warning' ? '#f0b8b0' : weatherAdvice.tone === 'caution' ? '#f0cf8f' : '#a8d8b0'}`,
+                }}
+              >
+                <span style={{ fontSize: '1.2rem' }}>{weatherAdvice.icon}</span>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: '#5a3e1b', lineHeight: 1.5 }}>{weatherAdvice.text}</p>
+              </div>
+            )}
             <div style={{ borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', border: '1px solid #f0e0b0' }}>
               <div style={{ position: 'relative' }}>
                 <img src={result.place.img} alt={resultName} style={{ width: '100%', height: 180, objectFit: 'cover' }} />
@@ -3300,6 +3426,7 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar', user, onTripSaved }) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [trip, setTrip] = useState(null);
+  const [weatherAdvice, setWeatherAdvice] = useState(null);
   const [savingTrip, setSavingTrip] = useState(false);
   // null = بدون اختيار صريح (النظام بيجرب يفهمها من النص، وإلا افتراضي 8 الصبح)
   const [startHour, setStartHour] = useState(null);
@@ -3314,6 +3441,7 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar', user, onTripSaved }) 
     setError(null);
     setLoading(true);
     setTrip(null);
+    setWeatherAdvice(null);
 
     setTimeout(() => {
       try {
@@ -3321,6 +3449,13 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar', user, onTripSaved }) 
         setTrip(result);
         if (auth.currentUser) {
           setDoc(doc(db, 'userProfiles', auth.currentUser.uid), { tripsBuilt: increment(1) }, { merge: true }).catch(() => {});
+        }
+        // نجيب الطقس الفعلي للوجهة الرئيسية (يوم 1) ومنبني نصيحة
+        // فعلية تأثر بقرار الزيارة، مش بس معلومة جانبية
+        if (result.primaryPlaceLocation) {
+          getWeatherInfo(result.primaryPlaceLocation.lat, result.primaryPlaceLocation.lng, 0).then((weather) => {
+            setWeatherAdvice(getWeatherAdvice(weather, result.primaryPlaceLocation.type, lang));
+          });
         }
       } catch (err) {
         setError(lang === 'ar' ? 'صار خطأ أثناء بناء الرحلة، جرب مرة ثانية 🙏' : 'Something went wrong while building the trip, please try again 🙏');
@@ -3332,6 +3467,7 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar', user, onTripSaved }) 
 
   const resetBuilder = () => {
     setTrip(null);
+    setWeatherAdvice(null);
     setError(null);
     setPrompt('');
     setStartHour(null);
@@ -3344,7 +3480,7 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar', user, onTripSaved }) 
       ? `رحلة ${user.displayName}: ${trip.title}`
       : `${user.displayName}'s trip: ${trip.title}`;
     const tripName = window.prompt(
-      lang === 'ar' ? 'اسم الرحلة (تقدري تعدليه):' : 'Trip name (you can edit it):',
+      lang === 'ar' ? 'اسم الرحلة (تقدر تعدله):' : 'Trip name (you can edit it):',
       defaultName
     );
     if (!tripName) return;
@@ -3469,6 +3605,19 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar', user, onTripSaved }) 
             <p style={{ color: '#777', fontSize: '0.85rem', marginBottom: trip.didNotUnderstand ? 10 : 16 }}>
               {lang === 'ar' ? `رحلة ${trip.totalDays} يوم مبنية خصيصاً إلك` : `A ${trip.totalDays}-day trip built just for you`}
             </p>
+
+            {weatherAdvice && (
+              <div
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, borderRadius: 12, padding: '10px 14px', marginBottom: 16,
+                  background: weatherAdvice.tone === 'warning' ? '#fdecea' : weatherAdvice.tone === 'caution' ? '#fff4e0' : '#eaf6ec',
+                  border: `1px solid ${weatherAdvice.tone === 'warning' ? '#f0b8b0' : weatherAdvice.tone === 'caution' ? '#f0cf8f' : '#a8d8b0'}`,
+                }}
+              >
+                <span style={{ fontSize: '1.2rem' }}>{weatherAdvice.icon}</span>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: '#5a3e1b', lineHeight: 1.5 }}>{weatherAdvice.text}</p>
+              </div>
+            )}
 
             {trip.didNotUnderstand && trip.clarificationNote && (
               <div style={{ background: '#fff4e0', border: '1px solid #f0cf8f', borderRadius: 12, padding: '10px 14px', marginBottom: 16, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
@@ -4295,6 +4444,13 @@ return () => unsubscribe();
         {!isUserPlace && place.priceInfo && (
           <p className="food-line" title={lang === 'ar' ? 'حسب رسوم وزارة السياحة والآثار، قد تتغير — يفضل التأكد محلياً' : 'Based on Ministry of Tourism fees, may change — please verify locally'}>
             🎫 {lang === 'ar' ? place.priceInfo : (place.priceInfoEn || place.priceInfo)}
+          </p>
+        )}
+        {isUserPlace && (
+          <p className="food-line" title={lang === 'ar' ? 'حسب تقدير الزائر يلي أضاف المنطقة، ممكن يختلف' : "Based on the visitor's estimate, may vary"}>
+            🎫 {place.entranceFee > 0
+              ? (lang === 'ar' ? `دخول تقديري: ${place.entranceFee} دينار` : `Estimated entrance: ${place.entranceFee} JOD`)
+              : (lang === 'ar' ? 'دخول مجاني (حسب الزائر)' : 'Free entrance (per visitor)')}
           </p>
         )}
         {!isUserPlace && CULTURAL_INFO[key] && (
