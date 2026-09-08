@@ -1227,43 +1227,69 @@ function getArabicDateLabel(offsetDays, lang = 'ar') {
 
 async function getWeatherInfo(lat, lng, dayOffset) {
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,precipitation_sum&timezone=auto`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,precipitation_sum,precipitation_probability_max,windspeed_10m_max&timezone=auto`;
     const res = await fetch(url);
     const data = await res.json();
     return {
       temp: data.daily.temperature_2m_max[dayOffset],
       rain: data.daily.precipitation_sum[dayOffset],
+      rainProbability: data.daily.precipitation_probability_max ? data.daily.precipitation_probability_max[dayOffset] : null,
+      windSpeed: data.daily.windspeed_10m_max ? data.daily.windspeed_10m_max[dayOffset] : null,
     };
   } catch (e) {
     return null;
   }
 }
 
+// بيحدد إذا الطقس فعلياً بيعطل زيارة مكان بالهوا الطلق — منعتمد
+// على احتمال المطر (لو متوفر) مش بس كمية المطر المتوقعة، عشان
+// نكون أدق (احتمال 70% مطر أخطر من كمية بسيطة بس احتمالها منخفض)
+function isWeatherBlockingOutdoor(weather) {
+  if (!weather) return false;
+  if (weather.rainProbability !== null && weather.rainProbability !== undefined) {
+    return weather.rainProbability >= 50;
+  }
+  return weather.rain && weather.rain > 2;
+}
+
 // بتحول بيانات الطقس الخام لنصيحة فعلية تأثر بالقرار — مش بس وصف
-// جوي. لو المكان أغلبه بالهوا الطلق (طبيعة/مغامرة) والمطر متوقع،
-// بتحذر بوضوح؛ ولو الطقس ممتاز، بتشجع الزيارة اليوم تحديداً
+// جوي. لو المكان أغلبه بالهوا الطلق (طبيعة/مغامرة) واحتمال المطر
+// عالي، بتحذر بوضوح؛ ولو الطقس ممتاز، بتشجع الزيارة اليوم تحديداً.
+// بترجع تفاصيل كاملة (حرارة + احتمال مطر + رياح) مش حكم بالحرارة
+// بس، عشان القرار يكون مبني على الصورة الكاملة
 function getWeatherAdvice(weather, placeType, lang = 'ar') {
   if (!weather || weather.temp === undefined) return null;
   const isOutdoorHeavy = placeType === 'nature' || placeType === 'adventure';
   const temp = Math.round(weather.temp);
+  const rainProb = weather.rainProbability !== null && weather.rainProbability !== undefined ? Math.round(weather.rainProbability) : null;
+  const wind = weather.windSpeed !== null && weather.windSpeed !== undefined ? Math.round(weather.windSpeed) : null;
+  const blocking = isWeatherBlockingOutdoor(weather);
 
-  if (weather.rain && weather.rain > 2) {
+  const details = { temp, rainProb, wind };
+
+  if (blocking) {
     return {
       tone: 'warning',
-      icon: '⚠️',
+      icon: '🌧️',
+      verdict: lang === 'ar' ? 'غير مناسب' : 'Not suitable',
+      details,
+      isOutdoorHeavy,
       text: lang === 'ar'
         ? (isOutdoorHeavy
-            ? `المطر متوقع اليوم — هاد المكان أغلبه بالهوا الطلق، ننصحك تأجل الزيارة ليوم تاني أو تجهز لمسارات مبللة`
-            : `المطر متوقع اليوم، بس هاد المكان فيه أجزاء مغطاة فمنيح كفرصة`)
+            ? `احتمال مطر عالي اليوم — هاد المكان أغلبه بالهوا الطلق، ننصحك تأجل الزيارة أو تجهز لمسارات مبللة`
+            : `احتمال مطر عالي اليوم، بس هاد المكان فيه أجزاء مغطاة فمنيح كفرصة`)
         : (isOutdoorHeavy
-            ? `Rain is expected today — this place is mostly outdoors, consider postponing or preparing for wet trails`
-            : `Rain is expected today, but this place has covered areas so it's still a good option`),
+            ? `High chance of rain today — this place is mostly outdoors, consider postponing or preparing for wet trails`
+            : `High chance of rain today, but this place has covered areas so it's still a good option`),
     };
   }
   if (temp >= 32) {
     return {
       tone: 'caution',
       icon: '🥵',
+      verdict: lang === 'ar' ? 'متوسط' : 'Fair',
+      details,
+      isOutdoorHeavy,
       text: lang === 'ar'
         ? `الجو حر جداً اليوم (${temp}°) — خذ ماء كافي وفضّل تزور بدري الصبح أو قبل الغروب`
         : `It's very hot today (${temp}°) — bring plenty of water and visit early morning or before sunset`,
@@ -1273,6 +1299,9 @@ function getWeatherAdvice(weather, placeType, lang = 'ar') {
     return {
       tone: 'caution',
       icon: '🥶',
+      verdict: lang === 'ar' ? 'متوسط' : 'Fair',
+      details,
+      isOutdoorHeavy,
       text: lang === 'ar'
         ? `الجو بارد جداً اليوم (${temp}°) — خذ ملابس دافية معك`
         : `It's very cold today (${temp}°) — bring warm clothes`,
@@ -1281,6 +1310,9 @@ function getWeatherAdvice(weather, placeType, lang = 'ar') {
   return {
     tone: 'good',
     icon: '☀️',
+    verdict: lang === 'ar' ? 'جيد' : 'Good',
+    details,
+    isOutdoorHeavy,
     text: lang === 'ar'
       ? `الطقس مناسب جداً للزيارة اليوم (${temp}°) 🌤️`
       : `Weather is great for a visit today (${temp}°) 🌤️`,
@@ -2137,6 +2169,9 @@ const ADD_PLACE_TEXT = {
     typeLabel: '🏷️ نوع المكان',
     typeNature: '🌿 طبيعة', typeAdventure: '🧗 مغامرة', typeHistorical: '🏛️ تاريخي', typeReligious: '🕌 ديني/تراثي', typeRelaxation: '♨️ استجمام', typeUrban: '🏙️ مدينة',
     mapHint: '📍 دوس على الخريطة لتحديد موقع المنطقة بالضبط',
+    useMyLocation: '📍 استخدم موقعي الحالي',
+    locatingMe: '⏳ جاري تحديد موقعك...',
+    locationDenied: 'تعذر الوصول لموقعك، تأكد إنك سمحتِ للمتصفح بالوصول للموقع',
     locationSet: (lat, lng) => `✅ الموقع المحدد: ${lat}, ${lng}`,
     uploadPhoto: '📸 ارفع صورة',
     uploading: '⏳ جاري رفع الصورة...',
@@ -2164,6 +2199,9 @@ const ADD_PLACE_TEXT = {
     typeLabel: '🏷️ Place Type',
     typeNature: '🌿 Nature', typeAdventure: '🧗 Adventure', typeHistorical: '🏛️ Historical', typeReligious: '🕌 Religious/Heritage', typeRelaxation: '♨️ Relaxation', typeUrban: '🏙️ City',
     mapHint: '📍 Tap the map to set the exact location',
+    useMyLocation: '📍 Use my current location',
+    locatingMe: '⏳ Locating you...',
+    locationDenied: 'Could not access your location — check that you allowed location access in your browser',
     locationSet: (lat, lng) => `✅ Selected location: ${lat}, ${lng}`,
     uploadPhoto: '📸 Upload Photo',
     uploading: '⏳ Uploading photo...',
@@ -2190,7 +2228,33 @@ function AddPlaceForm({ user, onAdd, onPointsEarned, lang = 'ar' }) {
   const [show, setShow] = useState(false);
   const [placeLat, setPlaceLat] = useState(null);
   const [placeLng, setPlaceLng] = useState(null);
+  const [mapCenter, setMapCenter] = useState([31.95, 35.93]);
+  const [locatingMe, setLocatingMe] = useState(false);
   const t = ADD_PLACE_TEXT[lang] || ADD_PLACE_TEXT.ar;
+
+  // بيستخدم موقع الجهاز الفعلي (GPS/شبكة) بدل ما يضل الزائر يدور
+  // يدوياً بالخريطة — بيحدد الموقع وبيوسّط الخريطة عليه تلقائياً
+  const useMyLocation = () => {
+    if (!navigator.geolocation) {
+      showToast(t.locationDenied);
+      return;
+    }
+    setLocatingMe(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const la = pos.coords.latitude;
+        const ln = pos.coords.longitude;
+        setPlaceLat(la);
+        setPlaceLng(ln);
+        setMapCenter([la, ln]);
+        setLocatingMe(false);
+      },
+      () => {
+        showToast(t.locationDenied);
+        setLocatingMe(false);
+      }
+    );
+  };
 
   const handleImgUpload = async (e) => {
     const file = e.target.files[0];
@@ -2240,7 +2304,7 @@ function AddPlaceForm({ user, onAdd, onPointsEarned, lang = 'ar' }) {
         addedPlaceKeys: arrayUnion(docRef.id),
       }, { merge: true });
     } catch (e) {}
-    setName(''); setDesc(''); setImgUrl(''); setFood(''); setEntranceFee(''); setVisitDuration('half'); setPlaceLat(null); setPlaceLng(null); setShow(false);
+    setName(''); setDesc(''); setImgUrl(''); setFood(''); setEntranceFee(''); setVisitDuration('half'); setPlaceLat(null); setPlaceLng(null); setMapCenter([31.95, 35.93]); setShow(false);
   };
 
   if (!show) return (
@@ -2283,7 +2347,15 @@ function AddPlaceForm({ user, onAdd, onPointsEarned, lang = 'ar' }) {
         <option value="urban">{t.typeUrban}</option>
       </select>
       <p style={{ fontSize: '0.85rem', color: '#8B6914', margin: '8px 0 6px' }}>{t.mapHint}</p>
-      <MapContainer center={[31.95, 35.93]} zoom={7} style={{ height: 220, width: '100%', borderRadius: 10, marginBottom: 8 }}>
+      <button
+        type="button"
+        onClick={useMyLocation}
+        disabled={locatingMe}
+        style={{ background: '#faf6ec', color: '#8B6914', border: '1px solid #e8d5a3', borderRadius: 10, padding: '8px 14px', fontSize: '0.85rem', width: '100%', marginBottom: 8 }}
+      >
+        {locatingMe ? t.locatingMe : t.useMyLocation}
+      </button>
+      <MapContainer key={mapCenter.join(',')} center={mapCenter} zoom={placeLat ? 14 : 7} style={{ height: 220, width: '100%', borderRadius: 10, marginBottom: 8 }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <LocationPicker
           onSelect={(la, ln) => { setPlaceLat(la); setPlaceLng(ln); }}
@@ -3081,6 +3153,7 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar', user, onTrip
   const [budget, setBudget] = useState(null);
   const [result, setResult] = useState(null);
   const [weatherAdvice, setWeatherAdvice] = useState(null);
+  const [generatingTrip, setGeneratingTrip] = useState(false);
   const [savingTrip, setSavingTrip] = useState(false);
 
   const seasonOptions = lang === 'ar' ? [
@@ -3156,63 +3229,92 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar', user, onTrip
       return;
     }
     setWeatherAdvice(null);
-    let best = null;
-    let bestScore = -1;
+    setGeneratingTrip(true);
 
+    // نبني قائمة مرتبة بكل المرشحين (رسميين + مضافين من الزوار) —
+    // مش نكتفي بأفضل واحد بس، عشان لو طلع الطقس مش مناسب للأول،
+    // نقدر نجرب البدائل التالية بدل ما نكتفي بتحذير بس
+    const prefs = { season, companion, time, budget };
+    const ranked = [];
     Object.entries(places).forEach(([key, place]) => {
-      const score = scoreTripPlace(place, key, { season, companion, time, budget });
-      if (score > bestScore) {
-        bestScore = score;
-        best = { key, place };
-      }
+      ranked.push({ key, place, score: scoreTripPlace(place, key, prefs) });
     });
-
     (userPlaces || []).forEach((place) => {
       if (!place.lat || !place.lng) return;
-      const score = scoreTripPlace(place, place.id, { season, companion, time, budget });
-      if (score > bestScore) {
-        bestScore = score;
-        best = { key: place.id, place };
-      }
+      ranked.push({ key: place.id, place, score: scoreTripPlace(place, place.id, prefs) });
     });
+    ranked.sort((a, b) => b.score - a.score);
 
-    if (best) {
-      const meta = best.place.addedBy ? getMetaForUserPlace(best.place) : getPlaceMeta(best.key);
-      // نبني قائمة أسباب مع نقاطها الفعلية (مش نص عام بس) — كل سبب
-      // موضح جنبه قديش ساهم بالنقطة الكلية، عشان يكون النظام شفاف
-      const reasons = [];
-      if (lang === 'ar') {
-        if (best.place.season === season) reasons.push({ text: 'بيناسب الموسم يلي اخترته', points: 3 });
-        if (meta.companions && meta.companions.includes(companion)) reasons.push({ text: 'مناسب لنوع الرفقة يلي حددتها', points: 2 });
-        if (meta.budget === 'free') reasons.push({ text: 'دخول مجاني بالكامل', points: 2 });
-        else if (meta.budget === 'under20') reasons.push({ text: 'يناسب ميزانيتك', points: budget >= 20 ? 2 : 1 });
-        else if (meta.budget === 'open' && budget >= 20) reasons.push({ text: 'يناسب ميزانيتك المفتوحة', points: budget >= 50 ? 2 : 1 });
-        if (meta.duration) reasons.push({ text: `بياخذ تقريباً ${durationLabel(meta.duration, lang)}، وهاد بيناسب الوقت يلي عندك`, points: 2 });
-        if (best.place.addedBy) reasons.push({ text: `مكان اكتشفه زائر تاني (${best.place.addedBy}) وضافه للتطبيق 🌟`, points: 0 });
-      } else {
-        if (best.place.season === season) reasons.push({ text: 'Matches the season you picked', points: 3 });
-        if (meta.companions && meta.companions.includes(companion)) reasons.push({ text: 'A good fit for your travel companions', points: 2 });
-        if (meta.budget === 'free') reasons.push({ text: 'Completely free entry', points: 2 });
-        else if (meta.budget === 'under20') reasons.push({ text: 'Fits your budget', points: budget >= 20 ? 2 : 1 });
-        else if (meta.budget === 'open' && budget >= 20) reasons.push({ text: 'Fits your open budget', points: budget >= 50 ? 2 : 1 });
-        if (meta.duration) reasons.push({ text: `Takes about ${durationLabel(meta.duration, lang)}, which suits the time you have`, points: 2 });
-        if (best.place.addedBy) reasons.push({ text: `A place discovered by another visitor (${best.place.addedBy}) 🌟`, points: 0 });
-      }
-      const compatibilityPercent = getCompatibilityPercent(bestScore);
-      const costBreakdown = estimateCostBreakdown(meta, best.place.type, lang);
-      setResult({ ...best, reasons, duration: meta.duration, compatibilityPercent, rawScore: bestScore, costBreakdown });
-      if (auth.currentUser) {
-        setDoc(doc(db, 'userProfiles', auth.currentUser.uid), { tripsBuilt: increment(1) }, { merge: true }).catch(() => {});
-      }
+    if (ranked.length === 0) {
+      setGeneratingTrip(false);
+      return;
+    }
 
-      // نجيب الطقس الفعلي لهاد المكان تحديداً، ومنبني نصيحة تأثر
-      // بقرار الزيارة (مش بس معلومة جانبية) — إذا مطر ومكان بالهوا
-      // الطلق منحذر، إذا الطقس ممتاز منشجع الزيارة اليوم بالذات
-      if (best.place.lat && best.place.lng) {
-        getWeatherInfo(best.place.lat, best.place.lng, 0).then((weather) => {
-          setWeatherAdvice(getWeatherAdvice(weather, best.place.type, lang));
-        });
+    const isOutdoorHeavy = (p) => p.type === 'nature' || p.type === 'adventure';
+
+    let chosen = ranked[0];
+    let chosenWeather = chosen.place.lat && chosen.place.lng ? await getWeatherInfo(chosen.place.lat, chosen.place.lng, 0) : null;
+    let switchedForWeather = false;
+    let originalName = null;
+
+    // إذا الطقس فعلياً بيعطل زيارة المكان الأول (مطر عالي الاحتمال
+    // ومكان بالهوا الطلق)، منجرب أقرب 5 بدائل بالترتيب ومنبدّل لأول
+    // وحدة طقسها مناسب — مش بس نحذر ونسيب نفس الاقتراح
+    if (chosenWeather && isWeatherBlockingOutdoor(chosenWeather) && isOutdoorHeavy(chosen.place)) {
+      originalName = chosen.place.addedBy ? chosen.place.name : (lang === 'ar' ? chosen.place.name : (chosen.place.nameEn || chosen.place.name));
+      for (let i = 1; i < Math.min(ranked.length, 6); i++) {
+        const candidate = ranked[i];
+        if (!candidate.place.lat || !candidate.place.lng) continue;
+        const w = await getWeatherInfo(candidate.place.lat, candidate.place.lng, 0);
+        if (!w) continue;
+        if (!isWeatherBlockingOutdoor(w) || !isOutdoorHeavy(candidate.place)) {
+          chosen = candidate;
+          chosenWeather = w;
+          switchedForWeather = true;
+          break;
+        }
       }
+    }
+
+    const best = { key: chosen.key, place: chosen.place };
+    const bestScore = chosen.score;
+    const meta = best.place.addedBy ? getMetaForUserPlace(best.place) : getPlaceMeta(best.key);
+    const weatherAdviceObj = getWeatherAdvice(chosenWeather, best.place.type, lang);
+
+    // نبني قائمة أسباب مع نقاطها الفعلية (مش نص عام بس) — كل سبب
+    // موضح جنبه قديش ساهم بالنقطة الكلية، عشان يكون النظام شفاف
+    const reasons = [];
+    if (lang === 'ar') {
+      if (best.place.season === season) reasons.push({ text: 'بيناسب الموسم يلي اخترته', points: 3 });
+      if (meta.companions && meta.companions.includes(companion)) reasons.push({ text: 'مناسب لنوع الرفقة يلي حددتها', points: 2 });
+      if (meta.budget === 'free') reasons.push({ text: 'دخول مجاني بالكامل', points: 2 });
+      else if (meta.budget === 'under20') reasons.push({ text: 'يناسب ميزانيتك', points: budget >= 20 ? 2 : 1 });
+      else if (meta.budget === 'open' && budget >= 20) reasons.push({ text: 'يناسب ميزانيتك المفتوحة', points: budget >= 50 ? 2 : 1 });
+      if (meta.duration) reasons.push({ text: `بياخذ تقريباً ${durationLabel(meta.duration, lang)}، وهاد بيناسب الوقت يلي عندك`, points: 2 });
+      if (best.place.addedBy) reasons.push({ text: `مكان اكتشفه زائر تاني (${best.place.addedBy}) وضافه للتطبيق 🌟`, points: 0 });
+      if (weatherAdviceObj) {
+        reasons.unshift({ text: weatherAdviceObj.tone === 'good' ? 'الطقس مناسب اليوم لهاد المكان' : 'الطقس محسوب بقرار الاختيار (شوف التفاصيل تحت)', points: 0 });
+      }
+    } else {
+      if (best.place.season === season) reasons.push({ text: 'Matches the season you picked', points: 3 });
+      if (meta.companions && meta.companions.includes(companion)) reasons.push({ text: 'A good fit for your travel companions', points: 2 });
+      if (meta.budget === 'free') reasons.push({ text: 'Completely free entry', points: 2 });
+      else if (meta.budget === 'under20') reasons.push({ text: 'Fits your budget', points: budget >= 20 ? 2 : 1 });
+      else if (meta.budget === 'open' && budget >= 20) reasons.push({ text: 'Fits your open budget', points: budget >= 50 ? 2 : 1 });
+      if (meta.duration) reasons.push({ text: `Takes about ${durationLabel(meta.duration, lang)}, which suits the time you have`, points: 2 });
+      if (best.place.addedBy) reasons.push({ text: `A place discovered by another visitor (${best.place.addedBy}) 🌟`, points: 0 });
+      if (weatherAdviceObj) {
+        reasons.unshift({ text: weatherAdviceObj.tone === 'good' ? "Weather suits this place today" : 'Weather was factored into this pick (see details below)', points: 0 });
+      }
+    }
+
+    const compatibilityPercent = getCompatibilityPercent(bestScore);
+    const costBreakdown = estimateCostBreakdown(meta, best.place.type, lang);
+    setResult({ ...best, reasons, duration: meta.duration, compatibilityPercent, rawScore: bestScore, costBreakdown, switchedForWeather, originalName });
+    setWeatherAdvice(weatherAdviceObj);
+    setGeneratingTrip(false);
+    if (auth.currentUser) {
+      setDoc(doc(db, 'userProfiles', auth.currentUser.uid), { tripsBuilt: increment(1) }, { merge: true }).catch(() => {});
     }
   };
 
@@ -3309,24 +3411,45 @@ function TripPlanner({ onClose, onOpenMap, userPlaces, lang = 'ar', user, onTrip
 
             <button
               onClick={generateTrip}
-              style={{ background: 'linear-gradient(135deg, #C4952A, #8B6914)', color: '#fff', width: '100%', padding: 12, borderRadius: 14, fontSize: '1rem', marginTop: 6 }}
+              disabled={generatingTrip}
+              style={{ background: 'linear-gradient(135deg, #C4952A, #8B6914)', color: '#fff', width: '100%', padding: 12, borderRadius: 14, fontSize: '1rem', marginTop: 6, opacity: generatingTrip ? 0.7 : 1 }}
             >
-              {lang === 'ar' ? '✨ اقترح رحلتي' : '✨ Suggest My Trip'}
+              {generatingTrip
+                ? (lang === 'ar' ? '⏳ عم نحلل الطقس والأماكن...' : '⏳ Checking weather and places...')
+                : (lang === 'ar' ? '✨ اقترح رحلتي' : '✨ Suggest My Trip')}
             </button>
           </>
         ) : (
           <>
             <h2 style={{ color: '#8B6914', marginBottom: 14 }}>{lang === 'ar' ? '🎉 خططنالك رحلة!' : '🎉 Your trip is ready!'}</h2>
+            {result.switchedForWeather && (
+              <div style={{ background: '#fdecea', border: '1px solid #f0b8b0', borderRadius: 12, padding: '10px 14px', marginBottom: 10 }}>
+                <p style={{ margin: '0 0 4px', fontSize: '0.85rem', color: '#c0392b', fontWeight: 'bold' }}>
+                  {lang === 'ar' ? `🌧️ ${result.originalName} أقل ملاءمة اليوم بسبب الطقس` : `🌧️ ${result.originalName} isn't ideal today due to weather`}
+                </p>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: '#8B6914' }}>
+                  {lang === 'ar' ? '🔄 وجدنالك بديل أنسب للطقس اليوم' : "🔄 We found a better weather-matched alternative"}
+                </p>
+              </div>
+            )}
             {weatherAdvice && (
               <div
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 8, borderRadius: 12, padding: '10px 14px', marginBottom: 12,
+                  borderRadius: 12, padding: '10px 14px', marginBottom: 12,
                   background: weatherAdvice.tone === 'warning' ? '#fdecea' : weatherAdvice.tone === 'caution' ? '#fff4e0' : '#eaf6ec',
                   border: `1px solid ${weatherAdvice.tone === 'warning' ? '#f0b8b0' : weatherAdvice.tone === 'caution' ? '#f0cf8f' : '#a8d8b0'}`,
                 }}
               >
-                <span style={{ fontSize: '1.2rem' }}>{weatherAdvice.icon}</span>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: '#5a3e1b', lineHeight: 1.5 }}>{weatherAdvice.text}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: '1.2rem' }}>{weatherAdvice.icon}</span>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#5a3e1b', lineHeight: 1.5, flex: 1 }}>{weatherAdvice.text}</p>
+                </div>
+                <div style={{ display: 'flex', gap: 12, fontSize: '0.72rem', color: '#777', flexWrap: 'wrap' }}>
+                  <span>🌡️ {weatherAdvice.details.temp}°</span>
+                  {weatherAdvice.details.rainProb !== null && <span>🌧️ {lang === 'ar' ? 'احتمال مطر' : 'Rain chance'}: {weatherAdvice.details.rainProb}%</span>}
+                  {weatherAdvice.details.wind !== null && <span>💨 {lang === 'ar' ? 'رياح' : 'Wind'}: {weatherAdvice.details.wind} {lang === 'ar' ? 'كم/س' : 'km/h'}</span>}
+                  <span>✅ {lang === 'ar' ? 'مناسب للزيارة' : 'Visit suitability'}: {weatherAdvice.verdict}</span>
+                </div>
               </div>
             )}
             <div style={{ borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', border: '1px solid #f0e0b0' }}>
@@ -3609,13 +3732,21 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar', user, onTripSaved }) 
             {weatherAdvice && (
               <div
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 8, borderRadius: 12, padding: '10px 14px', marginBottom: 16,
+                  borderRadius: 12, padding: '10px 14px', marginBottom: 16,
                   background: weatherAdvice.tone === 'warning' ? '#fdecea' : weatherAdvice.tone === 'caution' ? '#fff4e0' : '#eaf6ec',
                   border: `1px solid ${weatherAdvice.tone === 'warning' ? '#f0b8b0' : weatherAdvice.tone === 'caution' ? '#f0cf8f' : '#a8d8b0'}`,
                 }}
               >
-                <span style={{ fontSize: '1.2rem' }}>{weatherAdvice.icon}</span>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: '#5a3e1b', lineHeight: 1.5 }}>{weatherAdvice.text}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: '1.2rem' }}>{weatherAdvice.icon}</span>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#5a3e1b', lineHeight: 1.5, flex: 1 }}>{weatherAdvice.text}</p>
+                </div>
+                <div style={{ display: 'flex', gap: 12, fontSize: '0.72rem', color: '#777', flexWrap: 'wrap' }}>
+                  <span>🌡️ {weatherAdvice.details.temp}°</span>
+                  {weatherAdvice.details.rainProb !== null && <span>🌧️ {lang === 'ar' ? 'احتمال مطر' : 'Rain chance'}: {weatherAdvice.details.rainProb}%</span>}
+                  {weatherAdvice.details.wind !== null && <span>💨 {lang === 'ar' ? 'رياح' : 'Wind'}: {weatherAdvice.details.wind} {lang === 'ar' ? 'كم/س' : 'km/h'}</span>}
+                  <span>✅ {lang === 'ar' ? 'مناسب للزيارة' : 'Visit suitability'}: {weatherAdvice.verdict}</span>
+                </div>
               </div>
             )}
 
