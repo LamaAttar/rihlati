@@ -975,6 +975,17 @@ function getDistance(lat1, lon1, lat2, lon2) {
   return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(0);
 }
 
+// بترجع خدمات قريبة (مطاعم/محطات...) مرتبة فعلياً حسب أقرب مسافة
+// لموقع الرحلة، مع رقم مسافة حقيقي لكل وحدة — عشان "أفضل خدمة
+// لرحلتك" تكون فعلاً الأقرب، مش ترتيب عشوائي من نتيجة الـ API
+function sortServicesByDistance(elements, place) {
+  if (!place.lat || !place.lng) return elements;
+  return elements
+    .filter((el) => el.lat && el.lon)
+    .map((el) => ({ ...el, distanceKm: parseFloat(getDistance(place.lat, place.lng, el.lat, el.lon)) }))
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+}
+
 function getLevelInfo(points, lang = 'ar') {
   if (lang === 'en') {
     if (points > 300) return { label: 'Tourism Expert', icon: '🥇' };
@@ -4447,8 +4458,8 @@ return () => unsubscribe();
     ]);
     setOpenPlace((current) => {
       if (current === key) {
-        setServices(supportResult.slice(0, 10));
-        setRestaurants(restaurantResult.slice(0, 6));
+        setServices(sortServicesByDistance(supportResult, place).slice(0, 10));
+        setRestaurants(sortServicesByDistance(restaurantResult, place).slice(0, 6));
         setLoadingServices(false);
         setServicesFetchFailed(Boolean(supportResult.failed || restaurantResult.failed));
         setServicesErrorDetail(supportResult.errorDetail || restaurantResult.errorDetail || '');
@@ -4467,8 +4478,8 @@ return () => unsubscribe();
     ]);
     setOpenPlace((current) => {
       if (current === key) {
-        setServices(supportResult.slice(0, 10));
-        setRestaurants(restaurantResult.slice(0, 6));
+        setServices(sortServicesByDistance(supportResult, place).slice(0, 10));
+        setRestaurants(sortServicesByDistance(restaurantResult, place).slice(0, 6));
         setLoadingServices(false);
         setServicesFetchFailed(Boolean(supportResult.failed || restaurantResult.failed));
         setServicesErrorDetail(supportResult.errorDetail || restaurantResult.errorDetail || '');
@@ -4641,9 +4652,29 @@ return () => unsubscribe();
                 ) : (
                   <>
                     <h4>🍽️ {lang === 'ar' ? 'مطاعم قريبة' : 'Nearby Restaurants'}</h4>
-                    {restaurants.length > 0 ? restaurants.map((s, i) => <p key={i}>{getServiceIcon(s.tags)} {s.tags.name}</p>) : <p>{t.noServices}</p>}
+                    {restaurants.length > 0 ? restaurants.map((s, i) => (
+                      <p key={i} style={i === 0 ? { fontWeight: 'bold', color: '#8B6914' } : undefined}>
+                        {getServiceIcon(s.tags)} {s.tags.name}
+                        {typeof s.distanceKm === 'number' && (
+                          <span style={{ color: '#999', fontWeight: 'normal', fontSize: '0.8em' }}>
+                            {' — '}{s.distanceKm < 1 ? `${Math.round(s.distanceKm * 1000)} ${lang === 'ar' ? 'م' : 'm'}` : `${s.distanceKm.toFixed(1)} ${lang === 'ar' ? 'كم' : 'km'}`}
+                          </span>
+                        )}
+                        {i === 0 && <span> ⭐ {lang === 'ar' ? 'الأقرب لرحلتك' : 'Closest to your trip'}</span>}
+                      </p>
+                    )) : <p>{t.noServices}</p>}
                     <h4>🏥 {lang === 'ar' ? 'خدمات قريبة' : 'Nearby Services'}</h4>
-                    {services.length > 0 ? services.map((s, i) => <p key={i}>{getServiceIcon(s.tags)} {s.tags.name}</p>) : <p>{t.noServices}</p>}
+                    {services.length > 0 ? services.map((s, i) => (
+                      <p key={i} style={i === 0 ? { fontWeight: 'bold', color: '#8B6914' } : undefined}>
+                        {getServiceIcon(s.tags)} {s.tags.name}
+                        {typeof s.distanceKm === 'number' && (
+                          <span style={{ color: '#999', fontWeight: 'normal', fontSize: '0.8em' }}>
+                            {' — '}{s.distanceKm < 1 ? `${Math.round(s.distanceKm * 1000)} ${lang === 'ar' ? 'م' : 'm'}` : `${s.distanceKm.toFixed(1)} ${lang === 'ar' ? 'كم' : 'km'}`}
+                          </span>
+                        )}
+                        {i === 0 && <span> ⭐ {lang === 'ar' ? 'الأقرب لرحلتك' : 'Closest to your trip'}</span>}
+                      </p>
+                    )) : <p>{t.noServices}</p>}
                   </>
                 )}
               </div>
