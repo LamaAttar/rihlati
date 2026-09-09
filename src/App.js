@@ -3043,6 +3043,143 @@ function AdminPanel({ onClose, lang = 'ar' }) {
   );
 }
 
+// لوحة إحصائيات للإدارة بس — أرقام حقيقية من قاعدة البيانات (مش
+// تقديرية) جاهزة للعرض على حاضنات أو مستثمرين. بتقرأ من المجموعات
+// الموجودة أصلاً بدون أي تعديل بالبنية (userProfiles, savedTrips,
+// userPlaces, ratings, reviews, photos)
+function AnalyticsDashboard({ onClose, lang = 'ar' }) {
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const [profilesSnap, tripsSnap, userPlacesSnap, ratingsSnap, reviewsSnap, photosSnap] = await Promise.all([
+          getDocs(collection(db, 'userProfiles')),
+          getDocs(collection(db, 'savedTrips')),
+          getDocs(collection(db, 'userPlaces')),
+          getDocs(collection(db, 'ratings')),
+          getDocs(collection(db, 'reviews')),
+          getDocs(collection(db, 'photos')),
+        ]);
+
+        const totalUsers = profilesSnap.size;
+        let totalTripsBuilt = 0;
+        profilesSnap.forEach((d) => { totalTripsBuilt += (d.data().tripsBuilt || 0); });
+
+        const totalSavedTrips = tripsSnap.size;
+
+        const allUserPlaces = userPlacesSnap.docs.map((d) => d.data());
+        const approvedUserPlacesCount = allUserPlaces.filter((p) => p.status === 'approved').length;
+        const pendingUserPlacesCount = allUserPlaces.filter((p) => p.status === 'pending').length;
+        const totalPlaces = Object.keys(places).length + approvedUserPlacesCount;
+
+        let totalRatings = 0;
+        let topRatedKey = null;
+        let topRatedCount = 0;
+        ratingsSnap.forEach((d) => {
+          const data = d.data();
+          const count = data.count || 0;
+          totalRatings += count;
+          if (count > topRatedCount) {
+            topRatedCount = count;
+            topRatedKey = d.id;
+          }
+        });
+
+        let totalReviews = 0;
+        reviewsSnap.forEach((d) => { totalReviews += (d.data().items || []).length; });
+
+        let totalPhotos = 0;
+        let approvedPhotos = 0;
+        photosSnap.forEach((d) => {
+          const items = d.data().items || [];
+          totalPhotos += items.length;
+          approvedPhotos += items.filter((p) => p.status === 'approved' || !p.status).length;
+        });
+
+        setStats({
+          totalUsers,
+          totalTripsBuilt,
+          totalSavedTrips,
+          totalPlaces,
+          approvedUserPlacesCount,
+          pendingUserPlacesCount,
+          totalRatings,
+          topRatedName: topRatedKey ? (places[topRatedKey] ? (lang === 'ar' ? places[topRatedKey].name : places[topRatedKey].nameEn) : topRatedKey) : null,
+          topRatedCount,
+          totalReviews,
+          totalPhotos,
+          approvedPhotos,
+        });
+      } catch (e) {
+        showToast(lang === 'ar' ? 'صار خطأ أثناء تحميل الإحصائيات' : 'Something went wrong while loading analytics');
+      }
+      setLoading(false);
+    };
+    loadStats();
+  }, [lang]);
+
+  const StatBlock = ({ icon, value, label }) => (
+    <div style={{ background: '#faf6ec', borderRadius: 14, padding: '16px 14px', textAlign: 'center', border: '1px solid #e8d5a3' }}>
+      <div style={{ fontSize: '1.6rem', marginBottom: 4 }}>{icon}</div>
+      <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#8B6914' }}>{value}</div>
+      <div style={{ fontSize: '0.75rem', color: '#777', marginTop: 2 }}>{label}</div>
+    </div>
+  );
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', maxWidth: 640, margin: '15px auto', padding: 20, textAlign: lang === 'ar' ? 'right' : 'left', position: 'relative' }}>
+      <button onClick={onClose} style={{ position: 'absolute', top: 12, left: 12, border: 'none', background: 'none', fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
+      <h2 style={{ color: '#8B6914', marginBottom: 4 }}>{lang === 'ar' ? '📊 لوحة الإحصائيات' : '📊 Analytics Dashboard'}</h2>
+      <p style={{ color: '#999', fontSize: '0.8rem', marginBottom: 18 }}>
+        {lang === 'ar' ? 'أرقام حقيقية من قاعدة البيانات، جاهزة للعرض' : 'Real numbers from the database, ready to present'}
+      </p>
+
+      {loading ? (
+        <div className="rl-skeleton-group">
+          <div className="rl-skeleton-line" style={{ width: '60%' }} />
+          <div className="rl-skeleton-line" style={{ width: '40%' }} />
+        </div>
+      ) : !stats ? (
+        <p style={{ color: '#999' }}>{lang === 'ar' ? 'تعذر تحميل الإحصائيات' : 'Could not load analytics'}</p>
+      ) : (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 16 }}>
+            <StatBlock icon="👥" value={stats.totalUsers} label={lang === 'ar' ? 'مستخدم مسجل' : 'Registered users'} />
+            <StatBlock icon="🧭" value={stats.totalTripsBuilt} label={lang === 'ar' ? 'رحلة تم بناؤها' : 'Trips built'} />
+            <StatBlock icon="💾" value={stats.totalSavedTrips} label={lang === 'ar' ? 'رحلة محفوظة ومشاركة' : 'Saved & shared trips'} />
+            <StatBlock icon="📍" value={`${stats.totalPlaces}+`} label={lang === 'ar' ? 'منطقة سياحية' : 'Destinations'} />
+            <StatBlock icon="⭐" value={stats.totalRatings} label={lang === 'ar' ? 'تقييم من الزوار' : 'Visitor ratings'} />
+            <StatBlock icon="📝" value={stats.totalReviews} label={lang === 'ar' ? 'مراجعة/تجربة مكتوبة' : 'Written reviews'} />
+            <StatBlock icon="📸" value={stats.approvedPhotos} label={lang === 'ar' ? 'صورة معتمدة من الزوار' : 'Approved visitor photos'} />
+            <StatBlock icon="🌟" value={stats.approvedUserPlacesCount} label={lang === 'ar' ? 'منطقة أضافها الزوار' : 'Visitor-added places'} />
+          </div>
+
+          {stats.topRatedName && (
+            <div style={{ background: '#fff8e6', borderRadius: 12, padding: 14, marginBottom: 12 }}>
+              <strong style={{ fontSize: '0.85rem', color: '#8B6914' }}>
+                {lang === 'ar' ? '🏆 المنطقة الأكثر تقييماً' : '🏆 Most rated destination'}
+              </strong>
+              <p style={{ margin: '4px 0 0', fontSize: '0.9rem', color: '#5a3e1b' }}>
+                {stats.topRatedName} — {stats.topRatedCount} {lang === 'ar' ? 'تقييم' : 'ratings'}
+              </p>
+            </div>
+          )}
+
+          {stats.pendingUserPlacesCount > 0 && (
+            <p style={{ fontSize: '0.75rem', color: '#999' }}>
+              {lang === 'ar'
+                ? `+ ${stats.pendingUserPlacesCount} منطقة لسا بانتظار المراجعة (مش محسوبة أعلاه)`
+                : `+ ${stats.pendingUserPlacesCount} places still pending review (not counted above)`}
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function Leaderboard({ onClose, lang = 'ar' }) {
   const [topUsers, setTopUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -4090,6 +4227,7 @@ function App() {
   const [sharedTripData, setSharedTripData] = useState(null);
   const [showAbout, setShowAbout] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   // نعرض آخر أرقام محفوظة بالمتصفح فوراً (بدل ما تبين صفر لثانية)، وبعدين
   // منحدثها بهدوء بالخلفية أول ما توصل البيانات الفعلية من Firestore
   const [siteStats, setSiteStats] = useState(() => {
@@ -4784,6 +4922,11 @@ return () => unsubscribe();
               {lang === 'ar' ? '🛡️ لوحة الإدارة' : '🛡️ Admin'}
             </button>
           )}
+          {user && ADMIN_EMAILS.includes(user.email) && (
+            <button className="lang-btn" onClick={() => setShowAnalytics(prev => !prev)}>
+              {lang === 'ar' ? '📊 الإحصائيات' : '📊 Analytics'}
+            </button>
+          )}
           {user ? (
             <div className="user-info">
               <span style={{ cursor: 'pointer' }} onClick={() => setShowProfile(prev => !prev)}>
@@ -4837,6 +4980,10 @@ return () => unsubscribe();
 
       {showAdminPanel && (
         <AdminPanel lang={lang} onClose={() => setShowAdminPanel(false)} />
+      )}
+
+      {showAnalytics && (
+        <AnalyticsDashboard lang={lang} onClose={() => setShowAnalytics(false)} />
       )}
 
       {!debouncedSearchQuery && season === '' && !showFavoritesPage && (
