@@ -113,12 +113,31 @@ function durationLabel(d, lang = 'ar') {
 // ============================================================
 
 function extractDaysCount(text) {
-  const match = text.match(/(\d+)\s*(يوم|أيام|ايام|days?)/i);
-  if (match) {
-    const n = parseInt(match[1], 10);
+  // نجرب الشكل الرقمي الأول (3 أيام)
+  const digitMatch = text.match(/(\d+)\s*(يوم|أيام|ايام|days?)/i);
+  if (digitMatch) {
+    const n = parseInt(digitMatch[1], 10);
     if (n >= 1 && n <= 10) return n;
   }
-  return 2; // افتراضي لو ما ذكر عدد الأيام
+  // الأشكال المكتوبة بالكلمات — شائعة جداً باللهجة ("يوم واحد"،
+  // "يومين") وكانت مش متعرف عليها قبل، وهاد كان عم يأثر غلط على
+  // فحص واقعية المسافة (رحلة يوم واحد كانت تتعامل معاملة يومين)
+  const wordMap = [
+    { re: /يوم\s*واحد|يوم\s*وحيد|\byom\b/i, n: 1 },
+    { re: /يومين/i, n: 2 },
+    { re: /ثلاث(ة)?\s*أيام|تلات(ة)?\s*ايام/i, n: 3 },
+    { re: /أربع(ة)?\s*أيام|اربع(ة)?\s*ايام/i, n: 4 },
+    { re: /خمس(ة)?\s*أيام|خمس(ة)?\s*ايام/i, n: 5 },
+    { re: /one\s*day/i, n: 1 },
+    { re: /two\s*days/i, n: 2 },
+  ];
+  for (const { re, n } of wordMap) {
+    if (re.test(text)) return n;
+  }
+  // "يوم" لحالها بدون رقم أو كلمة عدد (مثلاً "رحلة يوم من عمان")
+  // بتعني يوم واحد ضمنياً، طالما ما فيها "أيام" (جمع)
+  if (/\bيوم\b/.test(text) && !/أيام|ايام/.test(text)) return 1;
+  return 2; // افتراضي لو ما ذكر عدد الأيام إطلاقاً
 }
 
 function extractBudgetNumber(text) {
@@ -170,6 +189,55 @@ function buildDaySchedule(startHour, lang = 'ar') {
 // حتى لو المستخدم كتب الاسم بشكل مختلف شوي عن المخزّن بالتطبيق
 function normalizeArabic(text) {
   return text.replace(/[أإآ]/g, 'ا');
+}
+
+// إحداثيات أهم المدن الأردنية — تستخدم كنقطة انطلاق لحساب المسافة
+// والوقت الواقعي لأي رحلة، بدل ما نقترح أماكن بعيدة بدون فحص
+const CITY_COORDS = {
+  'عمان': { lat: 31.9539, lng: 35.9106 },
+  'الزرقاء': { lat: 32.0728, lng: 36.0876 },
+  'اربد': { lat: 32.5556, lng: 35.85 },
+  'العقبة': { lat: 29.5267, lng: 35.0078 },
+  'الكرك': { lat: 31.1837, lng: 35.7048 },
+  'مادبا': { lat: 31.7167, lng: 35.7833 },
+  'السلط': { lat: 32.0392, lng: 35.7272 },
+  'جرش': { lat: 32.2811, lng: 35.8994 },
+  'عجلون': { lat: 32.3326, lng: 35.7517 },
+  'معان': { lat: 30.1962, lng: 35.7343 },
+  'الطفيلة': { lat: 30.8373, lng: 35.6044 },
+  'الرمثا': { lat: 32.5608, lng: 35.9967 },
+};
+
+// بيدور عن نقطة الانطلاق يلي ذكرها المستخدم بنمط "من [مدينة]"،
+// وإذا ما ذكرها، بيفترض عمّان (أكبر تجمع سكاني ونقطة انطلاق أشيع)
+// ويعلّم إنه افتراض مش تصريح فعلي من المستخدم — عشان نقدر نوضحله
+// بالواجهة إنه هاد افتراض قابل للتعديل
+function extractOrigin(text) {
+  const normalized = normalizeArabic(text);
+  const fromMatch = normalized.match(/من\s+([\u0621-\u064A]+)/);
+  if (fromMatch) {
+    const cityWord = fromMatch[1];
+    const foundKey = Object.keys(CITY_COORDS).find(
+      (k) => normalizeArabic(k) === cityWord || cityWord.startsWith(normalizeArabic(k)) || normalizeArabic(k).startsWith(cityWord)
+    );
+    if (foundKey) return { lat: CITY_COORDS[foundKey].lat, lng: CITY_COORDS[foundKey].lng, name: foundKey, assumed: false };
+  }
+  return { lat: CITY_COORDS['عمان'].lat, lng: CITY_COORDS['عمان'].lng, name: 'عمان', assumed: true };
+}
+
+// وقت سفر تقديري بالساعات — سرعة متوسطة ~65 كم/س على الطرق الرئيسية
+// بالأردن + ربع ساعة توقف/تجمع، مش دقيق 100% بس واقعي كفاية للفلترة
+function estimateTravelHours(distanceKm) {
+  return distanceKm / 65 + 0.25;
+}
+
+// بيحدد هل المسافة منطقية فعلياً لعدد أيام الرحلة — رحلة يوم واحد
+// ما بتتحمل أكتر من ~5 ساعات سفر ذهاب وإياب من أصل يوم كامل، بينما
+// رحلة أطول (بتنام بالمكان أو تتوزع على كذا يوم) بتتحمل مسافة أبعد
+function isDayTripFeasible(distanceKm, days) {
+  const oneWayHours = estimateTravelHours(distanceKm);
+  if (days <= 1) return (oneWayHours * 2) <= 5;
+  return oneWayHours <= 4.5;
 }
 
 // بيدور بالأماكن الرسمية وبالأماكن يلي أضافها الزوار مع بعض
@@ -664,6 +732,9 @@ function buildLocalTripPlan(userText, userPlaces, lang = 'ar', explicitStartHour
   const userBudget = extractBudgetNumber(userText);
   const mentioned = extractMentionedPlaces(userText, userPlaces);
   const companionType = detectCompanionType(userText);
+  // نستخرج نقطة الانطلاق (أو نفترض عمّان) عشان نقدر نحسب مسافة
+  // وواقعية السفر — هاد أساس فلترة "لا تقترح مكان بعيد بدون فحص"
+  const origin = extractOrigin(userText);
   // لو المستخدم اختارت وقت بداية من القائمة بالواجهة، نستخدمه بالأولوية.
   // غير هيك، منجرب نستخرجه من النص المكتوب (مثلاً "الساعة 11")
   const startHour = explicitStartHour !== null && explicitStartHour !== undefined ? explicitStartHour : extractStartTime(userText);
@@ -678,8 +749,26 @@ function buildLocalTripPlan(userText, userPlaces, lang = 'ar', explicitStartHour
   // وصف المستخدم بدل ما نرجع دايماً لنفس القائمة الثابتة (بترا+رم)
   let pool;
   let didNotUnderstand = false;
+  let feasibilityWarning = null;
+  let budgetInfeasible = false;
+  let distanceRelaxed = false;
+
   if (mentioned.length > 0) {
     pool = mentioned;
+    // المستخدم طلب مكان بالاسم صراحة — منحترم اختياره ومنبني الرحلة،
+    // بس منفحص واقعية المسافة والميزانية ومنكون صريحين لو فيه مشكلة
+    // بدل ما نبني رحلة وهمية وكأنه كل شي تمام
+    const first = pool[0];
+    if (first.place.lat && first.place.lng) {
+      const distKm = parseFloat(getDistance(origin.lat, origin.lng, first.place.lat, first.place.lng));
+      const feasible = isDayTripFeasible(distKm, days);
+      if (!feasible) {
+        const oneWay = estimateTravelHours(distKm).toFixed(1);
+        feasibilityWarning = lang === 'ar'
+          ? `⚠️ ${getName(first.place, first.isUserPlace)} تبعد حوالي ${Math.round(distKm)} كم عن ${origin.name}${origin.assumed ? ' (افترضناها كنقطة انطلاق)' : ''}، ووقت السفر التقديري بالاتجاه الواحد حوالي ${oneWay} ساعة. لرحلة ${days === 1 ? 'يوم واحد' : `${days} أيام`}، هاد ممكن ياخذ وقت كبير من رحلتك — قرارك إذا بدك تكمل أو تجربي مكان أقرب.`
+          : `⚠️ ${getName(first.place, first.isUserPlace)} is about ${Math.round(distKm)} km from ${origin.name}${origin.assumed ? ' (assumed as your starting point)' : ''}, roughly ${oneWay}h one-way. For a ${days === 1 ? '1-day' : `${days}-day`} trip, this could take up a big chunk of your time — your call whether to continue or try somewhere closer.`;
+      }
+    }
     // لو المستخدم ذكر مكان واحد بس وطلب كذا يوم، منضيف أماكن قريبة
     // للأيام التالية عشان نتفادى تكرار نفس البرنامج كل يوم
     if (pool.length === 1 && days > 1 && !pool[0].isUserPlace) {
@@ -701,50 +790,54 @@ function buildLocalTripPlan(userText, userPlaces, lang = 'ar', explicitStartHour
       );
       didNotUnderstand = true;
     } else {
-      // نحسب نقاط لكل مكان رسمي بناءً على مدى تطابقه مع كل إشارة
-      // لقيناها بالنص، ومنرتبهم وناخذ الأنسب — هيك كل وصف مختلف
-      // بيرجع أماكن مختلفة فعلياً، مش نفس القائمة الثابتة كل مرة
-      const scoredCandidates = Object.keys(places).map((key) => {
-        const place = places[key];
-        const meta = getPlaceMeta(key);
-        let score = 0;
-        if (detectedTypes.includes(place.type)) score += 4;
-        if (detectedSeason && place.season === detectedSeason) score += 3;
-        if (companionType && meta.companions && meta.companions.includes(companionType)) score += 2;
-        if (userBudget !== null) {
-          if (userBudget <= 10 && meta.budget === 'free') score += 2;
-          else if (userBudget <= 25 && (meta.budget === 'free' || meta.budget === 'under20')) score += 2;
-          else if (userBudget > 25) score += 1;
-        }
-        return { key, place, score, isUserPlace: false };
+      // نبني قائمة كل المرشحين (رسميين + مضافين من زوار) مع مسافتهم
+      // الفعلية عن نقطة الانطلاق وتكلفتهم التقديرية الدنيا — عشان
+      // نقدر نفلتر حتمياً قبل حتى ما نبدأ نرتب حسب التطابق
+      const allCandidates = [
+        ...Object.keys(places).map((key) => ({ key, place: places[key], isUserPlace: false })),
+        ...(userPlaces || []).filter((p) => p.lat && p.lng).map((p) => ({ key: p.id, place: p, isUserPlace: true })),
+      ];
+
+      const withFeasibility = allCandidates.map((c) => {
+        const meta = c.isUserPlace ? getMetaForUserPlace(c.place) : getPlaceMeta(c.key);
+        const distKm = c.place.lat && c.place.lng ? parseFloat(getDistance(origin.lat, origin.lng, c.place.lat, c.place.lng)) : null;
+        const distanceOk = distKm === null ? true : isDayTripFeasible(distKm, days);
+        const costLow = estimateTotalCostLow(meta, c.place.type);
+        const budgetOk = userBudget === null ? true : costLow <= userBudget * 1.3;
+        return { ...c, meta, distKm, distanceOk, costLow, budgetOk };
       });
-      // كمان نحسب نقاط لمناطق أضافها زوار (وتمت الموافقة عليها فقط)،
-      // بنفس منطق التقييم — هيك أي منطقة يضيفها زائر بتصير جزء فعلي
-      // من التوصيات الذكية بمجرد ما توافق عليها الإدارة، مش لازم
-      // المستخدم يذكرها بالاسم بالضبط عشان تظهر
-      const scoredUserCandidates = (userPlaces || [])
-        .filter((p) => p.lat && p.lng)
-        .map((p) => {
-          const meta = getMetaForUserPlace(p);
-          let score = 0;
-          if (detectedTypes.includes(p.type)) score += 4;
-          if (detectedSeason && p.season === detectedSeason) score += 3;
-          if (companionType && meta.companions.includes(companionType)) score += 2;
-          if (userBudget !== null) {
-            if (userBudget <= 10 && meta.budget === 'free') score += 2;
-            else if (userBudget <= 25 && (meta.budget === 'free' || meta.budget === 'under20')) score += 2;
-            else if (userBudget > 25) score += 1;
-          }
-          return { key: p.id, place: p, score, isUserPlace: true };
-        });
-      const allScored = [...scoredCandidates, ...scoredUserCandidates];
-      allScored.sort((a, b) => b.score - a.score);
-      // لو أعلى نقاط طلعت صفر (يعني ولا مكان طابق أي إشارة فعلياً رغم
-      // وجود كلمات عامة بالنص)، هاد كمان معناه ما فهمنا بدقة — نبلغ المستخدم
-      if ((allScored[0] && allScored[0].score === 0)) {
+
+      // فلترة حتمية أولاً: نستبعد أي مكان بعيد بشكل غير واقعي أو
+      // تكلفته أعلى من الميزانية بشكل واضح — قبل أي ترتيب أو تفضيل
+      let feasiblePool = withFeasibility.filter((c) => c.distanceOk && c.budgetOk);
+
+      // لو الفلترة الصارمة ما خلّت ولا مرشح، منخفف شرط المسافة الأول
+      // (لأنه أكتر مرونة من الميزانية عادة)، ولو لسا صفر منخفف الميزانية
+      // كمان — بس بنسجل هيك صار عشان نكون صادقين بالواجهة، مش نتظاهر
+      if (feasiblePool.length === 0) {
+        feasiblePool = withFeasibility.filter((c) => c.budgetOk);
+        distanceRelaxed = true;
+      }
+      if (feasiblePool.length === 0) {
+        feasiblePool = withFeasibility;
+        budgetInfeasible = true;
+      }
+
+      const scoredFeasible = feasiblePool.map((c) => {
+        let score = 0;
+        if (detectedTypes.includes(c.place.type)) score += 4;
+        if (detectedSeason && c.place.season === detectedSeason) score += 3;
+        if (companionType && c.meta.companions && c.meta.companions.includes(companionType)) score += 2;
+        if (userBudget !== null && c.budgetOk) score += 2;
+        if (c.distKm !== null && c.distKm < 100) score += 1; // مكافأة بسيطة لو قريب فعلياً (تفضيل عند التعادل)
+        return { ...c, score };
+      });
+
+      scoredFeasible.sort((a, b) => b.score - a.score);
+      if ((scoredFeasible[0] && scoredFeasible[0].score === 0)) {
         didNotUnderstand = true;
       }
-      pool = allScored.slice(0, Math.max(days * 2, 6)).map(({ key, place, isUserPlace }) => ({ key, place, isUserPlace }));
+      pool = scoredFeasible.slice(0, Math.max(days * 2, 6)).map(({ key, place, isUserPlace }) => ({ key, place, isUserPlace }));
     }
   }
 
@@ -875,12 +968,25 @@ function buildLocalTripPlan(userText, userPlaces, lang = 'ar', explicitStartHour
         : 'ما قدرنا نفهم اهتماماتك بالتحديد من الوصف، فهاد اقتراح عام مبني على أشهر الوجهات بالأردن. جرّب تكون أوضح شوي (مثلاً: "بدي طبيعة وأماكن هادئة") لنتيجة أدق ومخصصة أكتر.')
     : null;
 
+  // ملاحظات صادقة لو اضطررنا نخفف شروط المسافة/الميزانية عشان نلاقي
+  // أي اقتراح أصلاً — بدل ما نبني رحلة وكأنه كل شي واقعي وهو مش هيك
+  let feasibilityNote = feasibilityWarning;
+  if (!feasibilityNote && budgetInfeasible) {
+    feasibilityNote = lang === 'ar'
+      ? `⚠️ ما لقينا خيار يناسب ميزانيتك (${userBudget} دينار) ${days === 1 ? 'ليوم واحد' : `لـ${days} أيام`} من ${origin.name}. الاقتراح تحت أعلى من ميزانيتك المذكورة — جربي تكبري الميزانية أو تقصري المسافة.`
+      : `⚠️ We couldn't find an option that fits your budget (${userBudget} JOD) for a ${days}-day trip from ${origin.name}. The suggestion below exceeds your stated budget — try increasing your budget or picking somewhere closer.`;
+  } else if (!feasibilityNote && distanceRelaxed) {
+    feasibilityNote = lang === 'ar'
+      ? `⚠️ ما لقينا خيار قريب يناسب باقي طلبك، فوسّعنا نطاق المسافة عن ${origin.name}. تأكدي إنه وقت السفر يناسبك.`
+      : `⚠️ We couldn't find a nearby option matching the rest of your request, so we widened the distance range from ${origin.name}. Please check the travel time works for you.`;
+  }
+
   const primaryPlace = dayEntries[0]?.place;
   const primaryPlaceLocation = primaryPlace && primaryPlace.lat && primaryPlace.lng
     ? { lat: primaryPlace.lat, lng: primaryPlace.lng, type: primaryPlace.type }
     : null;
 
-  return { title, totalDays: days, days: tripDays, tips, didNotUnderstand, clarificationNote, primaryPlaceLocation };
+  return { title, totalDays: days, days: tripDays, tips, didNotUnderstand, clarificationNote, primaryPlaceLocation, feasibilityNote, origin };
 }
 
 const DEFAULT_PLACE_META = { budget: 'free', companions: ['alone', 'family', 'friends', 'kids'], duration: 'half' };
@@ -933,6 +1039,17 @@ function scoreTripPlace(place, key, prefs) {
     if (rank[meta.duration] <= rank[prefs.time]) score += 2;
   }
   return score;
+}
+
+// بترجع بس الرقم الأدنى التقديري لكلفة الزيارة (بدون نطاقات نصية)
+// — تستخدم لفلترة الميزانية الحتمية، مبنية على نفس افتراضات
+// estimateCostBreakdown عشان الرقمين يتفقوا مع بعض بالواجهة
+function estimateTotalCostLow(meta, placeType) {
+  const entranceLow = { free: 0, under20: 1, open: 8 }[meta.budget] ?? 0;
+  const foodLow = { '2h': 3, half: 6, full: 10 }[meta.duration] ?? 5;
+  const transportLow = { '2h': 2, half: 5, full: 10 }[meta.duration] ?? 5;
+  const activitiesLow = placeType === 'adventure' ? 5 : 0;
+  return entranceLow + foodLow + transportLow + activitiesLow;
 }
 
 // بيرجع تفصيل تقديري لتكلفة الرحلة (نقل/أكل/دخول/أنشطة) — أرقام
@@ -3895,6 +4012,13 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar', user, onTripSaved }) 
                   {weatherAdvice.details.wind !== null && <span>💨 {lang === 'ar' ? 'رياح' : 'Wind'}: {weatherAdvice.details.wind} {lang === 'ar' ? 'كم/س' : 'km/h'}</span>}
                   <span>✅ {lang === 'ar' ? 'مناسب للزيارة' : 'Visit suitability'}: {weatherAdvice.verdict}</span>
                 </div>
+              </div>
+            )}
+
+            {trip.feasibilityNote && (
+              <div style={{ background: '#fdecea', border: '1px solid #f0b8b0', borderRadius: 12, padding: '10px 14px', marginBottom: 16, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '1.1rem' }}>🧭</span>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: '#c0392b', lineHeight: 1.6 }}>{trip.feasibilityNote}</p>
               </div>
             )}
 
