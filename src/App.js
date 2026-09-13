@@ -730,11 +730,18 @@ function detectSeasonFromText(text) {
 function buildLocalTripPlan(userText, userPlaces, lang = 'ar', explicitStartHour = null) {
   const days = extractDaysCount(userText);
   const userBudget = extractBudgetNumber(userText);
-  const mentioned = extractMentionedPlaces(userText, userPlaces);
   const companionType = detectCompanionType(userText);
   // نستخرج نقطة الانطلاق (أو نفترض عمّان) عشان نقدر نحسب مسافة
   // وواقعية السفر — هاد أساس فلترة "لا تقترح مكان بعيد بدون فحص"
   const origin = extractOrigin(userText);
+  let mentioned = extractMentionedPlaces(userText, userPlaces);
+  // إذا الوحيد يلي طلع بالبحث هو نفس مدينة الانطلاق (زي "من إربد")،
+  // هاد مش طلب زيارة — هاد مجرد ذكر لنقطة الانطلاق، ومنشيله من
+  // القائمة عشان ما نفهمها غلط إنه "بدي أزور إربد" ونفوت أماكن
+  // الطبيعة الفعلية يلي طلبها المستخدم حوالين نفس المدينة
+  if (mentioned.length === 1 && !mentioned[0].isUserPlace && normalizeArabic(mentioned[0].place.name) === normalizeArabic(origin.name)) {
+    mentioned = [];
+  }
   // لو المستخدم اختارت وقت بداية من القائمة بالواجهة، نستخدمه بالأولوية.
   // غير هيك، منجرب نستخرجه من النص المكتوب (مثلاً "الساعة 11")
   const startHour = explicitStartHour !== null && explicitStartHour !== undefined ? explicitStartHour : extractStartTime(userText);
