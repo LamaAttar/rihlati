@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaf
 import { db } from './firebase';
 import { auth, signInWithGoogle, logOut, checkRedirectResult } from './Auth';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, getDoc, arrayUnion, arrayRemove, collection, addDoc, getDocs, increment, query, orderBy, limit, deleteDoc, where, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, arrayUnion, arrayRemove, collection, addDoc, getDocs, increment, query, orderBy, limit, deleteDoc, where, updateDoc, onSnapshot } from 'firebase/firestore';
 import L from 'leaflet';
 import emailjs from '@emailjs/browser';
 import ImageUpload from './ImageUpload';
@@ -2609,20 +2609,28 @@ function NotificationBell({ user, isAdmin, lang = 'ar' }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const loadNotifs = async () => {
+  // منستخدم onSnapshot (استماع حي) بدل getDocs (تحميل مرة وحدة بس)
+  // عشان الجرس يتحدث فوراً لو حدا حط لايك أو علّق وانتي أصلاً
+  // متصفحة الموقع، بدون ما تحتاجي تعملي refresh للصفحة
+  useEffect(() => {
     if (!user) return;
     setLoading(true);
-    try {
-      const field = isAdmin ? 'toAdmin' : 'toUid';
-      const value = isAdmin ? true : user.uid;
-      const q = query(collection(db, 'notifications'), where(field, '==', value), orderBy('createdAt', 'desc'), limit(20));
-      const snap = await getDocs(q);
-      setNotifs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    } catch (e) {}
-    setLoading(false);
-  };
-
-  useEffect(() => { loadNotifs(); }, [user, isAdmin]);
+    const field = isAdmin ? 'toAdmin' : 'toUid';
+    const value = isAdmin ? true : user.uid;
+    const q = query(collection(db, 'notifications'), where(field, '==', value), orderBy('createdAt', 'desc'), limit(20));
+    const unsubscribe = onSnapshot(
+      q,
+      (snap) => {
+        setNotifs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      },
+      (e) => {
+        console.warn('[rihlati] notifications listener failed:', e);
+        setLoading(false);
+      }
+    );
+    return () => unsubscribe();
+  }, [user, isAdmin]);
 
   const unreadCount = notifs.filter((n) => !n.read).length;
 
@@ -4392,7 +4400,21 @@ function App() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => {}
+        (err) => {
+          // ما منوقف تجربة المستخدم بتحذير مزعج، بس منسجل السبب
+          // الحقيقي بالـ console عشان نقدر نشخصه — الأسباب الشائعة:
+          // 1 = المستخدم رفض إذن الموقع، 2 = تعذر تحديد الموقع،
+          // 3 = انتهت المهلة (شائع بالموبايل بمكان إشارة GPS ضعيفة)
+          console.warn('[rihlati] geolocation failed:', err.code, err.message);
+          if (err.code === 1) {
+            showToast(
+              lang === 'ar'
+                ? '📍 ما قدرنا نحدد موقعك — تأكد إنك سمحتِ للموقع بالوصول لموقعك من إعدادات المتصفح/الجهاز عشان تشوفي "كم تبعد" كل منطقة'
+                : "📍 Couldn't access your location — check that location access is allowed in your browser/device settings to see distances"
+            );
+          }
+        },
+        { timeout: 10000, enableHighAccuracy: false, maximumAge: 300000 }
       );
     }
     const loadRatings = async () => {
