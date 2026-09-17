@@ -4219,6 +4219,84 @@ function SharedTripModal({ tripData, onClose, appLang }) {
   );
 }
 
+// زر طوارئ — بيحتاج إشارة هاتف أو واي فاي عشان يشتغل (زي أي موقع
+// ويب، ما فيه طريقة تقنية للاتصال أو الإرسال بدون أي تغطية إطلاقاً).
+// بيوفر اتصال مباشر بالرقم الموحد 911 ومشاركة سريعة للموقع الحالي
+function EmergencySOSButton({ lang = 'ar' }) {
+  const [open, setOpen] = useState(false);
+  const [locating, setLocating] = useState(false);
+
+  const shareLocation = () => {
+    if (!navigator.geolocation) {
+      showToast(lang === 'ar' ? 'جهازك ما بيدعم تحديد الموقع' : "Your device doesn't support location");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+        const text = lang === 'ar'
+          ? `🆘 محتاج مساعدة! موقعي الحالي:`
+          : `🆘 I need help! My current location:`;
+        setLocating(false);
+        await shareOrCopyLink({ url: mapsUrl, title: lang === 'ar' ? 'موقعي الحالي' : 'My current location', text, lang });
+        setOpen(false);
+      },
+      () => {
+        setLocating(false);
+        showToast(lang === 'ar' ? 'تعذر تحديد موقعك — تأكد من تفعيل إذن الموقع بالجهاز' : 'Could not get your location — check location permission on your device');
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        className="lang-btn"
+        onClick={() => setOpen((o) => !o)}
+        style={{ background: '#c0392b', color: '#fff', borderColor: '#a53125' }}
+      >
+        🆘 {lang === 'ar' ? 'طوارئ' : 'SOS'}
+      </button>
+      {open && (
+        <div
+          style={{ position: 'absolute', top: '110%', insetInlineEnd: 0, width: 'min(300px, 90vw)', background: '#fff', borderRadius: 14, boxShadow: '0 8px 30px rgba(0,0,0,0.25)', zIndex: 2500, padding: 14, textAlign: lang === 'ar' ? 'right' : 'left' }}
+        >
+          <h4 style={{ margin: '0 0 10px', color: '#c0392b' }}>{lang === 'ar' ? '🆘 حالة طوارئ' : '🆘 Emergency'}</h4>
+          <a
+            href="tel:911"
+            style={{ display: 'block', background: '#c0392b', color: '#fff', textAlign: 'center', padding: '10px', borderRadius: 10, marginBottom: 8, textDecoration: 'none', fontWeight: 'bold' }}
+          >
+            📞 {lang === 'ar' ? 'اتصل بالطوارئ — 911' : 'Call Emergency — 911'}
+          </a>
+          <a
+            href="tel:+962795505755"
+            style={{ display: 'block', background: '#faf6ec', color: '#8B6914', border: '1px solid #e8d5a3', textAlign: 'center', padding: '10px', borderRadius: 10, marginBottom: 8, textDecoration: 'none' }}
+          >
+            📞 {lang === 'ar' ? 'الشرطة السياحية' : 'Tourist Police'}
+          </a>
+          <button
+            onClick={shareLocation}
+            disabled={locating}
+            style={{ width: '100%', background: '#4f7a45', color: '#fff', padding: 10, borderRadius: 10, opacity: locating ? 0.7 : 1 }}
+          >
+            {locating
+              ? (lang === 'ar' ? '⏳ جاري تحديد موقعك...' : '⏳ Getting your location...')
+              : (lang === 'ar' ? '📍 شارك موقعي الحالي' : '📍 Share my current location')}
+          </button>
+          <p style={{ fontSize: '0.68rem', color: '#999', margin: '8px 0 0', lineHeight: 1.5 }}>
+            {lang === 'ar'
+              ? 'محتاج إشارة هاتف أو واي فاي ليشتغل — ما بيقدر يتصل أو يرسل تلقائياً بدون أي تغطية إطلاقاً'
+              : 'Requires phone signal or WiFi to work — cannot call or send automatically with zero coverage'}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RahalChatbot({ userLocation, userPlaces, lang = 'ar' }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState([{ from: 'bot', text: lang === 'ar' ? 'مرحباً! 👋 كيف يمكنني مساعدتك اليوم؟' : 'Hi! 👋 How can I help you today?' }]);
@@ -4799,6 +4877,45 @@ return () => unsubscribe();
 
   const goHome = () => { setSeason(''); setTypeFilter(''); setOpenPlace(''); setSelectedPlace(null); setServices([]); setRestaurants([]); setSearchQuery(''); setMapServices([]); setShowFavoritesPage(false); };
 
+  // دعم زر "رجوع" بالمتصفح/الجهاز — بدون هاد، ضغطة رجوع كانت بتطلّع
+  // المستخدم من الموقع بالكامل بدل ما ترجعه للشاشة يلي قبل. هلق كل
+  // ما ينفتح شي (خريطة، نافذة، معرض صور...)، منسجل خطوة بسجل
+  // المتصفح، وضغطة رجوع بتسكر أقرب شي مفتوح بدل ما تسكر الموقع كامل
+  const isAnyOverlayOpenRef = useRef(false);
+  useEffect(() => {
+    const isOpenNow = Boolean(
+      lightboxData || galleryModalData || sharedTripData || showTripPlanner ||
+      showAiTripBuilder || showAdminPanel || showAnalytics || showLeaderboard ||
+      showAbout || showProfile || selectedPlace || showFavoritesPage ||
+      typeFilter || season
+    );
+    if (isOpenNow && !isAnyOverlayOpenRef.current) {
+      try { window.history.pushState({ rlBack: true }, ''); } catch (e) {}
+    }
+    isAnyOverlayOpenRef.current = isOpenNow;
+  }, [lightboxData, galleryModalData, sharedTripData, showTripPlanner, showAiTripBuilder, showAdminPanel, showAnalytics, showLeaderboard, showAbout, showProfile, selectedPlace, showFavoritesPage, typeFilter, season]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (lightboxData) { closeLightbox(); return; }
+      if (galleryModalData) { closeGalleryModal(); return; }
+      if (sharedTripData) { setSharedTripData(null); return; }
+      if (showAiTripBuilder) { setShowAiTripBuilder(false); return; }
+      if (showTripPlanner) { setShowTripPlanner(false); return; }
+      if (showAdminPanel) { setShowAdminPanel(false); return; }
+      if (showAnalytics) { setShowAnalytics(false); return; }
+      if (showLeaderboard) { setShowLeaderboard(false); return; }
+      if (showAbout) { setShowAbout(false); return; }
+      if (showProfile) { setShowProfile(false); return; }
+      if (selectedPlace) { setSelectedPlace(null); setMapServices([]); return; }
+      if (showFavoritesPage) { setShowFavoritesPage(false); return; }
+      if (typeFilter) { setTypeFilter(''); return; }
+      if (season) { setSeason(''); return; }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [lightboxData, galleryModalData, sharedTripData, showTripPlanner, showAiTripBuilder, showAdminPanel, showAnalytics, showLeaderboard, showAbout, showProfile, selectedPlace, showFavoritesPage, typeFilter, season]);
+
   // بيبني رابط مباشر لمنطقة معينة (رسمية أو أضافها زائر)، وبيحاول
   // يفتح قائمة المشاركة الجاهزة بالجهاز (واتساب، ماسنجر...) لو
   // مدعومة، وإلا بينسخ الرابط للحافظة كحل احتياطي
@@ -5055,6 +5172,7 @@ return () => unsubscribe();
       <div className="navbar">
         <h1>{t.title}</h1>
         <div className="navbar-right">
+          <EmergencySOSButton lang={lang} />
           <button className="lang-btn" onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}>
             {lang === 'ar' ? '🌐 English' : '🌐 العربية'}
           </button>
