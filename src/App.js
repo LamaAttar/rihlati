@@ -4267,7 +4267,7 @@ function EmergencySOSButton({ lang = 'ar' }) {
       </button>
       {open && (
         <div
-          style={{ position: 'absolute', top: '110%', insetInlineEnd: 0, width: 'min(300px, 90vw)', background: '#fff', borderRadius: 14, boxShadow: '0 8px 30px rgba(0,0,0,0.25)', zIndex: 2500, padding: 14, textAlign: lang === 'ar' ? 'right' : 'left' }}
+          style={{ position: 'fixed', top: 64, insetInlineEnd: 10, width: 'min(300px, 92vw)', background: '#fff', borderRadius: 14, boxShadow: '0 8px 30px rgba(0,0,0,0.25)', zIndex: 2500, padding: 14, textAlign: lang === 'ar' ? 'right' : 'left', maxHeight: '80vh', overflowY: 'auto' }}
         >
           <h4 style={{ margin: '0 0 10px', color: '#c0392b' }}>{lang === 'ar' ? '🆘 حالة طوارئ' : '🆘 Emergency'}</h4>
           <a
