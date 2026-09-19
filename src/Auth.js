@@ -5,6 +5,10 @@ import {
   getRedirectResult,
   GoogleAuthProvider,
   signOut,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  updateProfile,
 } from "firebase/auth";
 
 const auth = getAuth();
@@ -14,21 +18,12 @@ const provider = new GoogleAuthProvider();
 // الماك (كمبيوتر) — بسبب حماية الخصوصية المدمجة (Intelligent Tracking
 // Prevention) يلي بتعتبر نافذة تسجيل الدخول المنبثقة "تتبع عبر مواقع"
 // وبترفضها بصمت (auth/popup-blocked)، بغض النظر عن نوع الجهاز.
-// الفحص السابق كان يكتشف الموبايل بس (iPhone/iPad/Android)، فكان
-// يفوّت حالة سفاري على الماك تحديداً ويخليها تستخدم popup وتفشل.
-// الحل: نكتشف سفاري بالذات (أي جهاز) ونستخدم "إعادة التوجيه" لأي
-// سفاري، ونخلي باقي المتصفحات (كروم، إيدج، فايرفوكس...) تستخدم
-// popup العادي (تجربة أسرع وما بتحتاج تحميل صفحة جديدة)
 function isMobileDevice() {
   return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 }
 
 function isSafariBrowser() {
   const ua = navigator.userAgent;
-  // سفاري (سطح مكتب أو آيفون) بيحتوي على "Safari" بالـ user agent،
-  // بس كروم وفايرفوكس وإيدج وأوبرا على آيفون كمان بيحطوا "Safari"
-  // لأسباب توافقية تقنية — فلازم نستثنيهم صراحة عشان الفحص يكون دقيق
-  // وما نصنّف كروم-على-آيفون غلط على إنه سفاري
   return /Safari/i.test(ua) && !/Chrome|CriOS|FxiOS|EdgiOS|OPiOS|Edg\//i.test(ua);
 }
 
@@ -43,6 +38,29 @@ export const signInWithGoogle = () => {
 // تسجيل الدخول (أو أي خطأ صار) بعد ما المستخدم يرجع من صفحة جوجل
 export const checkRedirectResult = () => {
   return getRedirectResult(auth);
+};
+
+// ===== تسجيل دخول بديل بإيميل وكلمة سر — طريقة احتياطية موثوقة =====
+// ما بتعتمد على popup أو redirect أو دومين خارجي إطلاقاً، فما فيها
+// أي احتمال لمشاكل سفاري أو حظر شبكات لدومينات جوجل. مفيدة كحل
+// دايم لأي مستخدم يواجه مشكلة بتسجيل الدخول عبر جوجل لأي سبب
+
+// إنشاء حساب جديد بإيميل وكلمة سر، مع اسم عرض (لأنه باقي التطبيق
+// بيعتمد على user.displayName بكل مكان)
+export const signUpWithEmail = async (email, password, displayName) => {
+  const cred = await createUserWithEmailAndPassword(auth, email, password);
+  if (displayName) {
+    await updateProfile(cred.user, { displayName });
+  }
+  return cred;
+};
+
+export const signInWithEmail = (email, password) => {
+  return signInWithEmailAndPassword(auth, email, password);
+};
+
+export const resetPassword = (email) => {
+  return sendPasswordResetEmail(auth, email);
 };
 
 export const logOut = () => {

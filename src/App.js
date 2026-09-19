@@ -2,7 +2,7 @@ import './App.css';
 import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import { db } from './firebase';
-import { auth, signInWithGoogle, logOut, checkRedirectResult } from './Auth';
+import { auth, signInWithGoogle, logOut, checkRedirectResult, signUpWithEmail, signInWithEmail, resetPassword } from './Auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, setDoc, getDoc, arrayUnion, arrayRemove, collection, addDoc, getDocs, increment, query, orderBy, limit, deleteDoc, where, updateDoc, onSnapshot } from 'firebase/firestore';
 import L from 'leaflet';
@@ -2575,7 +2575,7 @@ function ToastContainer() {
 // نظام الإشعارات — مناطق/صور بانتظار المراجعة (للأدمن)
 // وموافقة/رفض/لايك/تعليق (للمستخدم صاحب المحتوى)
 // ============================================================
-async function createNotification({ toUid = null, toAdmin = false, type, placeName = null }) {
+async function createNotification({ toUid = null, toAdmin = false, type, placeName = null, fromName = null }) {
   if (toAdmin === false && !toUid) return;
   try {
     await addDoc(collection(db, 'notifications'), {
@@ -2583,6 +2583,7 @@ async function createNotification({ toUid = null, toAdmin = false, type, placeNa
       toAdmin,
       type,
       placeName,
+      fromName,
       read: false,
       createdAt: new Date().toISOString(),
     });
@@ -2591,6 +2592,7 @@ async function createNotification({ toUid = null, toAdmin = false, type, placeNa
 
 function getNotificationText(n, lang = 'ar') {
   const p = n.placeName || '';
+  const f = n.fromName || (lang === 'ar' ? 'حدا' : 'Someone');
   const map = {
     place_pending: { ar: `📍 منطقة جديدة "${p}" بانتظار المراجعة`, en: `📍 New place "${p}" pending review` },
     place_approved: { ar: `✅ تمت الموافقة على منطقتك "${p}" 🎉`, en: `✅ Your place "${p}" was approved 🎉` },
@@ -2600,6 +2602,9 @@ function getNotificationText(n, lang = 'ar') {
     photo_rejected: { ar: `❌ للأسف ما تمت الموافقة على صورتك بـ"${p}"`, en: `❌ Your photo in "${p}" was not approved` },
     photo_liked: { ar: `❤️ حدا حط لايك على صورتك بـ"${p}"`, en: `❤️ Someone liked your photo in "${p}"` },
     photo_commented: { ar: `💬 حدا علّق على صورتك بـ"${p}"`, en: `💬 Someone commented on your photo in "${p}"` },
+    friend_request: { ar: `👋 ${f} بعتلك طلب صداقة`, en: `👋 ${f} sent you a friend request` },
+    friend_accepted: { ar: `🤝 ${f} قبل طلب صداقتك!`, en: `🤝 ${f} accepted your friend request!` },
+    new_message: { ar: `💬 رسالة جديدة من ${f}`, en: `💬 New message from ${f}` },
   };
   return (map[n.type] && map[n.type][lang]) || (lang === 'ar' ? '🔔 إشعار جديد' : '🔔 New notification');
 }
@@ -4297,6 +4302,244 @@ function EmergencySOSButton({ lang = 'ar' }) {
   );
 }
 
+// نافذة محادثة حية بين صديقين — كل رسالة بتوصل فوراً للطرفين
+// (onSnapshot استماع حي، نفس أسلوب نظام الإشعارات)
+function ChatWindow({ user, friend, lang = 'ar', onBack, onClose }) {
+  const [messages, setMessages] = useState([]);
+  const [draft, setDraft] = useState('');
+  const [loading, setLoading] = useState(true);
+  const conversationId = [user.uid, friend.uid].sort().join('_');
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    const q = query(collection(db, 'messages'), where('conversationId', '==', conversationId), orderBy('createdAt', 'asc'), limit(200));
+    const unsub = onSnapshot(
+      q,
+      (snap) => { setMessages(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); setLoading(false); },
+      () => setLoading(false)
+    );
+    return () => unsub();
+  }, [conversationId]);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages.length]);
+
+  const sendMessage = async () => {
+    if (!draft.trim()) return;
+    const text = draft.trim();
+    setDraft('');
+    try {
+      await addDoc(collection(db, 'messages'), {
+        conversationId, fromUid: user.uid, fromName: user.displayName, toUid: friend.uid, text, createdAt: new Date().toISOString(),
+      });
+      createNotification({ toUid: friend.uid, type: 'new_message', fromName: user.displayName });
+    } catch (e) {
+      showToast(lang === 'ar' ? 'صار خطأ أثناء إرسال الرسالة' : 'Something went wrong sending the message');
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
+      <div style={{ background: '#fff', borderRadius: 20, maxWidth: 460, width: '100%', height: 'min(600px, 80vh)', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 15px 40px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ background: '#b8860b', color: '#fff', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}>{lang === 'ar' ? '→' : '←'}</button>
+          <strong style={{ flex: 1 }}>{friend.name}</strong>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: 14, background: '#faf6ec' }}>
+          {loading ? (
+            <div className="rl-skeleton-group"><div className="rl-skeleton-line" style={{ width: '50%' }} /></div>
+          ) : messages.length === 0 ? (
+            <p style={{ color: '#999', textAlign: 'center', fontSize: '0.85rem' }}>
+              {lang === 'ar' ? `ابدأ محادثتك مع ${friend.name}! 👋` : `Start chatting with ${friend.name}! 👋`}
+            </p>
+          ) : (
+            messages.map((m) => (
+              <div key={m.id} style={{ textAlign: m.fromUid === user.uid ? (lang === 'ar' ? 'left' : 'right') : (lang === 'ar' ? 'right' : 'left'), margin: '8px 0' }}>
+                <span style={{ display: 'inline-block', padding: '8px 12px', borderRadius: 12, background: m.fromUid === user.uid ? '#e0e0e0' : '#f1e2b3', fontSize: '0.88rem', maxWidth: '80%' }}>{m.text}</span>
+              </div>
+            ))
+          )}
+          <div ref={bottomRef} />
+        </div>
+        <div style={{ display: 'flex', borderTop: '1px solid #eee' }}>
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') sendMessage(); }}
+            placeholder={lang === 'ar' ? 'اكتب رسالة...' : 'Type a message...'}
+            style={{ flex: 1, border: 'none', padding: 12, fontSize: '0.9rem', outline: 'none' }}
+          />
+          <button onClick={sendMessage} style={{ border: 'none', background: '#b8860b', color: '#fff', padding: '0 18px', cursor: 'pointer', fontSize: '1.1rem' }}>➤</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// لوحة الأصدقاء — طلبات (وارد/صادر)، قائمة أصدقاء، وبحث لإضافة
+// أصدقاء جداد. الطلبات حية بالوقت الفعلي (onSnapshot) عشان القبول/
+// الرفض يبين فوراً بدون refresh
+function FriendsPanel({ user, lang = 'ar', onClose }) {
+  const [tab, setTab] = useState('friends');
+  const [sentRequests, setSentRequests] = useState([]);
+  const [receivedRequests, setReceivedRequests] = useState([]);
+  const [searchText, setSearchText] = useState('');
+  const [allUsers, setAllUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [activeChatFriend, setActiveChatFriend] = useState(null);
+
+  useEffect(() => {
+    const qSent = query(collection(db, 'friendRequests'), where('fromUid', '==', user.uid));
+    const qReceived = query(collection(db, 'friendRequests'), where('toUid', '==', user.uid));
+    const unsubSent = onSnapshot(qSent, (snap) => setSentRequests(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
+    const unsubReceived = onSnapshot(qReceived, (snap) => setReceivedRequests(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
+    return () => { unsubSent(); unsubReceived(); };
+  }, [user.uid]);
+
+  const friends = [
+    ...sentRequests.filter((r) => r.status === 'accepted').map((r) => ({ uid: r.toUid, name: r.toName })),
+    ...receivedRequests.filter((r) => r.status === 'accepted').map((r) => ({ uid: r.fromUid, name: r.fromName })),
+  ];
+  const pendingIncoming = receivedRequests.filter((r) => r.status === 'pending');
+  const pendingOutgoingUids = sentRequests.filter((r) => r.status === 'pending').map((r) => r.toUid);
+  const friendUids = friends.map((f) => f.uid);
+
+  const loadUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const snap = await getDocs(query(collection(db, 'userProfiles'), orderBy('points', 'desc'), limit(60)));
+      setAllUsers(snap.docs.map((d) => ({ uid: d.id, ...d.data() })).filter((u) => u.uid !== user.uid && u.name));
+    } catch (e) {}
+    setLoadingUsers(false);
+  };
+
+  useEffect(() => { if (tab === 'find' && allUsers.length === 0) loadUsers(); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const sendRequest = async (target) => {
+    try {
+      await addDoc(collection(db, 'friendRequests'), {
+        fromUid: user.uid, fromName: user.displayName,
+        toUid: target.uid, toName: target.name,
+        status: 'pending', createdAt: new Date().toISOString(),
+      });
+      createNotification({ toUid: target.uid, type: 'friend_request', fromName: user.displayName });
+      showToast(lang === 'ar' ? '✅ اتبعت طلب الصداقة' : '✅ Friend request sent', 'success');
+    } catch (e) {
+      showToast(lang === 'ar' ? 'صار خطأ، جرب مرة ثانية' : 'Something went wrong, try again');
+    }
+  };
+
+  const respondRequest = async (reqId, accept, fromUid, fromName) => {
+    try {
+      await updateDoc(doc(db, 'friendRequests', reqId), { status: accept ? 'accepted' : 'rejected' });
+      if (accept) {
+        createNotification({ toUid: fromUid, type: 'friend_accepted', fromName: user.displayName });
+        showToast(lang === 'ar' ? `🤝 صرتوا أصدقاء مع ${fromName}` : `🤝 You're now friends with ${fromName}`, 'success');
+      }
+    } catch (e) {}
+  };
+
+  if (activeChatFriend) {
+    return <ChatWindow user={user} friend={activeChatFriend} lang={lang} onBack={() => setActiveChatFriend(null)} onClose={onClose} />;
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
+      <div
+        style={{ background: '#fff', borderRadius: 20, padding: 20, maxWidth: 480, width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column', textAlign: lang === 'ar' ? 'right' : 'left', position: 'relative', boxShadow: '0 15px 40px rgba(0,0,0,0.3)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button onClick={onClose} style={{ position: 'absolute', top: 12, left: 12, border: 'none', background: 'none', fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
+        <h2 style={{ color: '#8B6914', marginBottom: 14 }}>{lang === 'ar' ? '👥 الأصدقاء' : '👥 Friends'}</h2>
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+          <button onClick={() => setTab('friends')} style={{ background: tab === 'friends' ? '#8B6914' : '#faf6ec', color: tab === 'friends' ? '#fff' : '#8B6914', padding: '6px 14px', borderRadius: 20, fontSize: '0.82rem', border: '1px solid #e8d5a3' }}>
+            {lang === 'ar' ? `الأصدقاء (${friends.length})` : `Friends (${friends.length})`}
+          </button>
+          <button onClick={() => setTab('requests')} style={{ background: tab === 'requests' ? '#8B6914' : '#faf6ec', color: tab === 'requests' ? '#fff' : '#8B6914', padding: '6px 14px', borderRadius: 20, fontSize: '0.82rem', border: '1px solid #e8d5a3', position: 'relative' }}>
+            {lang === 'ar' ? 'الطلبات' : 'Requests'}
+            {pendingIncoming.length > 0 && (
+              <span style={{ position: 'absolute', top: -4, insetInlineEnd: -4, background: '#c0392b', color: '#fff', borderRadius: '50%', width: 16, height: 16, fontSize: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {pendingIncoming.length}
+              </span>
+            )}
+          </button>
+          <button onClick={() => setTab('find')} style={{ background: tab === 'find' ? '#8B6914' : '#faf6ec', color: tab === 'find' ? '#fff' : '#8B6914', padding: '6px 14px', borderRadius: 20, fontSize: '0.82rem', border: '1px solid #e8d5a3' }}>
+            {lang === 'ar' ? '🔍 ضيف صديق' : '🔍 Find people'}
+          </button>
+        </div>
+
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+          {tab === 'friends' && (
+            friends.length === 0 ? (
+              <p style={{ color: '#999' }}>{lang === 'ar' ? 'ما عندك أصدقاء بعد. جرب تضيف حدا من تبويب "ضيف صديق"!' : "You don't have friends yet. Try adding someone from 'Find people'!"}</p>
+            ) : (
+              friends.map((f) => (
+                <div key={f.uid} onClick={() => setActiveChatFriend(f)} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#faf6ec', borderRadius: 12, padding: '10px 14px', marginBottom: 8, cursor: 'pointer' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#b8860b', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>{(f.name || '?')[0]}</div>
+                  <strong style={{ flex: 1 }}>{f.name}</strong>
+                  <span>💬</span>
+                </div>
+              ))
+            )
+          )}
+
+          {tab === 'requests' && (
+            pendingIncoming.length === 0 ? (
+              <p style={{ color: '#999' }}>{lang === 'ar' ? 'ما في طلبات صداقة جديدة' : 'No new friend requests'}</p>
+            ) : (
+              pendingIncoming.map((r) => (
+                <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#faf6ec', borderRadius: 12, padding: '10px 14px', marginBottom: 8 }}>
+                  <strong style={{ flex: 1 }}>{r.fromName}</strong>
+                  <button onClick={() => respondRequest(r.id, true, r.fromUid, r.fromName)} style={{ background: '#4f7a45', color: '#fff', padding: '5px 12px', borderRadius: 8, fontSize: '0.78rem' }}>
+                    {lang === 'ar' ? 'قبول' : 'Accept'}
+                  </button>
+                  <button onClick={() => respondRequest(r.id, false, r.fromUid, r.fromName)} style={{ background: '#c0392b', color: '#fff', padding: '5px 12px', borderRadius: 8, fontSize: '0.78rem' }}>
+                    {lang === 'ar' ? 'رفض' : 'Decline'}
+                  </button>
+                </div>
+              ))
+            )
+          )}
+
+          {tab === 'find' && (
+            <>
+              <input
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder={lang === 'ar' ? 'دوري باسم...' : 'Search by name...'}
+                style={{ width: '100%', border: '1px solid #e8d5a3', borderRadius: 10, padding: '8px 12px', marginBottom: 10, fontSize: '0.9rem' }}
+              />
+              {loadingUsers ? (
+                <div className="rl-skeleton-group"><div className="rl-skeleton-line" style={{ width: '60%' }} /></div>
+              ) : (
+                allUsers.filter((u) => (u.name || '').toLowerCase().includes(searchText.toLowerCase())).map((u) => {
+                  const isFriend = friendUids.includes(u.uid);
+                  const isPending = pendingOutgoingUids.includes(u.uid);
+                  return (
+                    <div key={u.uid} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#faf6ec', borderRadius: 12, padding: '10px 14px', marginBottom: 8 }}>
+                      <strong style={{ flex: 1 }}>{u.name}</strong>
+                      {isFriend ? (
+                        <span style={{ fontSize: '0.78rem', color: '#4f7a45' }}>✅ {lang === 'ar' ? 'صديق' : 'Friend'}</span>
+                      ) : isPending ? (
+                        <span style={{ fontSize: '0.78rem', color: '#999' }}>{lang === 'ar' ? 'بانتظار الرد' : 'Pending'}</span>
+                      ) : (
+                        <button onClick={() => sendRequest({ uid: u.uid, name: u.name })} style={{ background: '#8B6914', color: '#fff', padding: '5px 12px', borderRadius: 8, fontSize: '0.78rem' }}>
+                          {lang === 'ar' ? '➕ أضف' : '➕ Add'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RahalChatbot({ userLocation, userPlaces, lang = 'ar' }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState([{ from: 'bot', text: lang === 'ar' ? 'مرحباً! 👋 كيف يمكنني مساعدتك اليوم؟' : 'Hi! 👋 How can I help you today?' }]);
@@ -4406,6 +4649,107 @@ function RahalChatbot({ userLocation, userPlaces, lang = 'ar' }) {
     </div>
   );
 }
+// تسجيل دخول بديل بإيميل وكلمة سر — ما بيعتمد على popup ولا redirect
+// ولا أي دومين خارجي، فما فيها أي احتمال لمشاكل سفاري أو حظر شبكات
+function EmailAuthModal({ onClose, lang = 'ar' }) {
+  const [mode, setMode] = useState('signin');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const errorMessages = {
+    'auth/email-already-in-use': lang === 'ar' ? 'هاد الإيميل مستخدم أصلاً، جرب تسجل دخول بدل ما تعمل حساب جديد' : 'This email is already in use — try signing in instead',
+    'auth/invalid-email': lang === 'ar' ? 'صيغة الإيميل غير صحيحة' : 'Invalid email format',
+    'auth/weak-password': lang === 'ar' ? 'كلمة السر لازم تكون 6 أحرف على الأقل' : 'Password must be at least 6 characters',
+    'auth/wrong-password': lang === 'ar' ? 'كلمة السر غلط' : 'Wrong password',
+    'auth/user-not-found': lang === 'ar' ? 'ما في حساب بهاد الإيميل، جرب تعمل حساب جديد' : "No account with this email — try signing up instead",
+    'auth/invalid-credential': lang === 'ar' ? 'الإيميل أو كلمة السر غلط' : 'Wrong email or password',
+    'auth/missing-email': lang === 'ar' ? 'اكتب إيميلك' : 'Enter your email',
+  };
+
+  const handleSubmit = async () => {
+    if (!email.trim() || !password.trim() || (mode === 'signup' && !name.trim())) {
+      showToast(lang === 'ar' ? 'عبّي كل الحقول' : 'Please fill in all fields');
+      return;
+    }
+    setLoading(true);
+    try {
+      if (mode === 'signup') {
+        await signUpWithEmail(email.trim(), password, name.trim());
+      } else {
+        await signInWithEmail(email.trim(), password);
+      }
+      onClose();
+    } catch (err) {
+      showToast(`⚠️ ${errorMessages[err.code] || err.message}`);
+    }
+    setLoading(false);
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      showToast(lang === 'ar' ? 'اكتب إيميلك الأول' : 'Enter your email first');
+      return;
+    }
+    try {
+      await resetPassword(email.trim());
+      showToast(lang === 'ar' ? '📧 بعتنالك رابط استرجاع كلمة السر عالإيميل' : '📧 Password reset link sent to your email', 'success');
+    } catch (err) {
+      showToast(`⚠️ ${errorMessages[err.code] || err.message}`);
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 3500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
+      <div
+        style={{ background: '#fff', borderRadius: 20, padding: 24, maxWidth: 380, width: '100%', textAlign: lang === 'ar' ? 'right' : 'left', position: 'relative', boxShadow: '0 15px 40px rgba(0,0,0,0.3)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button onClick={onClose} style={{ position: 'absolute', top: 12, left: 12, border: 'none', background: 'none', fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
+        <h2 style={{ color: '#8B6914', marginBottom: 16 }}>
+          {mode === 'signup' ? (lang === 'ar' ? '📝 إنشاء حساب جديد' : '📝 Create Account') : (lang === 'ar' ? '🔑 تسجيل دخول' : '🔑 Sign In')}
+        </h2>
+
+        {mode === 'signup' && (
+          <input placeholder={lang === 'ar' ? 'اسمك' : 'Your name'} value={name} onChange={(e) => setName(e.target.value)} className="form-input" style={{ marginBottom: 10 }} />
+        )}
+        <input type="email" placeholder={lang === 'ar' ? 'الإيميل' : 'Email'} value={email} onChange={(e) => setEmail(e.target.value)} className="form-input" style={{ marginBottom: 10 }} />
+        <input type="password" placeholder={lang === 'ar' ? 'كلمة السر' : 'Password'} value={password} onChange={(e) => setPassword(e.target.value)} className="form-input" style={{ marginBottom: 10 }} onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }} />
+
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          style={{ width: '100%', background: 'linear-gradient(135deg, #C4952A, #8B6914)', color: '#fff', padding: 12, borderRadius: 14, fontSize: '1rem', opacity: loading ? 0.7 : 1 }}
+        >
+          {loading ? '⏳...' : (mode === 'signup' ? (lang === 'ar' ? 'إنشاء الحساب' : 'Create Account') : (lang === 'ar' ? 'دخول' : 'Sign In'))}
+        </button>
+
+        <div style={{ textAlign: 'center', marginTop: 14, fontSize: '0.85rem' }}>
+          {mode === 'signin' ? (
+            <>
+              <button onClick={handleForgotPassword} style={{ background: 'none', border: 'none', color: '#8B6914', textDecoration: 'underline', cursor: 'pointer', padding: 0, marginBottom: 8, display: 'block', width: '100%' }}>
+                {lang === 'ar' ? 'نسيت كلمة السر؟' : 'Forgot password?'}
+              </button>
+              <span style={{ color: '#777' }}>{lang === 'ar' ? 'ما عندك حساب؟' : "Don't have an account?"} </span>
+              <button onClick={() => setMode('signup')} style={{ background: 'none', border: 'none', color: '#8B6914', fontWeight: 'bold', cursor: 'pointer', padding: 0 }}>
+                {lang === 'ar' ? 'اعمل حساب' : 'Sign up'}
+              </button>
+            </>
+          ) : (
+            <>
+              <span style={{ color: '#777' }}>{lang === 'ar' ? 'عندك حساب أصلاً؟' : 'Already have an account?'} </span>
+              <button onClick={() => setMode('signin')} style={{ background: 'none', border: 'none', color: '#8B6914', fontWeight: 'bold', cursor: 'pointer', padding: 0 }}>
+                {lang === 'ar' ? 'سجل دخول' : 'Sign in'}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [season, setSeason] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -4445,6 +4789,8 @@ function App() {
   const [showAbout, setShowAbout] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showFriends, setShowFriends] = useState(false);
+  const [showEmailAuth, setShowEmailAuth] = useState(false);
   // نعرض آخر أرقام محفوظة بالمتصفح فوراً (بدل ما تبين صفر لثانية)، وبعدين
   // منحدثها بهدوء بالخلفية أول ما توصل البيانات الفعلية من Firestore
   const [siteStats, setSiteStats] = useState(() => {
@@ -4886,14 +5232,14 @@ return () => unsubscribe();
     const isOpenNow = Boolean(
       lightboxData || galleryModalData || sharedTripData || showTripPlanner ||
       showAiTripBuilder || showAdminPanel || showAnalytics || showLeaderboard ||
-      showAbout || showProfile || selectedPlace || showFavoritesPage ||
+      showAbout || showProfile || showFriends || selectedPlace || showFavoritesPage ||
       typeFilter || season
     );
     if (isOpenNow && !isAnyOverlayOpenRef.current) {
       try { window.history.pushState({ rlBack: true }, ''); } catch (e) {}
     }
     isAnyOverlayOpenRef.current = isOpenNow;
-  }, [lightboxData, galleryModalData, sharedTripData, showTripPlanner, showAiTripBuilder, showAdminPanel, showAnalytics, showLeaderboard, showAbout, showProfile, selectedPlace, showFavoritesPage, typeFilter, season]);
+  }, [lightboxData, galleryModalData, sharedTripData, showTripPlanner, showAiTripBuilder, showAdminPanel, showAnalytics, showLeaderboard, showAbout, showProfile, showFriends, selectedPlace, showFavoritesPage, typeFilter, season]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -4907,6 +5253,7 @@ return () => unsubscribe();
       if (showLeaderboard) { setShowLeaderboard(false); return; }
       if (showAbout) { setShowAbout(false); return; }
       if (showProfile) { setShowProfile(false); return; }
+      if (showFriends) { setShowFriends(false); return; }
       if (selectedPlace) { setSelectedPlace(null); setMapServices([]); return; }
       if (showFavoritesPage) { setShowFavoritesPage(false); return; }
       if (typeFilter) { setTypeFilter(''); return; }
@@ -5188,6 +5535,11 @@ return () => unsubscribe();
               {lang === 'ar' ? '❤️ المفضلة' : '❤️ Favorites'}
             </button>
           )}
+          {user && (
+            <button className="lang-btn" onClick={() => setShowFriends(prev => !prev)}>
+              {lang === 'ar' ? '👥 الأصدقاء' : '👥 Friends'}
+            </button>
+          )}
           {user && ADMIN_EMAILS.includes(user.email) && (
             <button className="lang-btn" onClick={() => setShowAdminPanel(prev => !prev)}>
               {lang === 'ar' ? '🛡️ لوحة الإدارة' : '🛡️ Admin'}
@@ -5207,19 +5559,31 @@ return () => unsubscribe();
               <button className="logout-btn" onClick={logOut}>{t.logout}</button>
             </div>
           ) : (
-            <button
-              className="login-btn"
-              onClick={() => {
-                signInWithGoogle().catch((err) => {
-                  showToast(`⚠️ ${err.code || err.message || (lang === 'ar' ? 'صار خطأ غير متوقع' : 'An unexpected error occurred')}`);
-                });
-              }}
-            >
-              {t.login}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                className="login-btn"
+                onClick={() => {
+                  signInWithGoogle().catch((err) => {
+                    showToast(`⚠️ ${err.code || err.message || (lang === 'ar' ? 'صار خطأ غير متوقع' : 'An unexpected error occurred')}`);
+                  });
+                }}
+              >
+                {t.login}
+              </button>
+              <button
+                onClick={() => setShowEmailAuth(true)}
+                style={{ background: 'none', border: 'none', color: '#8B6914', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.78rem', padding: 0 }}
+              >
+                {lang === 'ar' ? 'أو بإيميلك' : 'or with email'}
+              </button>
+            </div>
           )}
         </div>
       </div>
+
+      {showEmailAuth && (
+        <EmailAuthModal onClose={() => setShowEmailAuth(false)} lang={lang} />
+      )}
 
       <EcoBanner lang={lang} />
 
@@ -5243,6 +5607,10 @@ return () => unsubscribe();
 
       {showLeaderboard && (
         <Leaderboard onClose={() => setShowLeaderboard(false)} lang={lang} />
+      )}
+
+      {showFriends && user && (
+        <FriendsPanel user={user} lang={lang} onClose={() => setShowFriends(false)} />
       )}
 
       {showAbout && (
