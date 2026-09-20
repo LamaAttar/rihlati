@@ -4791,6 +4791,7 @@ function App() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
   const [showEmailAuth, setShowEmailAuth] = useState(false);
+  const [showLoginChoice, setShowLoginChoice] = useState(false);
   // نعرض آخر أرقام محفوظة بالمتصفح فوراً (بدل ما تبين صفر لثانية)، وبعدين
   // منحدثها بهدوء بالخلفية أول ما توصل البيانات الفعلية من Firestore
   const [siteStats, setSiteStats] = useState(() => {
@@ -5559,23 +5560,33 @@ return () => unsubscribe();
               <button className="logout-btn" onClick={logOut}>{t.logout}</button>
             </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button
-                className="login-btn"
-                onClick={() => {
-                  signInWithGoogle().catch((err) => {
-                    showToast(`⚠️ ${err.code || err.message || (lang === 'ar' ? 'صار خطأ غير متوقع' : 'An unexpected error occurred')}`);
-                  });
-                }}
-              >
+            <div style={{ position: 'relative' }}>
+              <button className="login-btn" onClick={() => setShowLoginChoice((o) => !o)}>
                 {t.login}
               </button>
-              <button
-                onClick={() => setShowEmailAuth(true)}
-                style={{ background: 'none', border: 'none', color: '#8B6914', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.78rem', padding: 0 }}
-              >
-                {lang === 'ar' ? 'أو بإيميلك' : 'or with email'}
-              </button>
+              {showLoginChoice && (
+                <div
+                  style={{ position: 'fixed', top: 64, insetInlineEnd: 10, width: 'min(260px, 92vw)', background: '#fff', borderRadius: 14, boxShadow: '0 8px 30px rgba(0,0,0,0.25)', zIndex: 2500, padding: 12, textAlign: lang === 'ar' ? 'right' : 'left' }}
+                >
+                  <button
+                    onClick={() => {
+                      setShowLoginChoice(false);
+                      signInWithGoogle().catch((err) => {
+                        showToast(`⚠️ ${err.code || err.message || (lang === 'ar' ? 'صار خطأ غير متوقع' : 'An unexpected error occurred')}`);
+                      });
+                    }}
+                    style={{ width: '100%', background: '#faf6ec', color: '#5a3e1b', border: '1px solid #e8d5a3', padding: '10px 14px', borderRadius: 10, marginBottom: 8, fontSize: '0.88rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                  >
+                    🌐 {lang === 'ar' ? 'الدخول عبر Google' : 'Continue with Google'}
+                  </button>
+                  <button
+                    onClick={() => { setShowLoginChoice(false); setShowEmailAuth(true); }}
+                    style={{ width: '100%', background: 'linear-gradient(135deg, #C4952A, #8B6914)', color: '#fff', border: 'none', padding: '10px 14px', borderRadius: 10, fontSize: '0.88rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                  >
+                    ✉️ {lang === 'ar' ? 'الدخول بالإيميل' : 'Continue with Email'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
