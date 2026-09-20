@@ -5562,7 +5562,7 @@ return () => unsubscribe();
           ) : (
             <div style={{ position: 'relative' }}>
               <button className="login-btn" onClick={() => setShowLoginChoice((o) => !o)}>
-                {t.login}
+                🔑 {lang === 'ar' ? 'تسجيل دخول' : 'Sign In'}
               </button>
               {showLoginChoice && (
                 <div
