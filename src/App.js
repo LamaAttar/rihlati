@@ -2605,6 +2605,7 @@ function getNotificationText(n, lang = 'ar') {
     friend_request: { ar: `👋 ${f} بعتلك طلب صداقة`, en: `👋 ${f} sent you a friend request` },
     friend_accepted: { ar: `🤝 ${f} قبل طلب صداقتك!`, en: `🤝 ${f} accepted your friend request!` },
     new_message: { ar: `💬 رسالة جديدة من ${f}`, en: `💬 New message from ${f}` },
+    user_reported: { ar: `⚠️ بلاغ عن مستخدم من ${f}: ${p}`, en: `⚠️ User report from ${f}: ${p}` },
   };
   return (map[n.type] && map[n.type][lang]) || (lang === 'ar' ? '🔔 إشعار جديد' : '🔔 New notification');
 }
@@ -4304,10 +4305,13 @@ function EmergencySOSButton({ lang = 'ar' }) {
 
 // نافذة محادثة حية بين صديقين — كل رسالة بتوصل فوراً للطرفين
 // (onSnapshot استماع حي، نفس أسلوب نظام الإشعارات)
-function ChatWindow({ user, friend, lang = 'ar', onBack, onClose }) {
+const MAX_MESSAGE_LENGTH = 1000;
+
+function ChatWindow({ user, friend, lang = 'ar', onBack, onClose, onUnfriended }) {
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(true);
+  const [showMenu, setShowMenu] = useState(false);
   const conversationId = [user.uid, friend.uid].sort().join('_');
   const bottomRef = useRef(null);
 
@@ -4324,8 +4328,22 @@ function ChatWindow({ user, friend, lang = 'ar', onBack, onClose }) {
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages.length]);
 
   const sendMessage = async () => {
-    if (!draft.trim()) return;
     const text = draft.trim();
+    if (!text) return;
+    if (text.length > MAX_MESSAGE_LENGTH) {
+      showToast(lang === 'ar' ? `الرسالة طويلة كتير (الحد الأقصى ${MAX_MESSAGE_LENGTH} حرف)` : `Message is too long (max ${MAX_MESSAGE_LENGTH} characters)`);
+      return;
+    }
+    // نتأكد إنه الطرف التاني ما حاظرنيش قبل ما نبعث — حماية إضافية
+    // حتى لو الواجهة أصلاً بتمنع فتح شات مع حدا حاظرك
+    try {
+      const theirProfile = await getDoc(doc(db, 'userProfiles', friend.uid));
+      const theyBlockedMe = theirProfile.exists() && (theirProfile.data().blockedUsers || []).includes(user.uid);
+      if (theyBlockedMe) {
+        showToast(lang === 'ar' ? 'ما فيك تبعت رسالة لهاد المستخدم' : 'You cannot message this user');
+        return;
+      }
+    } catch (e) {}
     setDraft('');
     try {
       await addDoc(collection(db, 'messages'), {
@@ -4337,13 +4355,75 @@ function ChatWindow({ user, friend, lang = 'ar', onBack, onClose }) {
     }
   };
 
+  // حظر: بيضيف uid الشخص لقائمة المحظورين عند المستخدم، فما عاد
+  // يظهرله بقائمة الأصدقاء ولا يقدر يبعتله رسايل بعدها
+  const blockUser = async () => {
+    if (!window.confirm(lang === 'ar' ? `متأكدة إنك بدك تحظري ${friend.name}؟ ما رح يقدر يراسلك بعدها.` : `Block ${friend.name}? They won't be able to message you anymore.`)) return;
+    try {
+      await setDoc(doc(db, 'userProfiles', user.uid), { blockedUsers: arrayUnion(friend.uid) }, { merge: true });
+      showToast(lang === 'ar' ? `🚫 تم حظر ${friend.name}` : `🚫 ${friend.name} has been blocked`, 'success');
+      if (onUnfriended) onUnfriended();
+      onClose();
+    } catch (e) {
+      showToast(lang === 'ar' ? 'صار خطأ، جرب مرة ثانية' : 'Something went wrong, try again');
+    }
+  };
+
+  // إلغاء صداقة: بيحذف طلب الصداقة المقبول يلي بيربطكم، بدون حظر
+  const unfriend = async () => {
+    if (!window.confirm(lang === 'ar' ? `متأكدة إنك بدك تلغي صداقة ${friend.name}؟` : `Remove ${friend.name} as a friend?`)) return;
+    try {
+      const qSent = query(collection(db, 'friendRequests'), where('fromUid', '==', user.uid), where('toUid', '==', friend.uid));
+      const qReceived = query(collection(db, 'friendRequests'), where('fromUid', '==', friend.uid), where('toUid', '==', user.uid));
+      const [snapSent, snapReceived] = await Promise.all([getDocs(qSent), getDocs(qReceived)]);
+      const deletions = [...snapSent.docs, ...snapReceived.docs].map((d) => deleteDoc(doc(db, 'friendRequests', d.id)));
+      await Promise.all(deletions);
+      showToast(lang === 'ar' ? `تم إلغاء الصداقة مع ${friend.name}` : `Removed ${friend.name} as a friend`, 'success');
+      if (onUnfriended) onUnfriended();
+      onClose();
+    } catch (e) {
+      showToast(lang === 'ar' ? 'صار خطأ، جرب مرة ثانية' : 'Something went wrong, try again');
+    }
+  };
+
+  // بلاغ: بينشئ إشعار للإدارة بس، ما بياخذ أي إجراء تلقائي — الإدارة
+  // بتراجع البلاغ وتقرر (حظر/تحذير) حسب الحالة
+  const reportUser = async () => {
+    const reason = window.prompt(lang === 'ar' ? 'ليش بتبلغي عن هاد المستخدم؟ (اختياري)' : 'Why are you reporting this user? (optional)', '');
+    if (reason === null) return; // المستخدم لغى
+    try {
+      await createNotification({ toAdmin: true, type: 'user_reported', fromName: user.displayName, placeName: `${friend.name} (${friend.uid})${reason ? ' — ' + reason : ''}` });
+      showToast(lang === 'ar' ? '✅ تم إرسال البلاغ للإدارة، شكراً' : '✅ Report sent to admin, thank you', 'success');
+    } catch (e) {
+      showToast(lang === 'ar' ? 'صار خطأ، جرب مرة ثانية' : 'Something went wrong, try again');
+    }
+    setShowMenu(false);
+  };
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
       <div style={{ background: '#fff', borderRadius: 20, maxWidth: 460, width: '100%', height: 'min(600px, 80vh)', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 15px 40px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ background: '#b8860b', color: '#fff', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ background: '#b8860b', color: '#fff', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, position: 'relative' }}>
           <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}>{lang === 'ar' ? '→' : '←'}</button>
           <strong style={{ flex: 1 }}>{friend.name}</strong>
+          <button onClick={() => setShowMenu((m) => !m)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '1.3rem', cursor: 'pointer', padding: '0 4px' }}>⋮</button>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+          {showMenu && (
+            <div
+              style={{ position: 'absolute', top: '100%', insetInlineEnd: 40, background: '#fff', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.25)', zIndex: 10, overflow: 'hidden', minWidth: 170 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button onClick={reportUser} style={{ display: 'block', width: '100%', textAlign: lang === 'ar' ? 'right' : 'left', background: '#fff', color: '#5a3e1b', border: 'none', padding: '10px 14px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                ⚠️ {lang === 'ar' ? 'بلّغ عن مستخدم' : 'Report user'}
+              </button>
+              <button onClick={unfriend} style={{ display: 'block', width: '100%', textAlign: lang === 'ar' ? 'right' : 'left', background: '#fff', color: '#5a3e1b', border: 'none', borderTop: '1px solid #f0e0b0', padding: '10px 14px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                🗑️ {lang === 'ar' ? 'إلغاء الصداقة' : 'Unfriend'}
+              </button>
+              <button onClick={blockUser} style={{ display: 'block', width: '100%', textAlign: lang === 'ar' ? 'right' : 'left', background: '#fff', color: '#c0392b', border: 'none', borderTop: '1px solid #f0e0b0', padding: '10px 14px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                🚫 {lang === 'ar' ? 'حظر المستخدم' : 'Block user'}
+              </button>
+            </div>
+          )}
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: 14, background: '#faf6ec' }}>
           {loading ? (
@@ -4364,7 +4444,7 @@ function ChatWindow({ user, friend, lang = 'ar', onBack, onClose }) {
         <div style={{ display: 'flex', borderTop: '1px solid #eee' }}>
           <input
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => setDraft(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
             onKeyDown={(e) => { if (e.key === 'Enter') sendMessage(); }}
             placeholder={lang === 'ar' ? 'اكتب رسالة...' : 'Type a message...'}
             style={{ flex: 1, border: 'none', padding: 12, fontSize: '0.9rem', outline: 'none' }}
@@ -4387,20 +4467,26 @@ function FriendsPanel({ user, lang = 'ar', onClose }) {
   const [allUsers, setAllUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [activeChatFriend, setActiveChatFriend] = useState(null);
+  const [myBlockedUsers, setMyBlockedUsers] = useState([]);
 
   useEffect(() => {
     const qSent = query(collection(db, 'friendRequests'), where('fromUid', '==', user.uid));
     const qReceived = query(collection(db, 'friendRequests'), where('toUid', '==', user.uid));
     const unsubSent = onSnapshot(qSent, (snap) => setSentRequests(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
     const unsubReceived = onSnapshot(qReceived, (snap) => setReceivedRequests(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
-    return () => { unsubSent(); unsubReceived(); };
+    // مباشر حي لقائمة المحظورين عندي — لو حظرت حدا الآن، يختفي فوراً
+    // من قائمة أصدقائي ونتائج البحث بدون ما أحتاج أعيد فتح اللوحة
+    const unsubProfile = onSnapshot(doc(db, 'userProfiles', user.uid), (snap) => {
+      setMyBlockedUsers((snap.exists() && snap.data().blockedUsers) || []);
+    });
+    return () => { unsubSent(); unsubReceived(); unsubProfile(); };
   }, [user.uid]);
 
   const friends = [
     ...sentRequests.filter((r) => r.status === 'accepted').map((r) => ({ uid: r.toUid, name: r.toName })),
     ...receivedRequests.filter((r) => r.status === 'accepted').map((r) => ({ uid: r.fromUid, name: r.fromName })),
-  ];
-  const pendingIncoming = receivedRequests.filter((r) => r.status === 'pending');
+  ].filter((f) => !myBlockedUsers.includes(f.uid));
+  const pendingIncoming = receivedRequests.filter((r) => r.status === 'pending' && !myBlockedUsers.includes(r.fromUid));
   const pendingOutgoingUids = sentRequests.filter((r) => r.status === 'pending').map((r) => r.toUid);
   const friendUids = friends.map((f) => f.uid);
 
@@ -4408,7 +4494,7 @@ function FriendsPanel({ user, lang = 'ar', onClose }) {
     setLoadingUsers(true);
     try {
       const snap = await getDocs(query(collection(db, 'userProfiles'), orderBy('points', 'desc'), limit(60)));
-      setAllUsers(snap.docs.map((d) => ({ uid: d.id, ...d.data() })).filter((u) => u.uid !== user.uid && u.name));
+      setAllUsers(snap.docs.map((d) => ({ uid: d.id, ...d.data() })).filter((u) => u.uid !== user.uid && u.name && !myBlockedUsers.includes(u.uid)));
     } catch (e) {}
     setLoadingUsers(false);
   };
@@ -4440,7 +4526,7 @@ function FriendsPanel({ user, lang = 'ar', onClose }) {
   };
 
   if (activeChatFriend) {
-    return <ChatWindow user={user} friend={activeChatFriend} lang={lang} onBack={() => setActiveChatFriend(null)} onClose={onClose} />;
+    return <ChatWindow user={user} friend={activeChatFriend} lang={lang} onBack={() => setActiveChatFriend(null)} onClose={onClose} onUnfriended={() => setActiveChatFriend(null)} />;
   }
 
   return (
