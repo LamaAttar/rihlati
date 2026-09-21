@@ -772,7 +772,7 @@ function buildLocalTripPlan(userText, userPlaces, lang = 'ar', explicitStartHour
       if (!feasible) {
         const oneWay = estimateTravelHours(distKm).toFixed(1);
         feasibilityWarning = lang === 'ar'
-          ? `⚠️ ${getName(first.place, first.isUserPlace)} تبعد حوالي ${Math.round(distKm)} كم عن ${origin.name}${origin.assumed ? ' (افترضناها كنقطة انطلاق)' : ''}، ووقت السفر التقديري بالاتجاه الواحد حوالي ${oneWay} ساعة. لرحلة ${days === 1 ? 'يوم واحد' : `${days} أيام`}، هاد ممكن ياخذ وقت كبير من رحلتك — قرارك إذا بدك تكمل أو تجربي مكان أقرب.`
+          ? `⚠️ ${getName(first.place, first.isUserPlace)} تبعد حوالي ${Math.round(distKm)} كم عن ${origin.name}${origin.assumed ? ' (افترضناها كنقطة انطلاق)' : ''}، ووقت السفر التقديري بالاتجاه الواحد حوالي ${oneWay} ساعة. لرحلة ${days === 1 ? 'يوم واحد' : `${days} أيام`}، هاد ممكن ياخذ وقت كبير من رحلتك — القرار إذا نكمل أو نجرب مكان أقرب.`
           : `⚠️ ${getName(first.place, first.isUserPlace)} is about ${Math.round(distKm)} km from ${origin.name}${origin.assumed ? ' (assumed as your starting point)' : ''}, roughly ${oneWay}h one-way. For a ${days === 1 ? '1-day' : `${days}-day`} trip, this could take up a big chunk of your time — your call whether to continue or try somewhere closer.`;
       }
     }
@@ -980,11 +980,11 @@ function buildLocalTripPlan(userText, userPlaces, lang = 'ar', explicitStartHour
   let feasibilityNote = feasibilityWarning;
   if (!feasibilityNote && budgetInfeasible) {
     feasibilityNote = lang === 'ar'
-      ? `⚠️ ما لقينا خيار يناسب ميزانيتك (${userBudget} دينار) ${days === 1 ? 'ليوم واحد' : `لـ${days} أيام`} من ${origin.name}. الاقتراح تحت أعلى من ميزانيتك المذكورة — جربي تكبري الميزانية أو تقصري المسافة.`
+      ? `⚠️ ما لقينا خيار يناسب ميزانيتك (${userBudget} دينار) ${days === 1 ? 'ليوم واحد' : `لـ${days} أيام`} من ${origin.name}. الاقتراح تحت أعلى من ميزانيتك المذكورة — جرب تكبر الميزانية أو تقصر المسافة.`
       : `⚠️ We couldn't find an option that fits your budget (${userBudget} JOD) for a ${days}-day trip from ${origin.name}. The suggestion below exceeds your stated budget — try increasing your budget or picking somewhere closer.`;
   } else if (!feasibilityNote && distanceRelaxed) {
     feasibilityNote = lang === 'ar'
-      ? `⚠️ ما لقينا خيار قريب يناسب باقي طلبك، فوسّعنا نطاق المسافة عن ${origin.name}. تأكدي إنه وقت السفر يناسبك.`
+      ? `⚠️ ما لقينا خيار قريب يناسب باقي طلبك، فوسّعنا نطاق المسافة عن ${origin.name}. تأكد إنه وقت السفر يناسبك.`
       : `⚠️ We couldn't find a nearby option matching the rest of your request, so we widened the distance range from ${origin.name}. Please check the travel time works for you.`;
   }
 
@@ -3965,7 +3965,7 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar', user, onTripSaved }) 
             />
 
             <label style={{ display: 'block', fontSize: '0.85rem', color: '#5a3e1b', marginBottom: 6 }}>
-              {lang === 'ar' ? '🕐 الساعة يلي بدك تبلشي فيها يومك (اختياري)' : '🕐 What time do you want to start your day (optional)'}
+              {lang === 'ar' ? '🕐 الساعة يلي بدك تبلش فيها يومك (اختياري)' : '🕐 What time do you want to start your day (optional)'}
             </label>
             <select
               value={startHour === null ? '' : startHour}
@@ -4358,7 +4358,7 @@ function ChatWindow({ user, friend, lang = 'ar', onBack, onClose, onUnfriended }
   // حظر: بيضيف uid الشخص لقائمة المحظورين عند المستخدم، فما عاد
   // يظهرله بقائمة الأصدقاء ولا يقدر يبعتله رسايل بعدها
   const blockUser = async () => {
-    if (!window.confirm(lang === 'ar' ? `متأكدة إنك بدك تحظري ${friend.name}؟ ما رح يقدر يراسلك بعدها.` : `Block ${friend.name}? They won't be able to message you anymore.`)) return;
+    if (!window.confirm(lang === 'ar' ? `متأكد إنك بدك تحظر ${friend.name}؟ ما رح يقدر يراسلك بعدها.` : `Block ${friend.name}? They won't be able to message you anymore.`)) return;
     try {
       await setDoc(doc(db, 'userProfiles', user.uid), { blockedUsers: arrayUnion(friend.uid) }, { merge: true });
       showToast(lang === 'ar' ? `🚫 تم حظر ${friend.name}` : `🚫 ${friend.name} has been blocked`, 'success');
@@ -4371,7 +4371,7 @@ function ChatWindow({ user, friend, lang = 'ar', onBack, onClose, onUnfriended }
 
   // إلغاء صداقة: بيحذف طلب الصداقة المقبول يلي بيربطكم، بدون حظر
   const unfriend = async () => {
-    if (!window.confirm(lang === 'ar' ? `متأكدة إنك بدك تلغي صداقة ${friend.name}؟` : `Remove ${friend.name} as a friend?`)) return;
+    if (!window.confirm(lang === 'ar' ? `متأكد إنك بدك تلغي صداقة ${friend.name}؟` : `Remove ${friend.name} as a friend?`)) return;
     try {
       const qSent = query(collection(db, 'friendRequests'), where('fromUid', '==', user.uid), where('toUid', '==', friend.uid));
       const qReceived = query(collection(db, 'friendRequests'), where('fromUid', '==', friend.uid), where('toUid', '==', user.uid));
@@ -4389,7 +4389,7 @@ function ChatWindow({ user, friend, lang = 'ar', onBack, onClose, onUnfriended }
   // بلاغ: بينشئ إشعار للإدارة بس، ما بياخذ أي إجراء تلقائي — الإدارة
   // بتراجع البلاغ وتقرر (حظر/تحذير) حسب الحالة
   const reportUser = async () => {
-    const reason = window.prompt(lang === 'ar' ? 'ليش بتبلغي عن هاد المستخدم؟ (اختياري)' : 'Why are you reporting this user? (optional)', '');
+    const reason = window.prompt(lang === 'ar' ? 'ليش بتبلغ عن هاد المستخدم؟ (اختياري)' : 'Why are you reporting this user? (optional)', '');
     if (reason === null) return; // المستخدم لغى
     try {
       await createNotification({ toAdmin: true, type: 'user_reported', fromName: user.displayName, placeName: `${friend.name} (${friend.uid})${reason ? ' — ' + reason : ''}` });
