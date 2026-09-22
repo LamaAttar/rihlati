@@ -30,7 +30,7 @@ const places = {
   madaba: { type: 'religious', name: 'مادبا', nameEn: 'Madaba', lat: 31.71, lng: 35.79, img: '/madaba.png', desc: 'مدينة الفسيفساء والكنائس التاريخية الرائعة ⛪', descEn: 'The city of mosaics and amazing historic churches ⛪', food: 'المنسف والمقلوبة', foodEn: 'Mansaf and Maqluba', season: 'winter', priceInfo: '3 دينار للأجانب، ربع دينار للأردنيين', priceInfoEn: '3 JOD for foreigners, 0.25 JOD for Jordanians' },
   karak: { type: 'historical', name: 'الكرك', nameEn: 'Karak', lat: 31.18, lng: 35.70, img: '/karak.png', desc: 'قلعة صليبية شامخة تطل على البحر الميت 🏰', descEn: 'A towering Crusader castle overlooking the Dead Sea 🏰', food: 'المنسف الكركي الأصيل', foodEn: 'Authentic Karak-style Mansaf', season: 'winter', priceInfo: '2 دينار للأجانب، ربع دينار للأردنيين', priceInfoEn: '2 JOD for foreigners, 0.25 JOD for Jordanians' },
   deisa: { type: 'adventure', name: 'الديسة', nameEn: 'Deisa', lat: 29.69, lng: 35.47, img: '/deisa.png', desc: 'وادي ساحر بين الجبال الحمراء، مشي وطبيعة خلابة 🏔️', descEn: 'An enchanting valley between red mountains with stunning nature 🏔️', food: 'الزرب البدوي', foodEn: 'Bedouin Zarb', season: 'winter' },
-  dana: { type: 'nature', name: 'محمية ضانا', nameEn: 'Dana Reserve', lat: 30.67, lng: 35.60, img: '/dana.png', desc: 'أكبر محمية طبيعية بالأردن، تنوع حيوي مذهل وسط جبال ووديان خلابة 🏔️', descEn: 'The largest nature reserve in Jordan, with amazing biodiversity amid stunning mountains and valleys 🏔️', food: 'أعشاب برية ومنتجات محلية عضوية', foodEn: 'Wild herbs and local organic products', season: 'winter', priceInfo: '8 دينار للأجانب، دينارين ونصف للأردنيين', priceInfoEn: '8 JOD for foreigners, 2.5 JOD for Jordanians' },
+  dana: { type: 'nature', name: 'محمية ضانا', nameEn: 'Dana Reserve', lat: 30.67, lng: 35.60, img: '/dana.png', desc: 'أكبر محمية طبيعية بالأردن، تنوع حيوي مذهل وسط جبال ووديان خلابة 🏔️', descEn: 'The largest nature reserve in Jordan, with amazing biodiversity amid stunning mountains and valleys 🏔️', food: 'أعشاب برية ومنتجات محلية عضوية', foodEn: 'Wild herbs and local organic products', season: 'winter', priceInfo: '10 دينار للأجانب، دينارين للأردنيين', priceInfoEn: '10 JOD for foreigners, 2 JOD for Jordanians' },
   mainhot: { type: 'relaxation', name: 'حمامات ماعين', nameEn: "Ma'in Hot Springs", lat: 31.58, lng: 35.68, img: '/mainhot.png', desc: 'شلالات ساخنة علاجية تنبع من الجبال، تجربة استرخاء فريدة وسط الطبيعة ♨️', descEn: 'Therapeutic hot waterfalls flowing from the mountains, a unique relaxation experience amid nature ♨️', food: 'الشاي بالميرمية والمأكولات الشعبية', foodEn: 'Sage tea and traditional dishes', season: 'winter', priceInfo: '15 دينار للأجانب، 10 دنانير للأردنيين', priceInfoEn: '15 JOD for foreigners, 10 JOD for Jordanians' },
   himma: { type: 'relaxation', name: 'الحمة الأردنية', nameEn: 'Al-Himma (Jordanian Himma)', lat: 32.66, lng: 35.63, img: '/himma.png', desc: 'ينابيع كبريتية ساخنة قرب أم قيس، شهيرة بالعلاج الطبيعي شتاءً ♨️', descEn: 'Hot sulfur springs near Umm Qais, famous for natural therapy in winter ♨️', food: 'المشاوي والشاي البلدي', foodEn: 'Grilled meats and local tea', season: 'winter' },
   azraqcastle: { type: 'historical', name: 'قلعة الأزرق', nameEn: 'Azraq Castle', lat: 31.83, lng: 36.82, img: '/azraqcastle.png', desc: 'قلعة أثرية من الحجر البازلتي الأسود وسط الصحراء الشرقية 🏰', descEn: 'An ancient black basalt fortress in the eastern desert 🏰', food: 'الفريكة والمنسف البدوي', foodEn: 'Freekeh and Bedouin Mansaf', season: 'winter', priceInfo: '3 دينار للأجانب، ربع دينار للأردنيين (ضمن مجموعة القصور الصحراوية)', priceInfoEn: '3 JOD for foreigners, 0.25 JOD for Jordanians (part of the desert castles group)' },
@@ -4876,6 +4876,7 @@ function App() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
+  const [friendsBadgeCount, setFriendsBadgeCount] = useState(0);
   const [showEmailAuth, setShowEmailAuth] = useState(false);
   const [showLoginChoice, setShowLoginChoice] = useState(false);
   // نعرض آخر أرقام محفوظة بالمتصفح فوراً (بدل ما تبين صفر لثانية)، وبعدين
@@ -5031,6 +5032,36 @@ function App() {
 
 return () => unsubscribe();
 }, []);
+
+  // بادج حي على زر "الأصدقاء" بالشريط — يبين عدد طلبات الصداقة
+  // والرسايل الجديدة غير المقروءة، بدون ما تحتاجي تفتحي القائمة
+  useEffect(() => {
+    if (!user) { setFriendsBadgeCount(0); return; }
+    const q = query(collection(db, 'notifications'), where('toUid', '==', user.uid));
+    const unsub = onSnapshot(q, (snap) => {
+      const count = snap.docs.filter((d) => {
+        const data = d.data();
+        return !data.read && (data.type === 'friend_request' || data.type === 'new_message');
+      }).length;
+      setFriendsBadgeCount(count);
+    }, () => {});
+    return () => unsub();
+  }, [user]);
+
+  // بتعلّم كل إشعارات الأصدقاء/الرسايل كمقروءة — بتنفذ لما تفتحي
+  // قائمة الأصدقاء، عشان البادج يختفي فوراً
+  const markFriendNotifsRead = async () => {
+    if (!user) return;
+    try {
+      const q = query(collection(db, 'notifications'), where('toUid', '==', user.uid));
+      const snap = await getDocs(q);
+      const unread = snap.docs.filter((d) => {
+        const data = d.data();
+        return !data.read && (data.type === 'friend_request' || data.type === 'new_message');
+      });
+      await Promise.all(unread.map((d) => updateDoc(doc(db, 'notifications', d.id), { read: true })));
+    } catch (e) {}
+  };
 
   // لو حدا فتح رابط مشاركة (?place=key أو ?userPlace=id)، منفتحله
   // المنطقة مباشرة على الخريطة بدل ما يوصل للصفحة الرئيسية العامة
@@ -5623,8 +5654,22 @@ return () => unsubscribe();
             </button>
           )}
           {user && (
-            <button className="lang-btn" onClick={() => setShowFriends(prev => !prev)}>
+            <button
+              className="lang-btn"
+              onClick={() => {
+                setShowFriends((prev) => {
+                  if (!prev) markFriendNotifsRead();
+                  return !prev;
+                });
+              }}
+              style={{ position: 'relative' }}
+            >
               {lang === 'ar' ? '👥 الأصدقاء' : '👥 Friends'}
+              {friendsBadgeCount > 0 && (
+                <span style={{ position: 'absolute', top: -4, insetInlineEnd: -4, background: '#c0392b', color: '#fff', borderRadius: '50%', minWidth: 18, height: 18, padding: '0 3px', fontSize: '0.65rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {friendsBadgeCount > 9 ? '9+' : friendsBadgeCount}
+                </span>
+              )}
             </button>
           )}
           {user && ADMIN_EMAILS.includes(user.email) && (
