@@ -4316,11 +4316,20 @@ function ChatWindow({ user, friend, lang = 'ar', onBack, onClose, onUnfriended }
   const bottomRef = useRef(null);
 
   useEffect(() => {
-    const q = query(collection(db, 'messages'), where('conversationId', '==', conversationId), orderBy('createdAt', 'asc'), limit(200));
+    // منستخدم where بس بدون orderBy عشان نتفادى الحاجة لفهرس مركّب
+    // (composite index) بـ Firestore — نفس المشكلة يلي واجهناها مع
+    // "رحلاتي المحفوظة": onSnapshot كان بيفشل بصمت بدون الفهرس، وهاد
+    // بالضبط سبب "الرسالة ما بتبين إلا لو سكرتي وفتحتي المحادثة تاني"
+    const q = query(collection(db, 'messages'), where('conversationId', '==', conversationId), limit(200));
     const unsub = onSnapshot(
       q,
-      (snap) => { setMessages(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); setLoading(false); },
-      () => setLoading(false)
+      (snap) => {
+        const msgs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        msgs.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+        setMessages(msgs);
+        setLoading(false);
+      },
+      (e) => { console.warn('[rihlati] messages listener failed:', e); setLoading(false); }
     );
     return () => unsub();
   }, [conversationId]);
@@ -4468,6 +4477,8 @@ function FriendsPanel({ user, lang = 'ar', onClose }) {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [activeChatFriend, setActiveChatFriend] = useState(null);
   const [myBlockedUsers, setMyBlockedUsers] = useState([]);
+  const [sentMsgs, setSentMsgs] = useState([]);
+  const [receivedMsgs, setReceivedMsgs] = useState([]);
 
   useEffect(() => {
     const qSent = query(collection(db, 'friendRequests'), where('fromUid', '==', user.uid));
@@ -4479,7 +4490,13 @@ function FriendsPanel({ user, lang = 'ar', onClose }) {
     const unsubProfile = onSnapshot(doc(db, 'userProfiles', user.uid), (snap) => {
       setMyBlockedUsers((snap.exists() && snap.data().blockedUsers) || []);
     });
-    return () => { unsubSent(); unsubReceived(); unsubProfile(); };
+    // لقائمة "الرسائل" — كل الرسايل يلي بعتّها أو وصلتني، بدون orderBy
+    // (نفس المنطق يلي صلحناه بالشات نفسه، عشان نتفادى مشكلة الفهرس)
+    const qMsgsSent = query(collection(db, 'messages'), where('fromUid', '==', user.uid), limit(300));
+    const qMsgsReceived = query(collection(db, 'messages'), where('toUid', '==', user.uid), limit(300));
+    const unsubMsgsSent = onSnapshot(qMsgsSent, (snap) => setSentMsgs(snap.docs.map((d) => d.data())));
+    const unsubMsgsReceived = onSnapshot(qMsgsReceived, (snap) => setReceivedMsgs(snap.docs.map((d) => d.data())));
+    return () => { unsubSent(); unsubReceived(); unsubProfile(); unsubMsgsSent(); unsubMsgsReceived(); };
   }, [user.uid]);
 
   const friends = [
@@ -4489,6 +4506,25 @@ function FriendsPanel({ user, lang = 'ar', onClose }) {
   const pendingIncoming = receivedRequests.filter((r) => r.status === 'pending' && !myBlockedUsers.includes(r.fromUid));
   const pendingOutgoingUids = sentRequests.filter((r) => r.status === 'pending').map((r) => r.toUid);
   const friendUids = friends.map((f) => f.uid);
+
+  // نبني قائمة محادثات فعلية — لكل شريك حكينا معه، ناخذ آخر رسالة
+  // بس، مرتبة من الأحدث للأقدم، مع اسمه (من قائمة الأصدقاء يلي عنا)
+  const allMyMsgs = [...sentMsgs, ...receivedMsgs];
+  const conversationsMap = {};
+  allMyMsgs.forEach((m) => {
+    const otherUid = m.fromUid === user.uid ? m.toUid : m.fromUid;
+    if (myBlockedUsers.includes(otherUid)) return;
+    const existing = conversationsMap[otherUid];
+    if (!existing || (m.createdAt || '') > (existing.createdAt || '')) {
+      conversationsMap[otherUid] = { text: m.text, createdAt: m.createdAt, fromMe: m.fromUid === user.uid };
+    }
+  });
+  const conversations = Object.entries(conversationsMap)
+    .map(([uid, last]) => {
+      const friendInfo = friends.find((f) => f.uid === uid);
+      return { uid, name: friendInfo ? friendInfo.name : (lang === 'ar' ? 'مستخدم' : 'User'), ...last };
+    })
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
   const loadUsers = async () => {
     setLoadingUsers(true);
@@ -4550,12 +4586,32 @@ function FriendsPanel({ user, lang = 'ar', onClose }) {
               </span>
             )}
           </button>
+          <button onClick={() => setTab('messages')} style={{ background: tab === 'messages' ? '#8B6914' : '#faf6ec', color: tab === 'messages' ? '#fff' : '#8B6914', padding: '6px 14px', borderRadius: 20, fontSize: '0.82rem', border: '1px solid #e8d5a3' }}>
+            {lang === 'ar' ? '💬 الرسائل' : '💬 Messages'}
+          </button>
           <button onClick={() => setTab('find')} style={{ background: tab === 'find' ? '#8B6914' : '#faf6ec', color: tab === 'find' ? '#fff' : '#8B6914', padding: '6px 14px', borderRadius: 20, fontSize: '0.82rem', border: '1px solid #e8d5a3' }}>
             {lang === 'ar' ? '🔍 ضيف صديق' : '🔍 Find people'}
           </button>
         </div>
 
         <div style={{ overflowY: 'auto', flex: 1 }}>
+          {tab === 'messages' && (
+            conversations.length === 0 ? (
+              <p style={{ color: '#999' }}>{lang === 'ar' ? 'ما بدأتي أي محادثة بعد. افتح شات مع صديق من تبويب "الأصدقاء"!' : "You haven't started any conversation yet. Open a chat with a friend from the 'Friends' tab!"}</p>
+            ) : (
+              conversations.map((c) => (
+                <div key={c.uid} onClick={() => setActiveChatFriend({ uid: c.uid, name: c.name })} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#faf6ec', borderRadius: 12, padding: '10px 14px', marginBottom: 8, cursor: 'pointer' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#b8860b', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', flexShrink: 0 }}>{(c.name || '?')[0]}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <strong style={{ display: 'block' }}>{c.name}</strong>
+                    <span style={{ display: 'block', fontSize: '0.78rem', color: '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {c.fromMe ? (lang === 'ar' ? 'أنت: ' : 'You: ') : ''}{c.text}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )
+          )}
           {tab === 'friends' && (
             friends.length === 0 ? (
               <p style={{ color: '#999' }}>{lang === 'ar' ? 'ما عندك أصدقاء بعد. جرب تضيف حدا من تبويب "ضيف صديق"!' : "You don't have friends yet. Try adding someone from 'Find people'!"}</p>
@@ -4876,6 +4932,7 @@ function App() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [friendsBadgeCount, setFriendsBadgeCount] = useState(0);
   const [showEmailAuth, setShowEmailAuth] = useState(false);
   const [showLoginChoice, setShowLoginChoice] = useState(false);
@@ -5638,16 +5695,7 @@ return () => unsubscribe();
         <h1>{t.title}</h1>
         <div className="navbar-right">
           <EmergencySOSButton lang={lang} />
-          <button className="lang-btn" onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}>
-            {lang === 'ar' ? '🌐 English' : '🌐 العربية'}
-          </button>
-          <button className="lang-btn" onClick={() => setShowLeaderboard(prev => !prev)}>
-            {lang === 'ar' ? '🏆 أفضل الرحالة' : '🏆 Top Explorers'}
-          </button>
           <NotificationBell user={user} isAdmin={user && ADMIN_EMAILS.includes(user.email)} lang={lang} />
-          <button className="lang-btn" onClick={() => setShowAbout(true)}>
-            {lang === 'ar' ? 'عن رحلتي' : 'About'}
-          </button>
           {user && (
             <button className="lang-btn" onClick={openFavoritesPage}>
               {lang === 'ar' ? '❤️ المفضلة' : '❤️ Favorites'}
@@ -5672,16 +5720,36 @@ return () => unsubscribe();
               )}
             </button>
           )}
-          {user && ADMIN_EMAILS.includes(user.email) && (
-            <button className="lang-btn" onClick={() => setShowAdminPanel(prev => !prev)}>
-              {lang === 'ar' ? '🛡️ لوحة الإدارة' : '🛡️ Admin'}
+          <div style={{ position: 'relative' }}>
+            <button className="lang-btn" onClick={() => setShowMoreMenu((m) => !m)}>
+              ☰ {lang === 'ar' ? 'المزيد' : 'More'}
             </button>
-          )}
-          {user && ADMIN_EMAILS.includes(user.email) && (
-            <button className="lang-btn" onClick={() => setShowAnalytics(prev => !prev)}>
-              {lang === 'ar' ? '📊 الإحصائيات' : '📊 Analytics'}
-            </button>
-          )}
+            {showMoreMenu && (
+              <div
+                style={{ position: 'fixed', top: 64, insetInlineEnd: 10, width: 'min(220px, 90vw)', background: '#fff', borderRadius: 14, boxShadow: '0 8px 30px rgba(0,0,0,0.25)', zIndex: 2500, padding: 8, textAlign: lang === 'ar' ? 'right' : 'left' }}
+              >
+                <button onClick={() => { setLang(lang === 'ar' ? 'en' : 'ar'); setShowMoreMenu(false); }} style={{ display: 'block', width: '100%', background: 'none', border: 'none', padding: '10px 12px', fontSize: '0.85rem', color: '#5a3e1b', cursor: 'pointer', textAlign: lang === 'ar' ? 'right' : 'left' }}>
+                  {lang === 'ar' ? '🌐 English' : '🌐 العربية'}
+                </button>
+                <button onClick={() => { setShowLeaderboard(true); setShowMoreMenu(false); }} style={{ display: 'block', width: '100%', background: 'none', border: 'none', padding: '10px 12px', fontSize: '0.85rem', color: '#5a3e1b', cursor: 'pointer', textAlign: lang === 'ar' ? 'right' : 'left' }}>
+                  {lang === 'ar' ? '🏆 أفضل الرحالة' : '🏆 Top Explorers'}
+                </button>
+                <button onClick={() => { setShowAbout(true); setShowMoreMenu(false); }} style={{ display: 'block', width: '100%', background: 'none', border: 'none', padding: '10px 12px', fontSize: '0.85rem', color: '#5a3e1b', cursor: 'pointer', textAlign: lang === 'ar' ? 'right' : 'left' }}>
+                  {lang === 'ar' ? 'ℹ️ عن رحلتي' : 'ℹ️ About'}
+                </button>
+                {user && ADMIN_EMAILS.includes(user.email) && (
+                  <>
+                    <button onClick={() => { setShowAdminPanel(true); setShowMoreMenu(false); }} style={{ display: 'block', width: '100%', background: 'none', border: 'none', padding: '10px 12px', fontSize: '0.85rem', color: '#5a3e1b', cursor: 'pointer', textAlign: lang === 'ar' ? 'right' : 'left' }}>
+                      {lang === 'ar' ? '🛡️ لوحة الإدارة' : '🛡️ Admin'}
+                    </button>
+                    <button onClick={() => { setShowAnalytics(true); setShowMoreMenu(false); }} style={{ display: 'block', width: '100%', background: 'none', border: 'none', padding: '10px 12px', fontSize: '0.85rem', color: '#5a3e1b', cursor: 'pointer', textAlign: lang === 'ar' ? 'right' : 'left' }}>
+                      {lang === 'ar' ? '📊 الإحصائيات' : '📊 Analytics'}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           {user ? (
             <div className="user-info">
               <span style={{ cursor: 'pointer' }} onClick={() => setShowProfile(prev => !prev)}>
