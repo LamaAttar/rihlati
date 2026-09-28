@@ -5726,7 +5726,7 @@ return () => unsubscribe();
             </button>
             {showMoreMenu && (
               <div
-                style={{ position: 'fixed', top: 64, insetInlineEnd: 10, width: 'min(220px, 90vw)', background: '#fff', borderRadius: 14, boxShadow: '0 8px 30px rgba(0,0,0,0.25)', zIndex: 2500, padding: 8, textAlign: lang === 'ar' ? 'right' : 'left' }}
+                style={{ position: 'fixed', top: 64, insetInlineEnd: 10, width: 'min(220px, 90vw)', minHeight: 40, background: '#ffffff', border: '1px solid #e8d5a3', borderRadius: 14, boxShadow: '0 8px 30px rgba(0,0,0,0.35)', zIndex: 9999, padding: 8, textAlign: lang === 'ar' ? 'right' : 'left' }}
               >
                 <button onClick={() => { setLang(lang === 'ar' ? 'en' : 'ar'); setShowMoreMenu(false); }} style={{ display: 'block', width: '100%', background: 'none', border: 'none', padding: '10px 12px', fontSize: '0.85rem', color: '#5a3e1b', cursor: 'pointer', textAlign: lang === 'ar' ? 'right' : 'left' }}>
                   {lang === 'ar' ? '🌐 English' : '🌐 العربية'}
