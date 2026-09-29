@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
+import { LegalModal } from './LegalAndImpact';
 import './LandingPage.css';
 
 /* ===== Scroll-reveal wrapper — fades sections up as they enter view ===== */
@@ -48,7 +49,7 @@ function GoldDivider({ flip = false }) {
 }
 
 const FEATURES = [
-  { icon: '🧭', title: 'خطط رحلتك بالذكاء الاصطناعي', desc: 'جاوب على كم سؤال بسيط واحصل على جدول رحلة مخصص من أماكن حقيقية، فوراً.' },
+  { icon: '🧭', title: 'خطط رحلتك بذكاء', desc: 'جاوب على كم سؤال بسيط واحصل على جدول رحلة مخصص من أماكن حقيقية، فوراً.' },
   { icon: '🗺️', title: 'خريطة تفاعلية', desc: 'استكشف كل وجهة على خريطة حية مع الاتجاهات والخدمات القريبة.' },
   { icon: '🏛️', title: 'استكشف الوجهات', desc: 'من الآثار القديمة للكثبان الصحراوية — اكتشف أشهر أماكن الأردن.' },
   { icon: '🤝', title: 'مجتمع المسافرين', desc: 'شارك صورك، اقرأ التقييمات، وتواصل مع مستكشفين تانيين بكل البلد.' },
@@ -74,6 +75,7 @@ export default function LandingPage({ onStart }) {
   const [communityPhotos, setCommunityPhotos] = useState([]);
   const [travelerOfWeek, setTravelerOfWeek] = useState(null);
   const [heroIndex, setHeroIndex] = useState(0);
+  const [showLegal, setShowLegal] = useState(false);
 
   useEffect(() => {
     const loadCommunityContent = async () => {
@@ -194,15 +196,15 @@ export default function LandingPage({ onStart }) {
 
       <GoldDivider flip />
 
-      {/* ===== AI Assistant ===== */}
+      {/* ===== Assistant ===== */}
       <section className="rl-ai-section">
         <div className="rl-ai-inner">
           <Reveal>
             <span className="rl-ai-badge">تعرّف على رحّال</span>
             <h2>رفيق سفرك الذكي</h2>
             <p>
-              رحّال بيفهم شو بدك بالضبط — الموسم، مع مين مسافر، قديش عندك وقت،
-              وميزانيتك — وبعدها بيبني رحلة مخصصة من أماكن حقيقية بكل الأردن.
+              رحّال ومخطط الرحلات بيساعدوك تحدد شو بدك بالضبط — الموسم، مع مين مسافر، قديش عندك وقت،
+              وميزانيتك — وبعدها بيقترحوا رحلة مخصصة من أماكن حقيقية بكل الأردن.
               بدون جداول عامة، بس يلي فعلاً يناسبك.
             </p>
           </Reveal>
@@ -297,7 +299,7 @@ export default function LandingPage({ onStart }) {
         <div className="rl-footer-inner">
           <div className="rl-footer-brand">
             <h3>رحلتي</h3>
-            <p>منصة سياحية مدعومة بالذكاء الاصطناعي، بتساعدك تكتشف الأردن بذكاء — خطط لرحلاتك، استكشف الوجهات، وشارك رحلتك.</p>
+            <p>مبادرة تطوعية غير ربحية لتشجيع السياحة الداخلية بالأردن — خطط لرحلاتك، اكتشف الأماكن الأقل شهرة، وشارك رحلتك.</p>
           </div>
           <div className="rl-footer-col">
             <h4>عن المنصة</h4>
@@ -307,18 +309,27 @@ export default function LandingPage({ onStart }) {
           <div className="rl-footer-col">
             <h4>تواصل معنا</h4>
             <a href="mailto:rihlatijordan@outlook.com">rihlatijordan@outlook.com</a>
-            <a href="#rl-features">الدعم</a>
+            <a href="mailto:rihlatijordan@outlook.com">الدعم</a>
           </div>
           <div className="rl-footer-col">
             <h4>تابعنا</h4>
             <a href="https://www.instagram.com/rihlati.jo/" target="_blank" rel="noopener noreferrer">إنستقرام</a>
-            <a href="#rl-features">فيسبوك</a>
           </div>
         </div>
         <div className="rl-footer-bottom">
           <span>© {new Date().getFullYear()} رحلتي. جميع الحقوق محفوظة.</span>
+          <span style={{ marginInlineStart: 14 }}>
+            بيانات الخرائط © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>OpenStreetMap</a> ومساهموها
+          </span>
+          <button
+            onClick={() => setShowLegal(true)}
+            style={{ background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer', marginInlineStart: 14, padding: 0, font: 'inherit' }}
+          >
+            الشروط والخصوصية
+          </button>
         </div>
       </footer>
+      {showLegal && <LegalModal lang="ar" onClose={() => setShowLegal(false)} />}
     </div>
   );
 }

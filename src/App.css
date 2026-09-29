@@ -448,6 +448,7 @@ button:active {
   padding: 10px 40px 20px;
   max-width: 1400px;
   margin: 0 auto;
+  align-items: start;
 }
 
 @keyframes rlFadeInUp {
@@ -461,16 +462,31 @@ button:active {
 .place-card {
   background: white;
   border-radius: 18px;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   box-shadow: 0 4px 18px rgba(139,105,20,0.09);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   text-align: start;
   border-top: 4px solid #C4952A;
+  /* ===== تساوي طول كل كروت المناطق — ارتفاع ثابت لكل كرت بغض
+     النظر عن كمية محتواه (مراجعات، صور، معلومات ثقافية...)، والزيادة
+     بتصير قابلة للتمرير جوا الكرت نفسه بدل ما تطوّل الكرت أكتر من
+     جيرانه بنفس الصف ===== */
+  height: 640px;
+  scrollbar-width: thin;
+  scrollbar-color: #d8c393 transparent;
 }
 
-/* ===== لمسة احترافية على الكروت: ارتفاع + ظل أقوى + تكبير خفيف للصورة ===== */
+.place-card::-webkit-scrollbar {
+  width: 6px;
+}
+.place-card::-webkit-scrollbar-thumb {
+  background: #d8c393;
+  border-radius: 6px;
+}
+
+/* ===== لمسة احترافية على الكروت: ظل أقوى + تكبير خفيف للصورة ===== */
 .place-card:hover {
-  transform: translateY(-8px);
   box-shadow: 0 18px 36px rgba(139,105,20,0.2);
 }
 
@@ -479,6 +495,7 @@ button:active {
   height: 200px;
   object-fit: cover;
   transition: transform 0.4s ease;
+  flex-shrink: 0;
 }
 
 .place-card:hover img {
@@ -686,7 +703,7 @@ button:active {
   font-size: 1rem !important;
 }
 
-/* تجاوز أعلى تخصيصاً لزري "خطط رحلتي" و"ابنيلي رحلة بالـ AI" — عشان يضلوا بجنب بعض بصف واحد */
+/* تجاوز أعلى تخصيصاً لزري "خطط رحلتي" و"ابنيلي رحلة ذكية" — عشان يضلوا بجنب بعض بصف واحد */
 .add-place-btn.rl-trip-btn {
   display: inline-flex !important;
   align-items: center;
@@ -920,6 +937,10 @@ button:active {
     grid-template-columns: 1fr;
     padding: 8px 14px 12px;
     gap: 14px;
+  }
+
+  .place-card {
+    height: 560px;
   }
 
   .place-card h3 {

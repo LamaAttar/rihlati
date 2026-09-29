@@ -10,7 +10,6 @@ import emailjs from '@emailjs/browser';
 import ImageUpload from './ImageUpload';
 import translations from './translations';
 import AboutPage from './AboutPage';
-import { SiteFooter, LegalModal, FeedbackModal } from './LegalAndImpact';
 
 const places = {
   ajloun: { type: 'historical', name: 'عجلون', nameEn: 'Ajloun', lat: 32.33, lng: 35.75, img: '/ajloun.png', desc: 'قلعة تاريخية وسط غابات خضراء، أجواء معتدلة بالصيف 🌲', descEn: 'A historic castle amid green forests with moderate summer weather 🌲', food: 'المقلوبة والمنسف', foodEn: 'Maqluba and Mansaf', season: 'summer', priceInfo: 'قلعة عجلون: 3 دينار للأجانب، ربع دينار للأردنيين', priceInfoEn: 'Ajloun Castle: 3 JOD for foreigners, 0.25 JOD for Jordanians' },
@@ -2946,7 +2945,7 @@ function ProfilePanel({ user, userPlaces, favoriteKeys, placePhotos, userLocatio
           <div className="rl-skeleton-line" style={{ width: '60%' }} />
         </div>
       ) : myTrips.length === 0 ? (
-        <p style={{ color: '#999' }}>{lang === 'ar' ? 'لسا ما حفظت أي رحلة. جرب "خطط رحلتي" أو "ابنيلي رحلة ذكية" واحفظ رحلتك!' : 'No saved trips yet. Try "Plan My Trip" or "Build My Smart Trip" and save one!'}</p>
+        <p style={{ color: '#999' }}>{lang === 'ar' ? 'لسا ما حفظت أي رحلة. جرب "خطط رحلتي" أو "ابنيلي رحلة بالـ AI" واحفظ رحلتك!' : 'No saved trips yet. Try "Plan My Trip" or "Build My Trip with AI" and save one!'}</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
           {myTrips.map((trip) => (
@@ -3941,7 +3940,7 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar', user, onTripSaved }) 
 
         {!trip ? (
           <>
-            <h2 style={{ color: '#8B6914', marginBottom: 4 }}>{lang === 'ar' ? '🤖 ابنيلي رحلة ذكية' : '🤖 Build My Smart Trip'}</h2>
+            <h2 style={{ color: '#8B6914', marginBottom: 4 }}>{lang === 'ar' ? '🤖 ابنيلي رحلة بالـ AI' : '🤖 Build My Trip with AI'}</h2>
             <p style={{ color: '#777', fontSize: '0.9rem', marginBottom: 18 }}>
               {lang === 'ar' ? 'احكيلي عن رحلتك بأي أسلوب، وأنا بجهزلك جدول كامل بالأماكن والفطور والغدا والميزانية' : "Tell me about your trip in your own words, and I'll prepare a full schedule with places, breakfast, lunch, and budget"}
             </p>
@@ -4110,7 +4109,7 @@ function AITripBuilder({ onClose, userPlaces, lang = 'ar', user, onTripSaved }) 
   );
 }
 
-// بتعرض رحلة محفوظة (سواء بنيت بـ"خطط رحلتي" أو "ابنيلي رحلة ذكية")
+// بتعرض رحلة محفوظة (سواء بنيت بـ"خطط رحلتي" أو "ابنيلي رحلة بالـ AI")
 // لما حدا يفتح رابط مشاركة (?trip=ID). عرض للقراءة فقط، ما فيها تعديل
 function SharedTripModal({ tripData, onClose, appLang }) {
   const lang = tripData.lang || appLang || 'ar';
@@ -4934,8 +4933,6 @@ function App() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const [showLegal, setShowLegal] = useState(false);
-  const [showFeedback, setShowFeedback] = useState(false);
   const [friendsBadgeCount, setFriendsBadgeCount] = useState(0);
   const [showEmailAuth, setShowEmailAuth] = useState(false);
   const [showLoginChoice, setShowLoginChoice] = useState(false);
@@ -5846,7 +5843,7 @@ return () => unsubscribe();
           </button>
           <button className="add-place-btn rl-trip-btn" onClick={() => setShowAiTripBuilder(true)}>
             <span>🤖</span>
-            <span>{lang === 'ar' ? 'ابنيلي رحلة ذكية' : 'Build My Smart Trip'}</span>
+            <span>{lang === 'ar' ? 'ابنيلي رحلة بالـ AI' : 'Build My Trip with AI'}</span>
           </button>
         </div>
       )}
@@ -6228,9 +6225,6 @@ return () => unsubscribe();
         </div>
       )}
 
-      <SiteFooter lang={lang} onOpenLegal={() => setShowLegal(true)} onOpenFeedback={() => setShowFeedback(true)} />
-      {showLegal && <LegalModal lang={lang} onClose={() => setShowLegal(false)} />}
-      {showFeedback && <FeedbackModal user={user} lang={lang} onClose={() => setShowFeedback(false)} />}
       <RahalChatbot userLocation={userLocation} userPlaces={approvedUserPlaces} lang={lang} />
     </div>
   );
